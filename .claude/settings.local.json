@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -d /Users/syn/DevStudio/Onliai/.claude/skills/*/SKILL.md)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(npm create:*)",
+      "Bash(echo \"PATH: $PATH\")",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/syn/.volta/bin/**)",
+      "Read(//Users/syn/.nvm/versions/**)",
+      "Bash(mdfind \"kMDItemFSName == ''''node''''\")",
+      "Bash(source ~/.zshrc)",
+      "Bash(/opt/homebrew/bin/brew install:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(npm --version)",
+      "Bash(npx create-vite@latest . --template react-ts)",
+      "Read(//private/tmp/**)",
+      "Bash(rm -rf vite-scaffold)",
+      "Bash(npx --yes create-vite@latest vite-scaffold --template react-ts)",
+      "Bash(cp -r /tmp/vite-scaffold/* /Users/syn/DevStudio/Onliai/)",
+      "Bash(cp /tmp/vite-scaffold/.gitignore /Users/syn/DevStudio/Onliai/)",
+      "Bash(npm install:*)",
+      "Bash(npx --yes shadcn@latest init -y --defaults)"
+    ]
+  }
+}
