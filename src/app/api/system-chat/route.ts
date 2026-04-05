@@ -40,6 +40,25 @@ function matchPromptToTool(prompt: string): SystemToolResult | null {
     };
   }
 
+  // Trading account balance (dark variant)
+  if (lower.includes('trading') && lower.includes('balance')) {
+    return {
+      toolName: 'get_trading_balance',
+      data: {
+        _ui: 'BalanceCard',
+        label: 'Trading Account',
+        vaId: 'va-trading-user-001',
+        subtype: 'trading',
+        balance: { posted: 8500000000, pending: 0, available: 8500000000 },
+        currency: 'USDC',
+        status: 'active',
+        specieCount: 8500,
+        variant: 'dark',
+      },
+      commentary: 'Your trading account holds 8,500 SPECIES.',
+    };
+  }
+
   // Assurance / Buy Back Guarantee
   if (lower.includes('assurance') || lower.includes('coverage') || lower.includes('buy back') || lower.includes('guarantee')) {
     return {

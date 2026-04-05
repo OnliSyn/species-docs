@@ -11,6 +11,7 @@ type BalanceData = {
   currency: string;
   status: string;
   specieCount?: number;
+  variant?: 'light' | 'dark';
   _ui: string;
 };
 
@@ -38,30 +39,37 @@ function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
         if (amountRef.current) {
           const v = Math.floor(target.val);
           const c = (target.val % 1).toFixed(2).slice(1);
+          const centsClass = isDark ? 'text-[20px] text-white/40' : 'text-[20px] text-[var(--color-text-secondary)]';
           amountRef.current.innerHTML =
             '$' + v.toLocaleString('en-US') +
-            '<span class="text-[20px] text-[var(--color-text-secondary)]">' + c + '</span>';
+            '<span class="' + centsClass + '">' + c + '</span>';
         }
       },
     });
   }, { scope: containerRef });
 
+  const isDark = data.variant === 'dark';
+
   return (
-    <div ref={containerRef} className="rounded-2xl border border-[var(--color-border)] bg-white p-5 my-2 max-w-xs shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-1">
+    <div ref={containerRef} className={
+      isDark
+        ? 'rounded-2xl bg-[#1A1A1A] p-5 my-2 shadow-sm'
+        : 'rounded-2xl border border-[var(--color-border)] bg-white p-5 my-2 shadow-sm'
+    }>
+      <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-1 ${isDark ? 'text-white/50' : 'text-[var(--color-text-secondary)]'}`}>
         {data.label}
       </p>
-      <p ref={amountRef} className="text-[32px] font-extralight tracking-tight text-[var(--color-text-primary)] leading-none">
-        ${whole}<span className="text-[20px] text-[var(--color-text-secondary)]">{cents}</span>
+      <p ref={amountRef} className={`text-[32px] font-extralight tracking-tight leading-none ${isDark ? 'text-white' : 'text-[var(--color-text-primary)]'}`}>
+        ${whole}<span className={`text-[20px] ${isDark ? 'text-white/40' : 'text-[var(--color-text-secondary)]'}`}>{cents}</span>
       </p>
       {data.specieCount != null && (
-        <p className="text-xs text-[var(--color-text-secondary)] mt-1.5">
+        <p className={`text-xs mt-1.5 ${isDark ? 'text-white/50' : 'text-[var(--color-text-secondary)]'}`}>
           {data.specieCount.toLocaleString()} SPECIES
         </p>
       )}
       <div className="flex items-center gap-1.5 mt-3">
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)]" />
-        <span className="text-[10px] text-[var(--color-text-secondary)]">{data.status}</span>
+        <span className={`text-[10px] ${isDark ? 'text-white/50' : 'text-[var(--color-text-secondary)]'}`}>{data.status}</span>
       </div>
     </div>
   );

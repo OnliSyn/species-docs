@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { OnliAiPanel } from '@/components/OnliAiPanel';
-import { ContentFeed } from '@/components/ContentFeed';
+import { RightPanel } from '@/components/RightPanel';
 import { TransactionsPage } from '@/features/transactions/TransactionsPage';
 
 export default function Transactions() {
@@ -10,7 +10,7 @@ export default function Transactions() {
     <DashboardLayout
       leftPanel={<OnliAiPanel />}
       centerPanel={<TransactionsPage />}
-      rightPanel={<ContentFeed />}
+      rightPanel={<RightPanel />}
     />
   );
 }

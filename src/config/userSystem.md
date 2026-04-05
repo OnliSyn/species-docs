@@ -53,6 +53,7 @@
 
 # trade
 - What is my current funding balance?
+- What is my trading account balance?
 - What is the assurance balance and buy back guarantee ratio?
 - Show me my last 5 transactions
 - What are the current market statistics?

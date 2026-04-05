@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { OnliAiPanel } from '@/components/OnliAiPanel';
-import { ContentFeed } from '@/components/ContentFeed';
+import { RightPanel } from '@/components/RightPanel';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 
 export default function Settings() {
@@ -10,7 +10,7 @@ export default function Settings() {
     <DashboardLayout
       leftPanel={<OnliAiPanel />}
       centerPanel={<SettingsPage />}
-      rightPanel={<ContentFeed />}
+      rightPanel={<RightPanel />}
     />
   );
 }

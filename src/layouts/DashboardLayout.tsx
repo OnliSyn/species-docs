@@ -22,7 +22,7 @@ export function DashboardLayout({ leftPanel, centerPanel, rightPanel }: Dashboar
       </div>
 
       {/* Right Panel — content feed */}
-      <div className="w-[340px] flex-shrink-0 bg-white rounded-[var(--radius-panel)] overflow-hidden flex flex-col">
+      <div className="w-[390px] flex-shrink-0 bg-white rounded-[var(--radius-panel)] overflow-hidden flex flex-col">
         {rightPanel}
       </div>
     </div>

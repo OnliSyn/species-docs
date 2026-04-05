@@ -158,6 +158,41 @@ export function ChatPanel() {
                     })
                     .map((part, i) => {
                       const toolPart = part as Record<string, unknown>;
+
+                      // Show journey confirm/execute card summaries inline
+                      if (toolPart.state === 'output-available' && toolPart.output) {
+                        let output = toolPart.output as Record<string, unknown>;
+                        if (typeof output === 'object' && output !== null && 'value' in output) {
+                          try { output = JSON.parse(String(output.value)); } catch { /* keep */ }
+                        }
+                        const ui = (output as Record<string, unknown>)?._ui as string;
+                        if (ui === 'ConfirmCard' || ui === 'PipelineCard' || ui === 'LifecycleCard') {
+                          const data = output as Record<string, unknown>;
+                          const title = String(data.title || '');
+                          const lines = (data.lines as Array<{ label: string; value: string; bold?: boolean }>) || [];
+                          const warning = data.warning as string | undefined;
+                          return (
+                            <div key={i} className="my-2 rounded-[var(--radius-button)] border border-[var(--color-border)] bg-white p-3 text-xs">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-2">
+                                {title}
+                              </p>
+                              {lines.map((line, li) => (
+                                <div key={li} className="flex justify-between py-0.5">
+                                  <span className="text-[var(--color-text-secondary)]">{line.label}</span>
+                                  <span className={line.bold ? 'font-bold' : ''}>{line.value}</span>
+                                </div>
+                              ))}
+                              {warning && (
+                                <p className="mt-2 text-[10px] text-[var(--color-accent-red)] bg-[var(--color-accent-red)]/10 rounded px-2 py-1">
+                                  {warning}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                      }
+
+                      // Loading state
                       if (toolPart.state === 'input-available' || toolPart.state === 'input-streaming') {
                         return (
                           <div key={i} className="my-1 flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">

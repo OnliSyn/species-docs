@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { OnliAiPanel } from '@/components/OnliAiPanel';
-import { ContentFeed } from '@/components/ContentFeed';
+import { RightPanel } from '@/components/RightPanel';
 import { AssetsPage } from '@/features/assets/AssetsPage';
 
 export default function Assets() {
@@ -10,7 +10,7 @@ export default function Assets() {
     <DashboardLayout
       leftPanel={<OnliAiPanel />}
       centerPanel={<AssetsPage />}
-      rightPanel={<ContentFeed />}
+      rightPanel={<RightPanel />}
     />
   );
 }

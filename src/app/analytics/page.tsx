@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { OnliAiPanel } from '@/components/OnliAiPanel';
-import { ContentFeed } from '@/components/ContentFeed';
+import { RightPanel } from '@/components/RightPanel';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 
 export default function Analytics() {
@@ -10,7 +10,7 @@ export default function Analytics() {
     <DashboardLayout
       leftPanel={<OnliAiPanel />}
       centerPanel={<AnalyticsPage />}
-      rightPanel={<ContentFeed />}
+      rightPanel={<RightPanel />}
     />
   );
 }

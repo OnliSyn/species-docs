@@ -239,7 +239,7 @@ function detectJourneyState(messages: Message[]): JourneyState {
   }
 
   // ---- Phase: AMOUNT/QUANTITY detection ----
-  const askedHowMuch = lastAssistantLower.includes('how much usdc') || lastAssistantLower.includes('how much and where');
+  const askedHowMuch = lastAssistantLower.includes('how much usdc') || lastAssistantLower.includes('how much and where') || lastAssistantLower.includes('how much usdc and where');
   const askedHowMany = lastAssistantLower.includes('how many specie');
   const askedWhoAndHowMany = lastAssistantLower.includes('who and how many');
 
@@ -256,7 +256,7 @@ function detectJourneyState(messages: Message[]): JourneyState {
 
   if (askedHowMuch && hasNumber) {
     const amt = parseFloat(numberMatch![1].replace(/,/g, ''));
-    if (lastAssistantLower.includes('withdraw') || lastAssistantLower.includes('how much and where')) {
+    if (lastAssistantLower.includes('withdraw') || lastAssistantLower.includes('how much and where') || lastAssistantLower.includes('how much usdc and where')) {
       return { phase: 'confirm', journey: 'sendout', amount: amt };
     }
     return { phase: 'confirm', journey: 'fund', amount: amt };
@@ -275,7 +275,7 @@ function detectJourneyState(messages: Message[]): JourneyState {
   }
 
   // SendOut: user responds with amount + address
-  if (lastAssistantLower.includes('how much and where')) {
+  if (lastAssistantLower.includes('how much and where') || lastAssistantLower.includes('how much usdc and where')) {
     const sendMatch = lastUserText.match(/(\d[\d,]*\.?\d*)\s+(?:to\s+)?(.+)/i);
     if (sendMatch) {
       const amt = parseFloat(sendMatch[1].replace(/,/g, ''));
@@ -611,6 +611,7 @@ function getToolResult(message: string, mode: string): ToolResult | null {
   const lower = (message || '').toLowerCase();
 
   if (lower.includes('funding balance') || lower.includes('my balance')) {
+    const bal = MOCK_STATE.fundingBalance;
     return {
       toolName: 'get_funding_balance',
       data: {
@@ -618,11 +619,11 @@ function getToolResult(message: string, mode: string): ToolResult | null {
         label: 'Funding Account',
         vaId: 'va-funding-user-001',
         subtype: 'funding',
-        balance: { posted: 12450000000, pending: 0, available: 12450000000 },
+        balance: { posted: bal * 1_000_000, pending: 0, available: bal * 1_000_000 },
         currency: 'USDC',
         status: 'active',
       },
-      commentary: 'Your funding account is active and fully available for transactions.',
+      commentary: `Your funding account balance is $${fmt(bal)} USDC. The account is active and fully available for transactions.`,
     };
   }
 
@@ -678,6 +679,7 @@ function getToolResult(message: string, mode: string): ToolResult | null {
   }
 
   if (lower.includes('species balance') || lower.includes('asset balance') || lower.includes('specie count')) {
+    const specBal = MOCK_STATE.specieBalance;
     return {
       toolName: 'get_asset_balance',
       data: {
@@ -685,12 +687,12 @@ function getToolResult(message: string, mode: string): ToolResult | null {
         label: 'Species Account',
         vaId: 'va-species-user-001',
         subtype: 'species',
-        balance: { posted: 8500000000, pending: 0, available: 8500000000 },
+        balance: { posted: specBal * 1_000_000, pending: 0, available: specBal * 1_000_000 },
         currency: 'USDC',
         status: 'active',
-        vaultCount: 8500,
+        vaultCount: specBal,
       },
-      commentary: 'Your Species account holds 8,500 Specie valued at $8,500.00.',
+      commentary: `Your Species account holds ${specBal.toLocaleString()} Specie valued at $${fmt(specBal)}.`,
     };
   }
 
