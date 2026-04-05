@@ -1,8 +1,12 @@
 // ── @marketsb/sim — Development seed data ──
+// Multi-user seed with Treasury, Assurance, and 4 user accounts
 
-import type { SimState, VirtualAccountState, DepositState, OracleEntry } from './state.js';
+import type { SimState, VirtualAccountState, OracleEntry } from './state.js';
 import { createEmptyState } from './state.js';
 
+// ---------------------------------------------------------------------------
+// Helper
+// ---------------------------------------------------------------------------
 function makeVA(
   vaId: string,
   ownerRef: string,
@@ -22,206 +26,170 @@ function makeVA(
     currency: 'USDC',
     status: 'active',
     createdAt: '2026-01-15T00:00:00.000Z',
-    updatedAt: '2026-04-03T11:55:00.000Z',
+    updatedAt: '2026-04-05T00:00:00.000Z',
   };
 }
 
-export function seedDevelopment(): SimState {
+function addOracleEntry(state: SimState, entry: OracleEntry) {
+  const existing = state.oracleLog.get(entry.vaId) ?? [];
+  existing.push(entry);
+  state.oracleLog.set(entry.vaId, existing);
+}
+
+// ---------------------------------------------------------------------------
+// User account IDs
+// ---------------------------------------------------------------------------
+export const USERS = {
+  alex:   { ref: 'user-001', name: 'Alex Morgan',  onliId: 'onli-user-001' },
+  pepper: { ref: 'user-456', name: 'Pepper Potts',  onliId: 'onli-user-456' },
+  tony:   { ref: 'user-789', name: 'Tony Stark',    onliId: 'onli-user-789' },
+  happy:  { ref: 'user-012', name: 'Happy Hogan',   onliId: 'onli-user-012' },
+} as const;
+
+export function vaIds(userRef: string) {
+  return {
+    funding:   `va-funding-${userRef}`,
+    species:   `va-species-${userRef}`,
+    assurance: `va-assurance-${userRef}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Base seed — creates accounts with zero balances
+// ---------------------------------------------------------------------------
+export function seedBase(): SimState {
   const state = createEmptyState();
 
   // ── System accounts ──
-  const systemAccounts: VirtualAccountState[] = [
-    makeVA('treasury-100', 'system', 'system', 100, 50_000_000_000_000n),    // $50,000,000
-    makeVA('settlement-200', 'system', 'system', 200, 5_000_000_000_000n),   // $5,000,000
-    makeVA('operating-300', 'system', 'system', 300, 1_250_000_000_000n),    // $1,250,000
-    makeVA('pending-deposit-400', 'system', 'system', 400, 0n),
-    makeVA('pending-withdrawal-450', 'system', 'system', 450, 0n),
-  ];
-
-  for (const va of systemAccounts) {
-    state.virtualAccounts.set(va.vaId, va);
-  }
-
-  // ── User: Alex Morgan (user-001) ──
-  const alexFunding = makeVA(
-    'va-funding-user-001',
-    'user-001',
-    'funding',
-    500,
-    12_450_000_000n,  // $12,450
-    '0xA1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2',
-  );
-  const alexSpecies = makeVA(
-    'va-species-user-001',
-    'user-001',
-    'species',
-    510,
-    8_500_000_000n,  // $8,500
-  );
-  const alexAssurance = makeVA(
-    'va-assurance-user-001',
-    'user-001',
-    'assurance',
-    520,
-    950_000_000_000n,  // $950,000
-  );
-
-  state.virtualAccounts.set(alexFunding.vaId, alexFunding);
-  state.virtualAccounts.set(alexSpecies.vaId, alexSpecies);
-  state.virtualAccounts.set(alexAssurance.vaId, alexAssurance);
-
-  // ── Historical deposits ──
-  const deposits: DepositState[] = [
-    {
-      depositId: 'dep-001',
-      vaId: 'va-funding-user-001',
-      amount: 5_000_000_000n,
-      status: 'registered',
-      lifecycle: [
-        { state: 'detected', timestamp: '2026-03-01T10:00:00.000Z' },
-        { state: 'compliance_pending', timestamp: '2026-03-01T10:00:02.000Z' },
-        { state: 'compliance_passed', timestamp: '2026-03-01T10:00:05.000Z' },
-        { state: 'credited', timestamp: '2026-03-01T10:00:06.000Z' },
-        { state: 'registered', timestamp: '2026-03-01T10:00:06.500Z' },
-      ],
-      txHash: '0xabc123def456abc123def456abc123def456abc123def456abc123def456abc1',
-      chain: 'base',
-      oracleRef: 'fo-dep-001',
-    },
-    {
-      depositId: 'dep-002',
-      vaId: 'va-funding-user-001',
-      amount: 3_000_000_000n,
-      status: 'registered',
-      lifecycle: [
-        { state: 'detected', timestamp: '2026-03-10T14:00:00.000Z' },
-        { state: 'compliance_pending', timestamp: '2026-03-10T14:00:02.000Z' },
-        { state: 'compliance_passed', timestamp: '2026-03-10T14:00:04.000Z' },
-        { state: 'credited', timestamp: '2026-03-10T14:00:05.000Z' },
-        { state: 'registered', timestamp: '2026-03-10T14:00:05.500Z' },
-      ],
-      txHash: '0xdef789abc012def789abc012def789abc012def789abc012def789abc012def7',
-      chain: 'base',
-      oracleRef: 'fo-dep-002',
-    },
-    {
-      depositId: 'dep-003',
-      vaId: 'va-funding-user-001',
-      amount: 2_500_000_000n,
-      status: 'registered',
-      lifecycle: [
-        { state: 'detected', timestamp: '2026-03-20T09:30:00.000Z' },
-        { state: 'compliance_pending', timestamp: '2026-03-20T09:30:01.000Z' },
-        { state: 'compliance_passed', timestamp: '2026-03-20T09:30:03.000Z' },
-        { state: 'credited', timestamp: '2026-03-20T09:30:04.000Z' },
-        { state: 'registered', timestamp: '2026-03-20T09:30:04.500Z' },
-      ],
-      txHash: '0x111222333444555666777888999aaabbbcccdddeeefff000111222333444555',
-      chain: 'base',
-      oracleRef: 'fo-dep-003',
-    },
-    {
-      depositId: 'dep-004',
-      vaId: 'va-funding-user-001',
-      amount: 1_950_000_000n,
-      status: 'credited',
-      lifecycle: [
-        { state: 'detected', timestamp: '2026-04-01T08:00:00.000Z' },
-        { state: 'compliance_pending', timestamp: '2026-04-01T08:00:01.000Z' },
-        { state: 'compliance_passed', timestamp: '2026-04-01T08:00:03.000Z' },
-        { state: 'credited', timestamp: '2026-04-01T08:00:04.000Z' },
-      ],
-      txHash: '0xfff000eee111ddd222ccc333bbb444aaa555999888777666555444333222111',
-      chain: 'base',
-      oracleRef: 'fo-dep-004',
-    },
-  ];
-
-  for (const dep of deposits) {
-    state.deposits.set(dep.depositId, dep);
-  }
-
-  // ── Oracle entries for deposits ──
-  const oracleEntries: OracleEntry[] = [
-    {
-      entryId: 'fo-dep-001',
-      vaId: 'va-funding-user-001',
-      type: 'deposit_credited',
-      amount: 5_000_000_000n,
-      balanceBefore: 0n,
-      balanceAfter: 5_000_000_000n,
-      ref: 'dep-001',
-      timestamp: '2026-03-01T10:00:06.000Z',
-    },
-    {
-      entryId: 'fo-dep-002',
-      vaId: 'va-funding-user-001',
-      type: 'deposit_credited',
-      amount: 3_000_000_000n,
-      balanceBefore: 5_000_000_000n,
-      balanceAfter: 8_000_000_000n,
-      ref: 'dep-002',
-      timestamp: '2026-03-10T14:00:05.000Z',
-    },
-    {
-      entryId: 'fo-dep-003',
-      vaId: 'va-funding-user-001',
-      type: 'deposit_credited',
-      amount: 2_500_000_000n,
-      balanceBefore: 8_000_000_000n,
-      balanceAfter: 10_500_000_000n,
-      ref: 'dep-003',
-      timestamp: '2026-03-20T09:30:04.000Z',
-    },
-    {
-      entryId: 'fo-dep-004',
-      vaId: 'va-funding-user-001',
-      type: 'deposit_credited',
-      amount: 1_950_000_000n,
-      balanceBefore: 10_500_000_000n,
-      balanceAfter: 12_450_000_000n,
-      ref: 'dep-004',
-      timestamp: '2026-04-01T08:00:04.000Z',
-    },
-  ];
-
-  for (const entry of oracleEntries) {
-    const existing = state.oracleLog.get(entry.vaId) ?? [];
-    existing.push(entry);
-    state.oracleLog.set(entry.vaId, existing);
-  }
-
-  // ── System wallet balances ──
-  state.systemWallets = {
-    incoming: 25_000_000_000_000n,  // $25,000,000
-    market: 10_000_000_000_000n,    // $10,000,000
-    outgoing: 2_000_000_000_000n,   // $2,000,000
-    operating: 1_250_000_000_000n,  // $1,250,000
-  };
-
-  return state;
-}
-
-export function seedTest(): SimState {
-  const state = createEmptyState();
-
-  // Minimal: system accounts + one user
-  state.virtualAccounts.set('treasury-100', makeVA('treasury-100', 'system', 'system', 100, 10_000_000_000_000n));
-  state.virtualAccounts.set('settlement-200', makeVA('settlement-200', 'system', 'system', 200, 1_000_000_000_000n));
+  state.virtualAccounts.set('treasury-100', makeVA('treasury-100', 'system', 'system', 100, 0n));
+  state.virtualAccounts.set('settlement-200', makeVA('settlement-200', 'system', 'system', 200, 0n));
   state.virtualAccounts.set('operating-300', makeVA('operating-300', 'system', 'system', 300, 0n));
   state.virtualAccounts.set('pending-deposit-400', makeVA('pending-deposit-400', 'system', 'system', 400, 0n));
   state.virtualAccounts.set('pending-withdrawal-450', makeVA('pending-withdrawal-450', 'system', 'system', 450, 0n));
+  // Global assurance account (tracks total issuance proceeds)
+  state.virtualAccounts.set('assurance-global', makeVA('assurance-global', 'system', 'assurance', 520, 0n));
 
-  state.virtualAccounts.set('va-funding-user-001', makeVA('va-funding-user-001', 'user-001', 'funding', 500, 10_000_000_000n));
-  state.virtualAccounts.set('va-species-user-001', makeVA('va-species-user-001', 'user-001', 'species', 510, 0n));
-  state.virtualAccounts.set('va-assurance-user-001', makeVA('va-assurance-user-001', 'user-001', 'assurance', 520, 0n));
+  // ── User accounts (all start at 0) ──
+  let tbCode = 500;
+  for (const user of Object.values(USERS)) {
+    const ids = vaIds(user.ref);
+    state.virtualAccounts.set(ids.funding, makeVA(ids.funding, user.ref, 'funding', tbCode, 0n));
+    state.virtualAccounts.set(ids.species, makeVA(ids.species, user.ref, 'species', tbCode + 10, 0n));
+    state.virtualAccounts.set(ids.assurance, makeVA(ids.assurance, user.ref, 'assurance', tbCode + 20, 0n));
+    tbCode += 30;
+  }
 
   state.systemWallets = {
-    incoming: 10_000_000_000_000n,
-    market: 5_000_000_000_000n,
-    outgoing: 500_000_000_000n,
+    incoming: 0n,
+    market: 0n,
+    outgoing: 0n,
     operating: 0n,
   };
 
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// Startup sequence — executes Pepper/Tony/Happy initial transactions
+// ---------------------------------------------------------------------------
+const USDC = 1_000_000n; // 1 USDC = 1,000,000 base units
+
+function fund(state: SimState, userRef: string, amount: bigint) {
+  const ids = vaIds(userRef);
+  const va = state.virtualAccounts.get(ids.funding)!;
+  const before = va.posted;
+  va.posted += amount;
+  va.updatedAt = new Date().toISOString();
+
+  addOracleEntry(state, {
+    entryId: `fo-fund-${userRef}-${Date.now()}`,
+    vaId: ids.funding,
+    type: 'deposit_credited',
+    amount,
+    balanceBefore: before,
+    balanceAfter: va.posted,
+    ref: `dep-${userRef}-init`,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function issueFromTreasury(state: SimState, userRef: string, specieCount: bigint) {
+  const ids = vaIds(userRef);
+  const cost = specieCount * USDC; // 1 Specie = $1 USDC
+  const issuanceFee = specieCount * 10_000n; // $0.01 per Specie
+  const liquidityFee = (cost * 200n) / 10_000n; // 2%
+  const total = cost + issuanceFee + liquidityFee;
+
+  // Deduct from user funding
+  const fundingVA = state.virtualAccounts.get(ids.funding)!;
+  fundingVA.posted -= total;
+  fundingVA.updatedAt = new Date().toISOString();
+
+  // Credit user species VA (value = species count in base units)
+  const speciesVA = state.virtualAccounts.get(ids.species)!;
+  speciesVA.posted += specieCount * USDC;
+  speciesVA.updatedAt = new Date().toISOString();
+
+  // Issuance proceeds go to global assurance
+  const assuranceVA = state.virtualAccounts.get('assurance-global')!;
+  assuranceVA.posted += cost; // full cost (not including fees) goes to assurance
+  assuranceVA.updatedAt = new Date().toISOString();
+
+  // Fees go to operating
+  const operatingVA = state.virtualAccounts.get('operating-300')!;
+  operatingVA.posted += issuanceFee + liquidityFee;
+  operatingVA.updatedAt = new Date().toISOString();
+
+  // Treasury species count tracked in species-sim, not here
+  // But we track the USDC value in treasury VA
+  const treasuryVA = state.virtualAccounts.get('treasury-100')!;
+  treasuryVA.posted += cost; // treasury receives payment
+  treasuryVA.updatedAt = new Date().toISOString();
+
+  addOracleEntry(state, {
+    entryId: `fo-issue-${userRef}-${Date.now()}`,
+    vaId: ids.species,
+    type: 'issuance_buy',
+    amount: specieCount * USDC,
+    balanceBefore: speciesVA.posted - specieCount * USDC,
+    balanceAfter: speciesVA.posted,
+    ref: `issue-${userRef}`,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function runStartupSequence(state: SimState): void {
+  console.log('[SEED] Running startup sequence...');
+
+  // 1. Pepper Potts: fund $5M, issue 2M species
+  fund(state, USERS.pepper.ref, 5_000_000n * USDC);
+  issueFromTreasury(state, USERS.pepper.ref, 2_000_000n);
+  console.log('[SEED] Pepper Potts: funded $5M, issued 2M species');
+
+  // 2. Tony Stark: fund $100M, issue 90M species
+  fund(state, USERS.tony.ref, 100_000_000n * USDC);
+  issueFromTreasury(state, USERS.tony.ref, 90_000_000n);
+  console.log('[SEED] Tony Stark: funded $100M, issued 90M species');
+
+  // 3. Happy Hogan: fund $100K (buys from market — handled by species-sim)
+  fund(state, USERS.happy.ref, 100_000n * USDC);
+  console.log('[SEED] Happy Hogan: funded $100K');
+
+  // 4. Alex Morgan: starts fresh with $0
+  console.log('[SEED] Alex Morgan: fresh account (no balance)');
+
+  console.log('[SEED] Startup sequence complete');
+}
+
+// ---------------------------------------------------------------------------
+// Full development seed
+// ---------------------------------------------------------------------------
+export function seedDevelopment(): SimState {
+  const state = seedBase();
+  runStartupSequence(state);
+  return state;
+}
+
+export function seedTest(): SimState {
+  return seedBase(); // clean state for testing
 }
