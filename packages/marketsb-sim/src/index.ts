@@ -13,7 +13,7 @@ export type {
   LifecycleStep,
 } from './state.js';
 
-// If run directly (not imported), start on default port 4001
+// If run directly (not imported), start on default port 4001 (matches DEFAULT_CONFIG)
 const isDirectRun =
   process.argv[1]?.endsWith('index.ts') ||
   process.argv[1]?.endsWith('index.js');

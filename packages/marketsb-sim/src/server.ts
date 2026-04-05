@@ -16,6 +16,7 @@ import { createOracleRouter } from './handlers/oracle.js';
 import { createReconciliationRouter } from './handlers/reconciliation.js';
 import { createWalletsRouter } from './handlers/wallets.js';
 import { createControlRouter } from './control.js';
+import { createCashierSpecRouter } from './handlers/cashier-spec.js';
 
 export interface MarketSBSim {
   start(): Promise<void>;
@@ -30,6 +31,7 @@ export interface CreateSimOptions {
   depositLifecycleDelayMs?: number;
   withdrawalLifecycleDelayMs?: number;
   sendoutApprovalThresholdUsd?: bigint | number;
+  useStrictCashierPostBatch?: boolean;
 }
 
 export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
@@ -42,6 +44,8 @@ export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
       options.sendoutApprovalThresholdUsd !== undefined
         ? BigInt(options.sendoutApprovalThresholdUsd)
         : DEFAULT_CONFIG.sendoutApprovalThresholdUsd,
+    useStrictCashierPostBatch:
+      options.useStrictCashierPostBatch ?? DEFAULT_CONFIG.useStrictCashierPostBatch,
   };
 
   // Initialize state from seed
@@ -54,6 +58,8 @@ export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
     state = createEmptyState();
   }
 
+  state.useStrictCashierPostBatch = config.useStrictCashierPostBatch;
+
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -65,6 +71,8 @@ export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
 
   // ── API v1 routes ──
   const api = express.Router();
+
+  api.use(createCashierSpecRouter(state));
 
   api.use('/virtual-accounts', createAccountsRouter(state));
   api.use('/deposits', createDepositsRouter(state));
@@ -92,6 +100,15 @@ export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
         state.systemWallets = newState.systemWallets;
         state.idempotencyKeys = newState.idempotencyKeys;
         state.errorInjections = newState.errorInjections;
+        state.cashier = newState.cashier;
+        state.cashierAccounts = newState.cashierAccounts;
+        state.cashierTransactions = newState.cashierTransactions;
+        state.cashierReceipts = newState.cashierReceipts;
+        state.cashierOracleEntries = newState.cashierOracleEntries;
+        state.cashierSystemUsers = newState.cashierSystemUsers;
+        state.cashierIdempotency = newState.cashierIdempotency;
+        state.auditEvents = newState.auditEvents;
+        state.useStrictCashierPostBatch = config.useStrictCashierPostBatch;
       },
       config,
     ),
@@ -103,11 +120,13 @@ export function createMarketSBSim(options: CreateSimOptions = {}): MarketSBSim {
     async start() {
       return new Promise<void>((resolve) => {
         server = app.listen(config.port, () => {
-          console.log(`@marketsb/sim running on http://localhost:${config.port}/api/v1`);
+          const base = `http://localhost:${config.port}`;
+          console.log(`@marketsb/sim running on ${base}/api/v1`);
+          console.log(`  Oracle: ${base}/api/v1/oracle/ledger | ${base}/api/v1/oracle/virtual-accounts/:vaId/ledger`);
           console.log(`  Seed: ${config.seedData}`);
           console.log(`  VAs: ${state.virtualAccounts.size}`);
           console.log(`  Deposits: ${state.deposits.size}`);
-          console.log(`  Control panel: http://localhost:${config.port}/sim/state`);
+          console.log(`  Control panel: ${base}/sim/state`);
           resolve();
         });
       });

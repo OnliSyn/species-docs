@@ -3,6 +3,7 @@
 
 import type { SimState, VirtualAccountState, OracleEntry } from './state.js';
 import { createEmptyState } from './state.js';
+import { bootstrapCashierFromState } from './cashier-bootstrap.js';
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -66,8 +67,8 @@ export function seedBase(): SimState {
   state.virtualAccounts.set('operating-300', makeVA('operating-300', 'system', 'system', 300, 0n));
   state.virtualAccounts.set('pending-deposit-400', makeVA('pending-deposit-400', 'system', 'system', 400, 0n));
   state.virtualAccounts.set('pending-withdrawal-450', makeVA('pending-withdrawal-450', 'system', 'system', 450, 0n));
-  // Global assurance account (tracks total issuance proceeds)
-  state.virtualAccounts.set('assurance-global', makeVA('assurance-global', 'system', 'assurance', 520, 0n));
+  // Global assurance account (tracks total issuance proceeds) — tbCode 125 avoids collision with per-user assurance (520, 550, …)
+  state.virtualAccounts.set('assurance-global', makeVA('assurance-global', 'system', 'assurance', 125, 0n));
 
   // ── User accounts (all start at 0) ──
   let tbCode = 500;
@@ -94,67 +95,159 @@ export function seedBase(): SimState {
 // ---------------------------------------------------------------------------
 const USDC = 1_000_000n; // 1 USDC = 1,000,000 base units
 
-function fund(state: SimState, userRef: string, amount: bigint) {
+/** Fixed ids/timestamps so seeded state is reproducible (no Date.now()). */
+interface SeedTxnMeta {
+  entryId: string;
+  timestamp: string;
+}
+
+function fund(state: SimState, userRef: string, amount: bigint, meta: SeedTxnMeta) {
   const ids = vaIds(userRef);
   const va = state.virtualAccounts.get(ids.funding)!;
   const before = va.posted;
   va.posted += amount;
-  va.updatedAt = new Date().toISOString();
+  va.updatedAt = meta.timestamp;
 
   addOracleEntry(state, {
-    entryId: `fo-fund-${userRef}-${Date.now()}`,
+    entryId: meta.entryId,
     vaId: ids.funding,
     type: 'deposit_credited',
     amount,
     balanceBefore: before,
     balanceAfter: va.posted,
     ref: `dep-${userRef}-init`,
-    timestamp: new Date().toISOString(),
+    timestamp: meta.timestamp,
   });
 }
 
-function issueFromTreasury(state: SimState, userRef: string, specieCount: bigint) {
+function issueFromTreasury(state: SimState, userRef: string, specieCount: bigint, meta: SeedTxnMeta) {
   const ids = vaIds(userRef);
   const cost = specieCount * USDC; // 1 Specie = $1 USDC
   const issuanceFee = specieCount * 10_000n; // $0.01 per Specie
   const liquidityFee = (cost * 200n) / 10_000n; // 2%
   const total = cost + issuanceFee + liquidityFee;
+  const ts = meta.timestamp;
 
   // Deduct from user funding
   const fundingVA = state.virtualAccounts.get(ids.funding)!;
   fundingVA.posted -= total;
-  fundingVA.updatedAt = new Date().toISOString();
+  fundingVA.updatedAt = ts;
 
   // Credit user species VA (value = species count in base units)
   const speciesVA = state.virtualAccounts.get(ids.species)!;
+  const speciesBefore = speciesVA.posted;
   speciesVA.posted += specieCount * USDC;
-  speciesVA.updatedAt = new Date().toISOString();
+  speciesVA.updatedAt = ts;
 
   // Issuance proceeds go to global assurance
   const assuranceVA = state.virtualAccounts.get('assurance-global')!;
   assuranceVA.posted += cost; // full cost (not including fees) goes to assurance
-  assuranceVA.updatedAt = new Date().toISOString();
+  assuranceVA.updatedAt = ts;
 
   // Fees go to operating
   const operatingVA = state.virtualAccounts.get('operating-300')!;
   operatingVA.posted += issuanceFee + liquidityFee;
-  operatingVA.updatedAt = new Date().toISOString();
+  operatingVA.updatedAt = ts;
 
   // Treasury species count tracked in species-sim, not here
   // But we track the USDC value in treasury VA
   const treasuryVA = state.virtualAccounts.get('treasury-100')!;
   treasuryVA.posted += cost; // treasury receives payment
-  treasuryVA.updatedAt = new Date().toISOString();
+  treasuryVA.updatedAt = ts;
 
   addOracleEntry(state, {
-    entryId: `fo-issue-${userRef}-${Date.now()}`,
+    entryId: meta.entryId,
     vaId: ids.species,
     type: 'issuance_buy',
     amount: specieCount * USDC,
-    balanceBefore: speciesVA.posted - specieCount * USDC,
+    balanceBefore: speciesBefore,
     balanceAfter: speciesVA.posted,
     ref: `issue-${userRef}`,
-    timestamp: new Date().toISOString(),
+    timestamp: ts,
+  });
+}
+
+/** Secondary market buy — mirrors POST /cashier/post-batch intent `sell` (buyer pays seller + liquidity fee). */
+function secondaryMarketPurchase(
+  state: SimState,
+  buyerRef: string,
+  sellerRef: string,
+  quantity: bigint,
+  unitPrice: bigint,
+  meta: SeedTxnMeta,
+) {
+  const buyerIds = vaIds(buyerRef);
+  const sellerIds = vaIds(sellerRef);
+  const assetCost = quantity * unitPrice;
+  const liquidityFee = (assetCost * 200n) / 10_000n; // 2%
+  const totalBuyerDebit = assetCost + liquidityFee;
+  const ts = meta.timestamp;
+
+  const buyerFunding = state.virtualAccounts.get(buyerIds.funding)!;
+  const sellerFunding = state.virtualAccounts.get(sellerIds.funding)!;
+  const buyerSpecies = state.virtualAccounts.get(buyerIds.species)!;
+  const sellerSpecies = state.virtualAccounts.get(sellerIds.species)!;
+  const operating = state.virtualAccounts.get('operating-300')!;
+
+  const bfBefore = buyerFunding.posted;
+  buyerFunding.posted -= totalBuyerDebit;
+  buyerFunding.updatedAt = ts;
+
+  const sfBefore = sellerFunding.posted;
+  sellerFunding.posted += assetCost;
+  sellerFunding.updatedAt = ts;
+
+  operating.posted += liquidityFee;
+  operating.updatedAt = ts;
+
+  const ssBefore = sellerSpecies.posted;
+  sellerSpecies.posted -= assetCost;
+  sellerSpecies.updatedAt = ts;
+
+  const bsBefore = buyerSpecies.posted;
+  buyerSpecies.posted += assetCost;
+  buyerSpecies.updatedAt = ts;
+
+  const ref = meta.entryId;
+  addOracleEntry(state, {
+    entryId: `${ref}-buyer-funding`,
+    vaId: buyerIds.funding,
+    type: 'cashier_sell_debit',
+    amount: totalBuyerDebit,
+    balanceBefore: bfBefore,
+    balanceAfter: buyerFunding.posted,
+    ref,
+    timestamp: ts,
+  });
+  addOracleEntry(state, {
+    entryId: `${ref}-seller-funding`,
+    vaId: sellerIds.funding,
+    type: 'cashier_sell_credit',
+    amount: assetCost,
+    balanceBefore: sfBefore,
+    balanceAfter: sellerFunding.posted,
+    ref,
+    timestamp: ts,
+  });
+  addOracleEntry(state, {
+    entryId: `${ref}-seller-species`,
+    vaId: sellerIds.species,
+    type: 'secondary_species_debit',
+    amount: assetCost,
+    balanceBefore: ssBefore,
+    balanceAfter: sellerSpecies.posted,
+    ref,
+    timestamp: ts,
+  });
+  addOracleEntry(state, {
+    entryId: `${ref}-buyer-species`,
+    vaId: buyerIds.species,
+    type: 'secondary_species_credit',
+    amount: assetCost,
+    balanceBefore: bsBefore,
+    balanceAfter: buyerSpecies.posted,
+    ref,
+    timestamp: ts,
   });
 }
 
@@ -162,18 +255,41 @@ export function runStartupSequence(state: SimState): void {
   console.log('[SEED] Running startup sequence...');
 
   // 1. Pepper Potts: fund $5M, issue 2M species
-  fund(state, USERS.pepper.ref, 5_000_000n * USDC);
-  issueFromTreasury(state, USERS.pepper.ref, 2_000_000n);
+  fund(state, USERS.pepper.ref, 5_000_000n * USDC, {
+    entryId: 'fo-fund-pepper-init',
+    timestamp: '2026-04-01T08:55:00.000Z',
+  });
+  issueFromTreasury(state, USERS.pepper.ref, 2_000_000n, {
+    entryId: 'fo-issue-pepper',
+    timestamp: '2026-04-01T09:00:00.000Z',
+  });
   console.log('[SEED] Pepper Potts: funded $5M, issued 2M species');
 
   // 2. Tony Stark: fund $100M, issue 90M species
-  fund(state, USERS.tony.ref, 100_000_000n * USDC);
-  issueFromTreasury(state, USERS.tony.ref, 90_000_000n);
+  fund(state, USERS.tony.ref, 100_000_000n * USDC, {
+    entryId: 'fo-fund-tony-init',
+    timestamp: '2026-04-01T09:55:00.000Z',
+  });
+  issueFromTreasury(state, USERS.tony.ref, 90_000_000n, {
+    entryId: 'fo-issue-tony',
+    timestamp: '2026-04-01T10:00:00.000Z',
+  });
   console.log('[SEED] Tony Stark: funded $100M, issued 90M species');
 
-  // 3. Happy Hogan: fund $100K (buys from market — handled by species-sim)
-  fund(state, USERS.happy.ref, 100_000n * USDC);
-  console.log('[SEED] Happy Hogan: funded $100K');
+  // 3. Happy Hogan: fund $100K, then secondary buy 20K species @ $1 from Pepper (matches species-sim seed)
+  fund(state, USERS.happy.ref, 100_000n * USDC, {
+    entryId: 'fo-fund-happy-init',
+    timestamp: '2026-04-02T10:55:00.000Z',
+  });
+  secondaryMarketPurchase(
+    state,
+    USERS.happy.ref,
+    USERS.pepper.ref,
+    20_000n,
+    USDC,
+    { entryId: 'seed-buy-happy', timestamp: '2026-04-02T11:00:00.000Z' },
+  );
+  console.log('[SEED] Happy Hogan: funded $100K, bought 20K species from Pepper (secondary)');
 
   // 4. Alex Morgan: starts fresh with $0
   console.log('[SEED] Alex Morgan: fresh account (no balance)');
@@ -187,9 +303,12 @@ export function runStartupSequence(state: SimState): void {
 export function seedDevelopment(): SimState {
   const state = seedBase();
   runStartupSequence(state);
+  bootstrapCashierFromState(state);
   return state;
 }
 
 export function seedTest(): SimState {
-  return seedBase(); // clean state for testing
+  const state = seedBase();
+  bootstrapCashierFromState(state);
+  return state;
 }

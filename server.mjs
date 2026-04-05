@@ -80,7 +80,7 @@ function buildTools() {
       try {
         const [vaRes, vaultRes] = await Promise.all([
           fetch('http://localhost:4001/api/v1/virtual-accounts/va-species-user-001'),
-          fetch('http://localhost:4002/marketplace/v1/vault/onli-user-001'),
+          fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001'),
         ]);
         const va = await vaRes.json();
         const vault = await vaultRes.json();
@@ -171,7 +171,7 @@ function buildTools() {
     parameters: z.object({}),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4002/marketplace/v1/stats');
+        const res = await fetch('http://localhost:4012/marketplace/v1/stats');
         return await res.json();
       } catch {
         // Fallback: StatsData matching frontend MarketStatsCard interface

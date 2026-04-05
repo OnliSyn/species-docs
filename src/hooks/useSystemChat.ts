@@ -11,14 +11,15 @@ const WELCOME_MESSAGE = 'Welcome to Onli Ai. Your intelligent assistant for mana
 const SYSTEM_PROMPTS: Record<string, string[]> = {
   ask: [
     'What is the definition of Onli?',
+    'How does Onli work?',
+    'What is the paradigm shift?',
     'Give me an interesting fact about Onli',
   ],
   trade: [
     'What is my current funding balance?',
     'What is my trading account balance?',
-    'What is the assurance balance and buy back guarantee ratio?',
-    'Show me my last 5 transactions',
     'What are the current market statistics?',
+    'Show me my last 5 transactions',
   ],
   learn: [
     'What is a Genome in the Onli system?',
@@ -48,7 +49,7 @@ interface UseSystemChatReturn {
   welcomeMessage: string;
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 5_000; // 5 seconds — fast enough for post-journey balance updates
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -120,9 +121,14 @@ export function useSystemChat(): UseSystemChatReturn {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => fetchCards(chatMode), POLL_INTERVAL);
 
+    // Listen for journey-complete events (fired from chat after mutations)
+    const handleRefresh = () => fetchCards(chatMode);
+    window.addEventListener('synth:balance-changed', handleRefresh);
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       abortRef.current?.abort();
+      window.removeEventListener('synth:balance-changed', handleRefresh);
     };
   }, [chatMode, fetchCards]);
 

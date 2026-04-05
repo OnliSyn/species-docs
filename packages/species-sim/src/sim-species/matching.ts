@@ -18,8 +18,8 @@ export function matchOrder(
   quantity: number,
 ): MatchResult {
   if (intent === 'transfer') {
-    // Transfers don't go through matching
-    return { fills: [], totalMatched: quantity };
+    // Transfers don't go through matching — direct P2P vault movement
+    return { fills: [], totalMatched: 0 };
   }
 
   if (intent === 'sell') {

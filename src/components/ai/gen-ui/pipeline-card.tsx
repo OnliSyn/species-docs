@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
 
@@ -16,6 +16,7 @@ type PipelineData = {
     fees: string;
     total: string;
     assurance?: string;
+    note?: string;
   };
   balances?: {
     funding: string;
@@ -30,41 +31,67 @@ const SYSTEM_COLORS: Record<string, string> = {
   OC: '#16A34A',
 };
 
+// Stage delay in ms — varies by system to feel realistic
+const STAGE_DELAYS: Record<string, number> = {
+  SM: 250,
+  MB: 400,
+  OC: 350,
+};
+
 function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
-  const allDone = data.stages.every(s => s.status === 'done');
   const containerRef = useRef<HTMLDivElement>(null);
+  const [completedIdx, setCompletedIdx] = useState(-1);
+  const animatingRef = useRef(false);
+
+  // Animate stages from pending → active → done one at a time
+  useEffect(() => {
+    if (animatingRef.current) return;
+    animatingRef.current = true;
+
+    const allDone = data.stages.every(s => s.status === 'done');
+    if (!allDone) {
+      // If stages aren't all done, show as-is
+      setCompletedIdx(data.stages.length - 1);
+      return;
+    }
+
+    // Animate each stage sequentially
+    let i = 0;
+    const advance = () => {
+      if (i >= data.stages.length) return;
+      setCompletedIdx(i);
+      i++;
+      if (i < data.stages.length) {
+        const sys = data.stages[i - 1]?.system || 'SM';
+        setTimeout(advance, STAGE_DELAYS[sys] || 300);
+      }
+    };
+    // Start after card entrance animation (300ms)
+    setTimeout(advance, 350);
+  }, [data.stages]);
+
+  const isAllComplete = completedIdx >= data.stages.length - 1;
 
   useGSAP(() => {
     const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
-
-    // Card entrance
     tl.from(containerRef.current, { y: 20, opacity: 0, duration: 0.3 });
-
-    // Stagger each stage row
     tl.from('.pipeline-stage', {
       x: -10,
       opacity: 0,
       duration: 0.2,
-      stagger: 0.08,
+      stagger: 0.04,
     }, '-=0.1');
-
-    // Checkmarks scale in
-    tl.from('.pipeline-check', {
-      scale: 0,
-      duration: 0.15,
-      stagger: 0.06,
-      ease: 'back.out(2)',
-    }, '-=0.5');
-
-    // Receipt section slides up
-    if (containerRef.current?.querySelector('.pipeline-receipt')) {
-      tl.from('.pipeline-receipt', {
-        y: 10,
-        opacity: 0,
-        duration: 0.25,
-      });
-    }
   }, { scope: containerRef });
+
+  // Animate receipt in when all stages complete
+  useEffect(() => {
+    if (isAllComplete && containerRef.current) {
+      const receipt = containerRef.current.querySelector('.pipeline-receipt');
+      if (receipt) {
+        gsap.from(receipt, { y: 10, opacity: 0, duration: 0.3, ease: 'power2.out' });
+      }
+    }
+  }, [isAllComplete]);
 
   return (
     <div ref={containerRef} className="rounded-2xl border border-[var(--color-border)] bg-white overflow-hidden my-2 shadow-sm max-w-sm">
@@ -73,9 +100,13 @@ function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
         <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)]">
           {data.title}
         </p>
-        {allDone && (
+        {isAllComplete ? (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-green)]/20 text-[var(--color-text-primary)]">
             Complete
+          </span>
+        ) : (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+            Processing
           </span>
         )}
       </div>
@@ -83,38 +114,48 @@ function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
       {/* Pipeline stages */}
       <div className="px-5 pb-4">
         <div className="space-y-1">
-          {data.stages.map((stage, i) => (
-            <div key={i} className="pipeline-stage flex items-center gap-2.5 py-0.5">
-              {/* Connector line + dot */}
-              <div className="flex flex-col items-center w-4">
-                <div className={`w-3 h-3 rounded-full flex items-center justify-center ${
-                  stage.status === 'done' ? 'bg-[var(--color-accent-green)]'
-                  : stage.status === 'active' ? 'bg-[var(--color-cta-primary)]'
-                  : 'border border-[var(--color-border)] bg-white'
-                }`}>
-                  {stage.status === 'done' && (
-                    <svg className="pipeline-check" width="6" height="6" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
+          {data.stages.map((stage, i) => {
+            const isDone = i <= completedIdx;
+            const isActive = i === completedIdx + 1;
+            return (
+              <div key={i} className="pipeline-stage flex items-center gap-2.5 py-0.5">
+                {/* Connector line + dot */}
+                <div className="flex flex-col items-center w-4">
+                  <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    isDone ? 'bg-[var(--color-accent-green)]'
+                    : isActive ? 'bg-[var(--color-cta-primary)] animate-pulse'
+                    : 'border border-[var(--color-border)] bg-white'
+                  }`}>
+                    {isDone && (
+                      <svg className="pipeline-check" width="6" height="6" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                    {isActive && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
                 </div>
+                {/* Label + system */}
+                <span className={`text-[11px] flex-1 transition-colors duration-200 ${
+                  isDone ? 'text-[var(--color-text-primary)]'
+                  : isActive ? 'text-[var(--color-text-primary)] font-medium'
+                  : 'text-[var(--color-text-secondary)]'
+                }`}>
+                  {stage.label}
+                  {isActive && <span className="text-[9px] text-[var(--color-text-secondary)] ml-1">...</span>}
+                </span>
+                <span className="text-[9px] font-mono" style={{ color: isDone || isActive ? (SYSTEM_COLORS[stage.system] || '#6B6B6B') : '#D1D5DB' }}>
+                  {stage.system}
+                </span>
               </div>
-              {/* Label + system */}
-              <span className={`text-[11px] flex-1 ${
-                stage.status === 'done' ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
-              }`}>
-                {stage.label}
-              </span>
-              <span className="text-[9px] font-mono" style={{ color: SYSTEM_COLORS[stage.system] || '#6B6B6B' }}>
-                {stage.system}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Receipt (if order complete) */}
-      {allDone && data.receipt && (
+      {isAllComplete && data.receipt && (
         <div className="pipeline-receipt border-t border-[var(--color-border)] px-5 py-3 bg-[var(--color-bg-card)]">
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between">
@@ -133,6 +174,9 @@ function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
               <span>Total</span>
               <span>{data.receipt.total}</span>
             </div>
+            {data.receipt.note && (
+              <p className="text-[9px] text-[var(--color-text-secondary)] pt-1">{data.receipt.note}</p>
+            )}
           </div>
         </div>
       )}
@@ -146,7 +190,7 @@ function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
       )}
 
       {/* Updated balances */}
-      {allDone && data.balances && (
+      {isAllComplete && data.balances && (
         <div className="pipeline-receipt border-t border-[var(--color-border)] px-5 py-3 bg-[var(--color-bg-card)]">
           <div className="flex justify-between text-xs">
             <span className="text-[var(--color-text-secondary)]">Funding</span>

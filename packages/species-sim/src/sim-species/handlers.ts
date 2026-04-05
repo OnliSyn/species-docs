@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { SpeciesSimState, SpeciesSimConfig, OrderState } from '../state.js';
 import { startPipeline, type WsEmitter } from './pipeline.js';
 import { getVaultBalance, getVaultHistory } from '../sim-onli/vaults.js';
+import { buildSpeciesAgentContext } from '../handlers/agent-context.js';
 
 export function createMarketplaceRouter(
   getState: () => SpeciesSimState,
@@ -9,6 +10,11 @@ export function createMarketplaceRouter(
   emit: WsEmitter,
 ): Router {
   const router = Router();
+
+  // ── GET /agentContext (Onli AI / LLM service map; mirrors MarketSB GET /api/v1/agentContext)
+  router.get('/agentContext', (_req: Request, res: Response) => {
+    res.json(buildSpeciesAgentContext(config));
+  });
 
   // ── POST /eventRequest ───────────────────────────────────────────────
   router.post('/eventRequest', (req: Request, res: Response) => {

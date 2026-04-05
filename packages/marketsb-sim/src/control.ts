@@ -10,6 +10,7 @@ import type { SimState, SimConfig } from './state.js';
 import { createEmptyState, serializeBigints } from './state.js';
 import { seedDevelopment, seedTest } from './seed.js';
 import { advanceDepositLifecycle } from './handlers/deposits.js';
+import { resetCashierEngineCounters } from './cashier-engine.js';
 
 export function createControlRouter(
   getState: () => SimState,
@@ -29,6 +30,7 @@ export function createControlRouter(
       newState = createEmptyState();
     }
     setState(newState);
+    resetCashierEngineCounters();
     res.json({ status: 'reset', seedData: config.seedData, timestamp: new Date().toISOString() });
   });
 
@@ -44,6 +46,15 @@ export function createControlRouter(
       systemWallets: state.systemWallets,
       idempotencyKeysCount: state.idempotencyKeys.size,
       errorInjections: Object.fromEntries(state.errorInjections),
+      cashier: state.cashier,
+      cashierAccounts: Object.fromEntries(state.cashierAccounts),
+      cashierTransactions: Object.fromEntries(state.cashierTransactions),
+      cashierReceipts: Object.fromEntries(state.cashierReceipts),
+      cashierOracleEntries: Object.fromEntries(state.cashierOracleEntries),
+      cashierSystemUsers: Object.fromEntries(state.cashierSystemUsers),
+      cashierIdempotencyCount: state.cashierIdempotency.size,
+      auditEvents: state.auditEvents,
+      useStrictCashierPostBatch: state.useStrictCashierPostBatch,
     };
     res.json(serializeBigints(dump));
   });
@@ -66,6 +77,96 @@ export function createControlRouter(
     res.json(serializeBigints(result));
   });
 
+  // POST /sim/credit-va — directly credit a VA (for mock chat fund journeys)
+  router.post('/credit-va', (req: Request, res: Response) => {
+    const state = getState();
+    const { vaId, amount } = req.body;
+
+    if (!vaId || amount === undefined) {
+      res.status(400).json({ code: 'bad_request', message: 'vaId and amount required' });
+      return;
+    }
+
+    const va = state.virtualAccounts.get(vaId);
+    if (!va) {
+      res.status(404).json({ code: 'not_found', message: `VA ${vaId} not found` });
+      return;
+    }
+
+    const creditAmount = BigInt(amount);
+    const before = va.posted;
+    va.posted += creditAmount;
+    va.updatedAt = new Date().toISOString();
+
+    // Oracle entry
+    const entries = state.oracleLog.get(vaId) ?? [];
+    entries.push({
+      entryId: `sim-credit-${Date.now()}`,
+      vaId,
+      type: 'deposit_credited',
+      amount: creditAmount,
+      balanceBefore: before,
+      balanceAfter: va.posted,
+      ref: `sim-instant-deposit`,
+      timestamp: va.updatedAt,
+    });
+    state.oracleLog.set(vaId, entries);
+
+    res.json(serializeBigints({
+      vaId,
+      credited: creditAmount,
+      newBalance: va.posted,
+      timestamp: va.updatedAt,
+    }));
+  });
+
+  // POST /sim/debit-va — directly debit a VA (for mock chat withdraw journeys)
+  router.post('/debit-va', (req: Request, res: Response) => {
+    const state = getState();
+    const { vaId, amount } = req.body;
+
+    if (!vaId || amount === undefined) {
+      res.status(400).json({ code: 'bad_request', message: 'vaId and amount required' });
+      return;
+    }
+
+    const va = state.virtualAccounts.get(vaId);
+    if (!va) {
+      res.status(404).json({ code: 'not_found', message: `VA ${vaId} not found` });
+      return;
+    }
+
+    const debitAmount = BigInt(amount);
+    if (va.posted < debitAmount) {
+      res.status(400).json({ code: 'insufficient_balance', message: 'Not enough balance' });
+      return;
+    }
+
+    const before = va.posted;
+    va.posted -= debitAmount;
+    va.updatedAt = new Date().toISOString();
+
+    const entries = state.oracleLog.get(vaId) ?? [];
+    entries.push({
+      entryId: `sim-debit-${Date.now()}`,
+      vaId,
+      type: 'withdrawal_debited',
+      amount: debitAmount,
+      balanceBefore: before,
+      balanceAfter: va.posted,
+      ref: `sim-instant-withdrawal`,
+      timestamp: va.updatedAt,
+    });
+    state.oracleLog.set(vaId, entries);
+
+    res.json(serializeBigints({
+      vaId,
+      debited: debitAmount,
+      newBalance: va.posted,
+      timestamp: va.updatedAt,
+    }));
+  });
+
   // POST /sim/set-config
   router.post('/set-config', (req: Request, res: Response) => {
     const updates = req.body;
@@ -78,12 +179,18 @@ export function createControlRouter(
     if (updates.sendoutApprovalThresholdUsd !== undefined) {
       config.sendoutApprovalThresholdUsd = BigInt(updates.sendoutApprovalThresholdUsd);
     }
+    const st = getState();
+    if (updates.useStrictCashierPostBatch !== undefined) {
+      config.useStrictCashierPostBatch = Boolean(updates.useStrictCashierPostBatch);
+      st.useStrictCashierPostBatch = config.useStrictCashierPostBatch;
+    }
     res.json({
       status: 'config_updated',
       config: {
         depositLifecycleDelayMs: config.depositLifecycleDelayMs,
         withdrawalLifecycleDelayMs: config.withdrawalLifecycleDelayMs,
         sendoutApprovalThresholdUsd: Number(config.sendoutApprovalThresholdUsd),
+        useStrictCashierPostBatch: config.useStrictCashierPostBatch,
       },
     });
   });

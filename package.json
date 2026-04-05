@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "dev:sims": "node scripts/dev-sims.mjs"
+    "dev:sims": "node scripts/dev-sims.mjs",
+    "mcp:marketsb": "npm run start --prefix packages/marketsb-mcp",
+    "mcp:species": "npm run start --prefix packages/species-mcp"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.66",

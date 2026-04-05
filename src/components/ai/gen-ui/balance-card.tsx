@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
 
@@ -19,22 +19,39 @@ function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
   // Support both flat `amount` and nested `balance.posted` shapes
   const rawAmount = data.amount ?? data.balance?.posted ?? 0;
   const dollars = rawAmount / 1_000_000;
-  const whole = Math.floor(dollars).toLocaleString('en-US');
-  const cents = (dollars % 1).toFixed(2).slice(1);
 
+  const isDark = data.variant === 'dark';
   const containerRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLParagraphElement>(null);
+  const prevDollarsRef = useRef(0);
 
+  // Entrance animation (once)
   useGSAP(() => {
     gsap.from(containerRef.current, { y: 16, opacity: 0, duration: 0.35, ease: 'power2.out' });
+  }, { scope: containerRef });
 
-    // Counter animation on the dollar amount
-    const target = { val: 0 };
+  // Counter animation — re-runs whenever dollars changes
+  useEffect(() => {
+    if (!amountRef.current) return;
+    const from = prevDollarsRef.current;
+    const to = dollars;
+    prevDollarsRef.current = dollars;
+
+    // If same value, just set it directly
+    if (from === to) {
+      const whole = Math.floor(to).toLocaleString('en-US');
+      const cents = (to % 1).toFixed(2).slice(1);
+      const centsClass = isDark ? 'text-[20px] text-white/40' : 'text-[20px] text-[var(--color-text-secondary)]';
+      amountRef.current.innerHTML =
+        '$' + whole + '<span class="' + centsClass + '">' + cents + '</span>';
+      return;
+    }
+
+    const target = { val: from };
     gsap.to(target, {
-      val: dollars,
-      duration: 0.6,
+      val: to,
+      duration: 0.8,
       ease: 'power2.out',
-      delay: 0.2,
       onUpdate: () => {
         if (amountRef.current) {
           const v = Math.floor(target.val);
@@ -46,9 +63,10 @@ function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
         }
       },
     });
-  }, { scope: containerRef });
+  }, [dollars, isDark]);
 
-  const isDark = data.variant === 'dark';
+  // Track specie count changes
+  const specieCount = data.specieCount ?? null;
 
   return (
     <div ref={containerRef} className={
@@ -60,11 +78,11 @@ function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
         {data.label}
       </p>
       <p ref={amountRef} className={`text-[32px] font-extralight tracking-tight leading-none ${isDark ? 'text-white' : 'text-[var(--color-text-primary)]'}`}>
-        ${whole}<span className={`text-[20px] ${isDark ? 'text-white/40' : 'text-[var(--color-text-secondary)]'}`}>{cents}</span>
+        $0<span className={`text-[20px] ${isDark ? 'text-white/40' : 'text-[var(--color-text-secondary)]'}`}>.00</span>
       </p>
-      {data.specieCount != null && (
+      {specieCount != null && (
         <p className={`text-xs mt-1.5 ${isDark ? 'text-white/50' : 'text-[var(--color-text-secondary)]'}`}>
-          {data.specieCount.toLocaleString()} SPECIES
+          {specieCount.toLocaleString()} SPECIES
         </p>
       )}
       <div className="flex items-center gap-1.5 mt-3">

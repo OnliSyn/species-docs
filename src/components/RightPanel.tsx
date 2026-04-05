@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { InfoTab } from './right-panel/InfoTab';
 import { CanvasTab } from './right-panel/CanvasTab';
+import { useTabStore } from '@/stores/tab-store';
 import { BlogTab } from './right-panel/BlogTab';
 
 type Tab = 'info' | 'canvas' | 'blog';
@@ -16,6 +17,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function RightPanel() {
   const [activeTab, setActiveTab] = useState<Tab>('info');
+  const chatMode = useTabStore((s) => s.chatMode);
 
   return (
     <div className="flex flex-col h-full">
@@ -40,9 +42,9 @@ export function RightPanel() {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className={`flex-1 min-h-0 px-4 pb-4 ${activeTab === 'canvas' && chatMode === 'trade' ? 'flex flex-col' : 'overflow-y-auto'}`}>
         {activeTab === 'info' && <InfoTab />}
-        {activeTab === 'canvas' && <CanvasTab />}
+        {activeTab === 'canvas' && <CanvasTab mode={chatMode} />}
         {activeTab === 'blog' && <BlogTab />}
       </div>
     </div>

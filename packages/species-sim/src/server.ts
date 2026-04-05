@@ -5,6 +5,7 @@ import type { SpeciesSimState, SpeciesSimConfig, StageDelays } from './state.js'
 import { seedState } from './seed.js';
 import { createMarketplaceRouter } from './sim-species/handlers.js';
 import { createControlRouter } from './control.js';
+import { createOracleRouter } from './handlers/oracle.js';
 import { createWsServer, type WsBroadcaster } from './sim-websocket/ws-server.js';
 
 // ── Default config ─────────────────────────────────────────────────────────
@@ -36,9 +37,9 @@ export interface SpeciesSim {
 
 export function createSpeciesSim(options: CreateSpeciesSimOptions = {}): SpeciesSim {
   const config: SpeciesSimConfig = {
-    port: options.port ?? 4002,
+    port: options.port ?? 4012,
     marketsbUrl: options.marketsbUrl ?? 'http://localhost:4001/api/v1',
-    pipelineDelays: { ...DEFAULT_DELAYS, ...options.pipelineDelays },
+    pipelineDelays: { ...DEFAULT_DELAYS, ...options.pipelineDelays } as StageDelays,
     askToMoveTimeoutSeconds: options.askToMoveTimeoutSeconds ?? 300,
   };
 
@@ -61,6 +62,9 @@ export function createSpeciesSim(options: CreateSpeciesSimOptions = {}): Species
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: '@species/sim', port: config.port });
   });
+
+  // Asset oracle API (parallels @marketsb/sim /api/v1/oracle)
+  app.use('/oracle', createOracleRouter(getState));
 
   // Marketplace API routes under /marketplace/v1
   // We need to defer the router creation because the emit function isn't available yet
@@ -99,6 +103,8 @@ export function createSpeciesSim(options: CreateSpeciesSimOptions = {}): Species
       httpServer.listen(config.port, () => {
         console.log(`[@species/sim] Running on http://localhost:${config.port}`);
         console.log(`[@species/sim] Marketplace API: http://localhost:${config.port}/marketplace/v1`);
+        console.log(`[@species/sim] Agent context: http://localhost:${config.port}/marketplace/v1/agentContext`);
+        console.log(`[@species/sim] Oracle API: http://localhost:${config.port}/oracle`);
         console.log(`[@species/sim] WebSocket: ws://localhost:${config.port}/events/{eventId}/stream`);
         console.log(`[@species/sim] MarketSB Cashier URL: ${config.marketsbUrl}`);
         resolve();

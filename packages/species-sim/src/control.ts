@@ -85,6 +85,123 @@ export function createControlRouter(
     });
   });
 
+  // ── POST /sim/create-listing ──────────────────────────────────────────
+  // Create a marketplace listing (species moved to settlement/escrow)
+  router.post('/sim/create-listing', (req: Request, res: Response) => {
+    const state = getState();
+    const { sellerOnliId, quantity, unitPrice } = req.body;
+
+    if (!sellerOnliId || !quantity) {
+      res.status(400).json({ error: 'sellerOnliId and quantity required' });
+      return;
+    }
+
+    const vault = state.vaults.users.get(sellerOnliId);
+    if (!vault || vault.count < quantity) {
+      res.status(400).json({
+        error: 'Insufficient species in vault',
+        available: vault?.count ?? 0,
+        requested: quantity,
+      });
+      return;
+    }
+
+    const listingId = `listing-${sellerOnliId}-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    // Move species from user vault to settlement (escrow)
+    vault.count -= quantity;
+    vault.history.push({
+      type: 'debit',
+      count: quantity,
+      from: sellerOnliId,
+      to: 'settlement',
+      eventId: listingId,
+      timestamp: now,
+    });
+
+    state.vaults.settlement.count += quantity;
+
+    // Create the listing
+    state.listings.set(listingId, {
+      listingId,
+      sellerOnliId,
+      quantity,
+      remainingQuantity: quantity,
+      unitPrice: unitPrice ?? 1_000_000,
+      status: 'active',
+      createdAt: now,
+    });
+
+    // Asset oracle
+    state.assetOracleLog.push({
+      id: `ao-${listingId}`,
+      eventId: listingId,
+      type: 'listing_escrow',
+      from: sellerOnliId,
+      to: 'settlement',
+      count: quantity,
+      timestamp: now,
+    });
+
+    res.json({
+      listingId,
+      sellerOnliId,
+      quantity,
+      unitPrice: unitPrice ?? 1_000_000,
+      status: 'active',
+      escrowedFrom: sellerOnliId,
+      sellerVaultRemaining: vault.count,
+    });
+  });
+
+  // ── POST /sim/vault-adjust ────────────────────────────────────────────
+  // Directly adjust a vault count (for mock chat buy/sell/transfer journeys)
+  router.post('/sim/vault-adjust', (req: Request, res: Response) => {
+    const state = getState();
+    const { vaultId, delta, reason } = req.body;
+
+    if (!vaultId || delta === undefined) {
+      res.status(400).json({ error: 'vaultId and delta required' });
+      return;
+    }
+
+    if (vaultId === 'treasury') {
+      state.vaults.treasury.count += delta;
+      res.json({ vaultId, newCount: state.vaults.treasury.count });
+      return;
+    }
+
+    const user = state.vaults.users.get(vaultId);
+    if (!user) {
+      // Auto-create vault if it doesn't exist
+      state.vaults.users.set(vaultId, { count: Math.max(0, delta), history: [] });
+      const created = state.vaults.users.get(vaultId)!;
+      created.history.push({
+        type: delta > 0 ? 'credit' : 'debit',
+        count: Math.abs(delta),
+        from: delta > 0 ? 'treasury' : vaultId,
+        to: delta > 0 ? vaultId : 'treasury',
+        eventId: `sim-adjust-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      });
+      res.json({ vaultId, newCount: created.count, created: true });
+      return;
+    }
+
+    user.count += delta;
+    user.history.push({
+      type: delta > 0 ? 'credit' : 'debit',
+      count: Math.abs(delta),
+      from: delta > 0 ? 'treasury' : vaultId,
+      to: delta > 0 ? vaultId : 'treasury',
+      eventId: `sim-adjust-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({ vaultId, newCount: user.count, reason: reason || 'sim-adjust' });
+  });
+
   // ── POST /sim/inject-error/:stage ────────────────────────────────────
   router.post('/sim/inject-error/:stage', (req: Request, res: Response) => {
     const state = getState();

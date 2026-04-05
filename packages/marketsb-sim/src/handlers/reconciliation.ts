@@ -16,13 +16,27 @@ interface CodeSummary {
 function runReconciliation(state: SimState) {
   const codeLabels: Record<number, string> = {
     100: 'Treasury Reserve',
+    125: 'Global Assurance Pool',
     200: 'Settlement Reserve',
     300: 'Operating Revenue',
     400: 'Pending Deposit Staging',
     450: 'Pending Withdrawal Staging',
-    500: 'User Funding VA',
-    510: 'User Species VA',
-    520: 'Assurance VA',
+    // Alex Morgan (user-001)
+    500: 'Alex Funding VA',
+    510: 'Alex Species VA',
+    520: 'Alex Assurance VA',
+    // Pepper Potts (user-456)
+    530: 'Pepper Funding VA',
+    540: 'Pepper Species VA',
+    550: 'Pepper Assurance VA',
+    // Tony Stark (user-789)
+    560: 'Tony Funding VA',
+    570: 'Tony Species VA',
+    580: 'Tony Assurance VA',
+    // Happy Hogan (user-012)
+    590: 'Happy Funding VA',
+    600: 'Happy Species VA',
+    610: 'Happy Assurance VA',
   };
 
   const codeSummaries = new Map<number, CodeSummary>();
@@ -50,6 +64,11 @@ function runReconciliation(state: SimState) {
 
   const now = new Date().toISOString();
 
+  const cashierTxByState: Record<string, number> = {};
+  for (const t of state.cashierTransactions.values()) {
+    cashierTxByState[t.state] = (cashierTxByState[t.state] ?? 0) + 1;
+  }
+
   return {
     status: totalVABalance > 0n ? 'completed' : 'empty',
     codeSummaries: [...codeSummaries.values()],
@@ -63,6 +82,15 @@ function runReconciliation(state: SimState) {
     totalWalletBalance,
     variance: totalWalletBalance - totalVABalance,
     reconciledAt: now,
+    cashier: {
+      initialized: state.cashier?.initialized ?? false,
+      accountCount: state.cashierAccounts.size,
+      transactionCount: state.cashierTransactions.size,
+      transactionsByState: cashierTxByState,
+      receiptCount: state.cashierReceipts.size,
+      cashierOracleEntryCount: state.cashierOracleEntries.size,
+      auditEventCount: state.auditEvents.length,
+    },
   };
 }
 

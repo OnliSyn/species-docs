@@ -10,3 +10,4 @@ import './market-stats-card';
 import './vault-card';
 import './lifecycle-card';
 import './info-card';
+import './rotating-fact-card';

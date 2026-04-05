@@ -1,12 +1,19 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  getFundingBalance,
+  getSpeciesVABalance,
+  getVaultBalance,
+  getAssuranceBalance,
+  getOracleLedger,
+  getAssetOracleLedger,
+  getMarketplaceStats,
+  getListings,
+  fmtUSDC,
+  CURRENT_USER,
+} from '@/lib/sim-client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-// ---------------------------------------------------------------------------
-// Environment
-// ---------------------------------------------------------------------------
-const USE_REAL_AI = !!process.env.ANTHROPIC_API_KEY;
 
 // ---------------------------------------------------------------------------
 // Tool result interface
@@ -18,92 +25,112 @@ interface SystemToolResult {
 }
 
 // ---------------------------------------------------------------------------
-// Mock tool matching — mirrors chat route getToolResult but works for all modes
+// Live tool matching — fetches from sims, falls back to static responses
 // ---------------------------------------------------------------------------
-function matchPromptToTool(prompt: string): SystemToolResult | null {
+async function matchPromptToTool(prompt: string): Promise<SystemToolResult | null> {
   const lower = prompt.toLowerCase();
 
   // Balance
   if (lower.includes('funding balance') || lower.includes('my balance') || lower.includes('current funding')) {
+    const va = await getFundingBalance();
+    const posted = va?.posted ?? 0;
     return {
       toolName: 'get_funding_balance',
       data: {
         _ui: 'BalanceCard',
         label: 'Funding Account',
-        vaId: 'va-funding-user-001',
+        vaId: va?.vaId || `va-funding-${CURRENT_USER.ref}`,
         subtype: 'funding',
-        balance: { posted: 12450000000, pending: 0, available: 12450000000 },
+        balance: { posted, pending: va?.pending ?? 0, available: posted },
         currency: 'USDC',
-        status: 'active',
+        status: va?.status || 'active',
       },
-      commentary: 'Your funding account is active and fully available for transactions.',
+      commentary: `Your funding account balance is $${fmtUSDC(posted)} USDC.`,
     };
   }
 
   // Trading account balance (dark variant)
   if (lower.includes('trading') && lower.includes('balance')) {
+    const [specVA, vault] = await Promise.all([
+      getSpeciesVABalance(),
+      getVaultBalance(),
+    ]);
+    const posted = specVA?.posted ?? 0;
+    const count = vault?.count ?? 0;
     return {
       toolName: 'get_trading_balance',
       data: {
         _ui: 'BalanceCard',
         label: 'Trading Account',
-        vaId: 'va-trading-user-001',
+        vaId: specVA?.vaId || `va-species-${CURRENT_USER.ref}`,
         subtype: 'trading',
-        balance: { posted: 8500000000, pending: 0, available: 8500000000 },
+        balance: { posted, pending: specVA?.pending ?? 0, available: posted },
         currency: 'USDC',
-        status: 'active',
-        specieCount: 8500,
+        status: specVA?.status || 'active',
+        specieCount: count,
         variant: 'dark',
       },
-      commentary: 'Your trading account holds 8,500 SPECIES.',
+      commentary: `Your trading account holds ${count.toLocaleString()} SPECIES.`,
     };
   }
 
   // Assurance / Buy Back Guarantee
   if (lower.includes('assurance') || lower.includes('coverage') || lower.includes('buy back') || lower.includes('guarantee')) {
+    const assurance = await getAssuranceBalance();
     return {
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        balance: 950000000000,
-        outstanding: 1000000000000,
-        coverage: 95,
+        balance: assurance?.balance ?? 0,
+        outstanding: assurance?.outstanding ?? 0,
+        coverage: assurance?.coverage ?? 0,
       },
-      commentary: 'Coverage is healthy at 95%.',
+      commentary: assurance
+        ? `Coverage is at ${assurance.coverage}%.`
+        : 'Unable to fetch assurance data.',
     };
   }
 
-  // Transactions
+  // Transactions — both funding and asset ledgers
   if (lower.includes('transaction') || lower.includes('last 5') || lower.includes('last five')) {
+    const [fundingLedger, assetLedger] = await Promise.all([
+      getOracleLedger(CURRENT_USER.ref, 5),
+      getAssetOracleLedger(CURRENT_USER.onliId, 5),
+    ]);
     return {
       toolName: 'get_recent_transactions',
       data: {
         _ui: 'TransactionList',
-        transactions: [
-          { type: 'deposit', description: 'USDC Deposit', amount: 5000000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'buy', description: 'Buy 1,000 SPECIES', amount: -1030000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'transfer', description: 'Transfer to Pepper Potts', amount: -100000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'sell', description: 'Sell 500 SPECIES', amount: 490000000, date: 'Apr 4, 2026', status: 'pending' },
-          { type: 'withdrawal', description: 'USDC Withdrawal', amount: -2000000000, date: 'Apr 4, 2026', status: 'completed' },
-        ],
+        funding: fundingLedger || [],
+        asset: assetLedger || [],
       },
-      commentary: 'Here are your 5 most recent transactions.',
+      commentary: 'Recent funding and asset transactions.',
     };
   }
 
   // Market stats
   if (lower.includes('market') && (lower.includes('stat') || lower.includes('overview'))) {
+    const [stats, listings] = await Promise.all([
+      getMarketplaceStats(),
+      getListings(),
+    ]);
+    const s = (stats || {}) as Record<string, unknown>;
+    // Sum remaining quantity across active listings
+    const listedSpecieCount = (listings || []).reduce((sum: number, l: any) => sum + (l.remainingQuantity || 0), 0);
     return {
       toolName: 'get_marketplace_stats',
       data: {
         _ui: 'MarketStats',
-        totalOrders: 12847,
-        completedOrders: 12500,
-        totalVolumeSpecie: 5000000,
-        activeListings: 42,
-        treasuryCount: 999000000,
+        totalOrders: s.totalOrders ?? 0,
+        completedOrders: s.completedOrders ?? 0,
+        totalVolumeSpecie: s.totalVolumeSpecie ?? 0,
+        activeListings: s.activeListings ?? 0,
+        treasuryCount: s.treasuryCount ?? 0,
+        listedSpecieCount,
       },
-      commentary: 'The marketplace is active with 42 open listings.',
+      commentary: stats
+        ? `${listedSpecieCount.toLocaleString()} species listed for sale across ${s.activeListings ?? 0} listings. Treasury holds ${((s.treasuryCount as number) ?? 0).toLocaleString()}.`
+        : 'Unable to fetch marketplace stats.',
     };
   }
 
@@ -112,33 +139,70 @@ function matchPromptToTool(prompt: string): SystemToolResult | null {
     return {
       toolName: 'system_info',
       data: {
-        _ui: 'InfoCard',
+        _ui: 'RotatingFactCard',
+        facts: [
+          'Onli is a possession-based system for true digital ownership. It makes it possible for a digital asset to exist as a one-of-one object that is held in possession, transferred directly, and not duplicated.',
+          'Traditional digital systems are based on access. Onli is based on possession. That is the paradigm shift.',
+          'Onli is for any use case where digital assets must be singular, ownable, and directly transferable — credentials, licenses, financial instruments, data, and more.',
+        ],
         title: 'What is Onli?',
-        body: 'Onli is a possession-based system for true digital ownership. It makes it possible for a digital asset to exist as a one-of-one object that is held in possession, transferred directly, and not duplicated. Traditional digital systems are based on access. Onli is based on possession.',
       },
       commentary: 'Onli is a possession-based digital asset system.',
     };
   }
 
-  // Interesting fact (canonical)
-  if (lower.includes('interesting fact') || lower.includes('fun fact')) {
-    const facts = [
-      'A blockchain moves records about ownership. Onli moves the actual asset. That is the fundamental difference.',
-      'In Onli, actual possession means the asset resides in your Vault and is bound to your Gene. You hold the asset itself, not a claim.',
-      'The core problem Onli solves is the Uniqueness-Quantification Problem: digital data is normally copyable, which makes true ownership impossible unless singularity is enforced at the data level.',
-      'Onli uses tensors — multi-dimensional data structures — because they support the structural model required for singular digital containers better than flat file metaphors.',
-      'Appliances are applications built on Onli Cloud APIs. They orchestrate interactions but do not own or control the asset itself. Only the Owner can authorize movement.',
-      'A ledger can describe ownership claims, but it cannot create singular digital reality. That is why Onli replaces ledgers with possession.',
-    ];
-    const fact = facts[Math.floor(Math.random() * facts.length)];
+  // How does Onli work
+  if (lower.includes('how does onli work') || (lower.includes('how') && lower.includes('onli') && lower.includes('work'))) {
     return {
       toolName: 'system_info',
       data: {
-        _ui: 'InfoCard',
-        title: 'Did you know?',
-        body: fact,
+        _ui: 'RotatingFactCard',
+        facts: [
+          'Onli works through four core elements: Assets (things you own), Genomes (tensor-based containers), Genes (control credentials), and Vaults (secure holding environments).',
+          'When an asset transfers in Onli, it leaves one Vault and appears in another. The transfer is direct — no copy remains. No ledger substitutes for the movement.',
+          'Onli binds a singular asset to a control credential and a secure holding environment, so transfer means movement of the asset itself rather than movement of a claim.',
+        ],
+        title: 'How It Works',
       },
-      commentary: fact,
+      commentary: 'Onli works through assets, genomes, genes, and vaults.',
+    };
+  }
+
+  // Paradigm shift
+  if (lower.includes('paradigm shift') || (lower.includes('paradigm') && lower.includes('shift'))) {
+    return {
+      toolName: 'system_info',
+      data: {
+        _ui: 'RotatingFactCard',
+        facts: [
+          'The paradigm shift: traditional digital systems provide access. Onli provides possession. You hold the asset, not a promise.',
+          'With Onli, you control it directly — not through platform permission. True scarcity is enforced at the data level, not just recorded in a ledger.',
+          'A blockchain moves records about ownership. Onli moves the actual asset. That is the fundamental difference.',
+        ],
+        title: 'The Paradigm Shift',
+      },
+      commentary: 'From access to possession.',
+    };
+  }
+
+  // Interesting facts (canonical) — rotating carousel
+  if (lower.includes('interesting fact') || lower.includes('fun fact')) {
+    return {
+      toolName: 'system_info',
+      data: {
+        _ui: 'RotatingFactCard',
+        facts: [
+          'A blockchain moves records about ownership. Onli moves the actual asset. That is the fundamental difference.',
+          'In Onli, actual possession means the asset resides in your Vault and is bound to your Gene. You hold the asset itself, not a claim.',
+          'The core problem Onli solves is the Uniqueness-Quantification Problem: digital data is normally copyable, which makes true ownership impossible unless singularity is enforced at the data level.',
+          'Onli uses tensors — multi-dimensional data structures — because they support the structural model required for singular digital containers better than flat file metaphors.',
+          'Appliances are applications built on Onli Cloud APIs. They orchestrate interactions but do not own or control the asset itself. Only the Owner can authorize movement.',
+          'A ledger can describe ownership claims, but it cannot create singular digital reality. That is why Onli replaces ledgers with possession.',
+          'A key is proof of access, not proof of ownership. In Onli, the Gene is bound to a Vault where the asset physically resides — proving control of the possession environment, not just an access point.',
+          'Others tried to solve ownership at the permission layer or the ledger layer. Onli solves it at the asset layer — the solution is built into the structure of the data container itself.',
+        ],
+      },
+      commentary: 'Rotating facts about Onli.',
     };
   }
 
@@ -208,12 +272,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'prompts array required' }, { status: 400 });
   }
 
-  // TODO: When USE_REAL_AI is true, send prompts to Claude with tool definitions
-  // For now, use mock tool matching for all cases
-
   const results: SystemToolResult[] = [];
   for (const prompt of prompts) {
-    const result = matchPromptToTool(prompt);
+    const result = await matchPromptToTool(prompt);
     if (result) {
       results.push(result);
     }

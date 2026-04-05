@@ -22,7 +22,7 @@ const isDirectRun =
 
 if (isDirectRun) {
   (async () => {
-    const port = parseInt(process.env.PORT ?? '4002', 10);
+    const port = parseInt(process.env.PORT ?? '4012', 10);
     const marketsbUrl = process.env.MARKETSB_URL ?? 'http://localhost:4001/api/v1';
 
     const sim = createSpeciesSim({ port, marketsbUrl });

@@ -12,7 +12,7 @@ export interface VaultEvent {
 export interface AssetOracleEntry {
   id: string;
   eventId: string;
-  type: 'change_owner';
+  type: 'change_owner' | 'listing_escrow' | 'listing_release';
   from: string;
   to: string;
   count: number;

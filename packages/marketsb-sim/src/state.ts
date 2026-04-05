@@ -1,6 +1,28 @@
 // ── @marketsb/sim — In-memory state model ──
 // All balances are bigint. Never use number for money.
 
+import type {
+  AuditEvent,
+  CashierAccount,
+  CashierOracleEntry,
+  CashierReceipt,
+  CashierRuntimeConfig,
+  CashierSystemUser,
+  CashierTransaction,
+} from './cashier-types.js';
+
+export type {
+  AuditEvent,
+  CashierAccount,
+  CashierOracleEntry,
+  CashierReceipt,
+  CashierRuntimeConfig,
+  CashierSystemUser,
+  CashierTransaction,
+} from './cashier-types.js';
+
+export { CASHIER_VA } from './cashier-types.js';
+
 export interface VirtualAccountState {
   vaId: string;
   ownerRef: string;
@@ -79,6 +101,18 @@ export interface SimState {
   };
   idempotencyKeys: Map<string, unknown>;
   errorInjections: Map<string, boolean>;
+  /** Cashier service spec domain */
+  cashier: CashierRuntimeConfig | null;
+  cashierAccounts: Map<string, CashierAccount>;
+  cashierTransactions: Map<string, CashierTransaction>;
+  cashierReceipts: Map<string, CashierReceipt>;
+  cashierOracleEntries: Map<string, CashierOracleEntry>;
+  cashierSystemUsers: Map<string, CashierSystemUser>;
+  /** Idempotency keys for spec cashier POST endpoints */
+  cashierIdempotency: Map<string, unknown>;
+  auditEvents: AuditEvent[];
+  /** When true, post-batch uses strict VA transfer validation */
+  useStrictCashierPostBatch: boolean;
 }
 
 export interface SimConfig {
@@ -87,6 +121,8 @@ export interface SimConfig {
   depositLifecycleDelayMs: number;
   withdrawalLifecycleDelayMs: number;
   sendoutApprovalThresholdUsd: bigint;
+  /** When true, POST /cashier/post-batch requires all VAs to exist and uses strict debits */
+  useStrictCashierPostBatch: boolean;
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
@@ -95,6 +131,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   depositLifecycleDelayMs: 2000,
   withdrawalLifecycleDelayMs: 3000,
   sendoutApprovalThresholdUsd: 10_000_000_000n, // $10,000
+  useStrictCashierPostBatch: false,
 };
 
 export function createEmptyState(): SimState {
@@ -112,6 +149,15 @@ export function createEmptyState(): SimState {
     },
     idempotencyKeys: new Map(),
     errorInjections: new Map(),
+    cashier: null,
+    cashierAccounts: new Map(),
+    cashierTransactions: new Map(),
+    cashierReceipts: new Map(),
+    cashierOracleEntries: new Map(),
+    cashierSystemUsers: new Map(),
+    cashierIdempotency: new Map(),
+    auditEvents: [],
+    useStrictCashierPostBatch: false,
   };
 }
 

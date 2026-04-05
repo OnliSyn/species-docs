@@ -16,6 +16,28 @@ export interface WsEvent {
 
 export type WsEmitter = (eventId: string, event: WsEvent) => void;
 
+/** Must match @marketsb/sim seed treasury VA id */
+const MARKETSB_TREASURY_VA_ID = 'treasury-100';
+
+function batchTbBatchId(batchResult: unknown): string | undefined {
+  if (!batchResult || typeof batchResult !== 'object') return undefined;
+  const b = batchResult as Record<string, unknown>;
+  if (typeof b.tbBatchId === 'string') return b.tbBatchId;
+  if (typeof b.batchId === 'string') return b.batchId;
+  return undefined;
+}
+
+function batchFundingOracle(batchResult: unknown, fallback: string): string {
+  if (!batchResult || typeof batchResult !== 'object') return fallback;
+  const b = batchResult as Record<string, unknown>;
+  const refs = b.oracleRefs;
+  if (Array.isArray(refs) && refs.length > 0 && typeof refs[0] === 'string') {
+    return refs[0];
+  }
+  if (typeof b.oracleRef === 'string') return b.oracleRef;
+  return fallback;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function delay(ms: number): Promise<void> {
@@ -88,9 +110,12 @@ export async function runBuyPipeline(
     failOrder(emit, order, 'order.validated', 'validation_failed');
     return;
   }
-  // Validate: treasury has stock
-  if (state.vaults.treasury.count < order.quantity) {
-    failOrder(emit, order, 'order.validated', 'insufficient_treasury_stock');
+  // Validate: treasury + active listings can fill the order
+  const activeListingStock = [...state.listings.values()]
+    .filter(l => l.status === 'active')
+    .reduce((sum, l) => sum + l.remainingQuantity, 0);
+  if (state.vaults.treasury.count + activeListingStock < order.quantity) {
+    failOrder(emit, order, 'order.validated', 'insufficient_total_stock');
     return;
   }
   emitStage(emit, order, 'order.validated', { validationResult: 'passed' });
@@ -150,6 +175,7 @@ export async function runBuyPipeline(
     return;
   }
 
+  // Call MarketSB Cashier — the checkout step. If cashier rejects, rollback assets.
   try {
     const buyerVaId = order.paymentSource?.vaId ?? 'va-funding-user-001';
     const cashierPayload = {
@@ -158,7 +184,7 @@ export async function runBuyPipeline(
       intent: 'buy',
       quantity: order.quantity,
       buyerVaId,
-      sellerVaId: 'va-treasury-100', // treasury VA in MarketSB
+      sellerVaId: MARKETSB_TREASURY_VA_ID,
       unitPrice: UNIT_PRICE,
       fees: { issuance: true, liquidity: true, listing: false },
     };
@@ -170,46 +196,41 @@ export async function runBuyPipeline(
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.warn(`[species-sim] Cashier call returned ${response.status}: ${errText}`);
-      // Non-fatal: log but continue (sim may not have MarketSB running)
+      const errText = await response.text().catch(() => '');
+      console.error(`[species-sim] Cashier rejected buy: ${response.status} ${errText}`);
+      // FATAL: rollback staged assets, fail the order
+      for (const fill of matchResult.fills) {
+        const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
+        changeOwner(state, 'settlement', source, fill.quantity, order.eventId);
+      }
+      failOrder(emit, order, 'payment.confirmed', `cashier_rejected: ${response.status}`);
+      return;
     }
 
-    const batchResult = response.ok ? await response.json() : null;
-    order.tbBatchId = batchResult?.batchId ?? `tb-batch-${order.eventId}`;
+    const batchResult = await response.json();
+    order.tbBatchId = batchTbBatchId(batchResult) ?? `tb-batch-${order.eventId}`;
 
-    // Compute fees for the receipt
-    const orderAmount = BigInt(order.quantity) * BigInt(UNIT_PRICE);
-    const issuanceFee = BigInt(order.quantity) * 10_000n;
-    const liquidityFee = (orderAmount * 200n) / 10_000n;
-    order.totalCost = Number(orderAmount + issuanceFee + liquidityFee);
-    order.fees = {
-      issuance: Number(issuanceFee),
-      liquidity: Number(liquidityFee),
-      listing: 0,
-    };
+    // Read fees from cashier response (MarketSB is the authority on fees)
+    const transfers = batchResult.transfers ?? [];
+    const issuanceFee = Number(transfers.find((t: any) => t.type === 'issuance_fee')?.amount ?? 0);
+    const liquidityFee = Number(transfers.find((t: any) => t.type === 'liquidity_fee')?.amount ?? 0);
+    const assetCost = Number(transfers.find((t: any) => t.type === 'asset_cost')?.amount ?? 0);
+    order.totalCost = assetCost + issuanceFee + liquidityFee;
+    order.fees = { issuance: issuanceFee, liquidity: liquidityFee, listing: 0 };
     order.oracleRefs = {
-      fundingOracle: batchResult?.oracleRef ?? `fo-${order.eventId}`,
+      fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
       assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
-    console.warn(`[species-sim] Cashier call failed: ${msg} (continuing pipeline)`);
-    order.tbBatchId = `tb-batch-${order.eventId}`;
-
-    const orderAmount = BigInt(order.quantity) * BigInt(UNIT_PRICE);
-    const issuanceFee = BigInt(order.quantity) * 10_000n;
-    const liquidityFee = (orderAmount * 200n) / 10_000n;
-    order.totalCost = Number(orderAmount + issuanceFee + liquidityFee);
-    order.fees = {
-      issuance: Number(issuanceFee),
-      liquidity: Number(liquidityFee),
-      listing: 0,
-    };
-    order.oracleRefs = {
-      fundingOracle: `fo-${order.eventId}`,
-      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
-    };
+    console.error(`[species-sim] Cashier unreachable for buy: ${msg}`);
+    // FATAL: no payment = no asset transfer. Rollback.
+    for (const fill of matchResult.fills) {
+      const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
+      changeOwner(state, 'settlement', source, fill.quantity, order.eventId);
+    }
+    failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
+    return;
   }
 
   emitStage(emit, order, 'payment.confirmed', {
@@ -507,16 +528,17 @@ export async function runSellPipeline(
     return;
   }
 
+  // Call MarketSB Cashier for sell settlement. Fatal on failure.
   try {
     const cashierPayload = {
       eventId: order.eventId,
       matchId: order.matches[0].matchId,
       intent: 'sell',
       quantity: order.quantity,
-      buyerVaId: 'va-treasury-100', // treasury buys in sell orders
+      buyerVaId: MARKETSB_TREASURY_VA_ID,
       sellerVaId: order.paymentSource?.vaId ?? 'va-funding-user-001',
       unitPrice: UNIT_PRICE,
-      fees: { issuance: false, liquidity: true, listing: false },
+      fees: { issuance: false, liquidity: false, listing: false }, // No fees on P2P sell — fees are handled by list/redeem journeys
     };
 
     const response = await fetch(`${config.marketsbUrl}/cashier/post-batch`, {
@@ -525,22 +547,35 @@ export async function runSellPipeline(
       body: JSON.stringify(cashierPayload),
     });
 
-    const batchResult = response.ok ? await response.json() : null;
-    order.tbBatchId = batchResult?.batchId ?? `tb-batch-${order.eventId}`;
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error(`[species-sim] Cashier rejected sell: ${response.status} ${errText}`);
+      // Rollback: return escrowed species to seller, remove listing
+      changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+      state.listings.delete(listingId);
+      failOrder(emit, order, 'payment.confirmed', `cashier_rejected: ${response.status}`);
+      return;
+    }
+
+    const batchResult = await response.json();
+    order.tbBatchId = batchTbBatchId(batchResult) ?? `tb-batch-${order.eventId}`;
+    order.oracleRefs = {
+      fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
+      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
-    console.warn(`[species-sim] Cashier call failed for sell: ${msg}`);
-    order.tbBatchId = `tb-batch-${order.eventId}`;
+    console.error(`[species-sim] Cashier unreachable for sell: ${msg}`);
+    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+    state.listings.delete(listingId);
+    failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
+    return;
   }
 
+  // Read fees from cashier response (MarketSB is the fee authority)
   const orderAmount = BigInt(order.quantity) * BigInt(UNIT_PRICE);
-  const liquidityFee = (orderAmount * 200n) / 10_000n;
   order.totalCost = Number(orderAmount);
-  order.fees = { issuance: 0, liquidity: Number(liquidityFee), listing: 0 };
-  order.oracleRefs = {
-    fundingOracle: `fo-${order.eventId}`,
-    assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
-  };
+  order.fees = { issuance: 0, liquidity: 0, listing: 0 };
 
   emitStage(emit, order, 'payment.confirmed', {
     tbBatchId: order.tbBatchId,

@@ -46,7 +46,7 @@ export function GenUISlot() {
               key={card.id}
               className="relative rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3 shadow-sm"
             >
-              <DismissButton onDismiss={() => dismissCard(card.id)} />
+              <CollapseButton onCollapse={() => dismissCard(card.id)} />
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] mb-1">
                 {card.toolName}
               </p>
@@ -60,7 +60,7 @@ export function GenUISlot() {
         const Component = getUIComponent(card.ui) as React.ComponentType<GenUIProps>;
         return (
           <div key={card.id} className="relative animate-slide-in-left">
-            <DismissButton onDismiss={() => dismissCard(card.id)} />
+            <CollapseButton onCollapse={() => dismissCard(card.id)} />
             <Component data={card.data} />
           </div>
         );
@@ -69,16 +69,14 @@ export function GenUISlot() {
   );
 }
 
-function DismissButton({ onDismiss }: { onDismiss: () => void }) {
+function CollapseButton({ onCollapse }: { onCollapse: () => void }) {
   return (
     <button
-      onClick={onDismiss}
-      className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-[var(--color-bg-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-sidebar)] transition-colors"
-      aria-label="Dismiss card"
+      onClick={onCollapse}
+      className="absolute top-3 right-3 z-10 w-4 h-4 rounded-full flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+      aria-label="Collapse card"
     >
-      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M1 1l6 6M7 1l-6 6" />
-      </svg>
+      <span className="block w-1.5 h-1.5 rounded-full bg-current opacity-40 hover:opacity-70 transition-opacity" />
     </button>
   );
 }

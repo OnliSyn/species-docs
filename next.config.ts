@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/marketplace/v1/:path*',
-        destination: 'http://localhost:4002/marketplace/v1/:path*',
+        destination: 'http://localhost:4012/marketplace/v1/:path*',
       },
     ];
   },

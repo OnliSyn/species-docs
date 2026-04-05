@@ -9,6 +9,26 @@ import {
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod/v4';
 import * as crypto from 'crypto';
+import {
+  getUserState,
+  getFundingBalance,
+  getSpeciesVABalance,
+  getVaultBalance,
+  getAssuranceBalance,
+  getOracleLedger,
+  getMarketplaceStats,
+  getListings,
+  creditVA,
+  debitVA,
+  postCashierBatch,
+  adjustVault,
+  cashierRedeem,
+  cashierList,
+  createSpeciesListing,
+  fmtUSDC,
+  CURRENT_USER,
+  type UserState,
+} from '@/lib/sim-client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -30,6 +50,15 @@ try {
   console.warn('[chat] Could not load onli-canon.md');
 }
 
+let SPECIES_CANON = '';
+try {
+  SPECIES_CANON = readFileSync(join(process.cwd(), 'src/config/species-canon.md'), 'utf-8');
+} catch {
+  console.warn('[chat] Could not load species-canon.md');
+}
+
+const FULL_CANON = ONLI_CANON + '\n\n---\n\n' + SPECIES_CANON;
+
 // ---------------------------------------------------------------------------
 // System prompts
 // ---------------------------------------------------------------------------
@@ -43,26 +72,150 @@ Species VA: va_species_001
 Important rules:
 - All amounts are in USDC (1 USDC = 1,000,000 base units)
 - 1 Specie = $1.00 USDC
-- Fees: Issuance $0.01/Specie, Liquidity 2%
+- Fees: Issuance $0.01/Specie, Liquidity 1%, Listing $50 flat
+- Sell = list on marketplace (listing fee). Redeem = sell back to MarketMaker (liquidity fee, assurance pays 1:1)
 - Always use the tools to get real data, don't make up numbers
-- For write operations (buy, sell, transfer), always present a clear summary and ask for confirmation`;
+- For write operations (buy, sell, transfer, redeem), present a clear summary and ask for confirmation`;
 
   if (mode === 'ask')
-    return base + `\nYou are in Ask mode. You answer questions about the Onli platform, balances, transactions, and account status. You are also the authoritative voice on what Onli is, how it works, and its core concepts. Use the Onli Canon below as your foundational knowledge — never contradict it. Be concise and data-driven for account queries, and clear and canonical for conceptual questions.\n\n--- ONLI CANON ---\n${ONLI_CANON}\n--- END CANON ---`;
+    return base + `\nYou are in Ask mode — general information about Onli. You answer questions about what Onli is, how it works, its core concepts, balances, transactions, and account status. Use the Onli Canon below as your foundational knowledge — never contradict it. Be concise for data queries. Be clear and canonical for conceptual questions. Use the baseball card analogy when simplifying.\n\n--- ONLI CANON ---\n${FULL_CANON}\n--- END CANON ---`;
   if (mode === 'trade')
-    return base + '\nYou are in Trade mode. Guide users through buy/sell/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing.';
+    return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace ($50 listing fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1).';
   if (mode === 'learn')
-    return base + `\nYou are in Learn mode. You are an educator for the Onli platform. Use the Onli Canon below as your authoritative source. Explain concepts thoroughly using the canonical definitions and analogies provided. Follow the guardrails: prefer "asset" for concepts, "Genome" for technical structure. Use the baseball card analogy for simple explanations. Never describe Onli as a blockchain alternative — it replaces ledger-based ownership with possession-based ownership.\n\n--- ONLI CANON ---\n${ONLI_CANON}\n--- END CANON ---`;
+    return base + `\nYou are in Learn mode — developer-focused and technical. You help developers understand the Onli architecture, APIs, and how to build Appliances. Explain the Species pipeline, Cashier settlement, Vault operations, ChangeOwner, AskToMove, and the dual-sim architecture (MarketSB for funding, Species-sim for assets). Reference API endpoints, data flows, and transaction types. Use the Canon for foundational concepts but focus on technical implementation.\n\n--- ONLI CANON ---\n${FULL_CANON}\n--- END CANON ---`;
   return base;
 }
 
 // ---------------------------------------------------------------------------
-// Mock user state (simulated balances)
+// Canon Q&A — keyword-matched answers from onli-canon.md
+// Covers every question in the Ask mode Canvas walkthrough
 // ---------------------------------------------------------------------------
-const MOCK_STATE = {
-  fundingBalance: 12_450, // $12,450.00
-  specieBalance: 8_500,   // 8,500 SPECIES
+interface CanonEntry {
+  keywords: string[];
+  answer: string;
+}
+
+const CANON_QA: CanonEntry[] = [
+  {
+    keywords: ['what is onli', 'explain onli'],
+    answer: '**Onli** is a possession-based system for true digital ownership.\n\nIt makes it possible for a digital asset to exist as a **one-of-one object** that is held in possession, transferred directly, and not duplicated.\n\n- Traditional digital systems are based on **access**\n- Onli is based on **possession**\n\nThat is the paradigm shift.',
+  },
+  {
+    keywords: ["like i'm 16", 'like im 16', 'explain it simply', 'simple terms'],
+    answer: 'Imagine you own a rare baseball card. If you hand it to someone, you don\'t have it anymore — they do. That\'s **possession**.\n\nIn today\'s digital world, systems write down that you "have" something, but the file can still be copied. You hold a **claim**, not the thing.\n\n**Onli** makes digital assets work like that baseball card:\n\n- If it\'s in your Vault, you have it\n- If you transfer it, it leaves your Vault\n- It appears in the other person\'s Vault\n- No duplicate remains\n\nOnli makes digital things behave like real things.',
+  },
+  {
+    keywords: ['what problem', 'problem does onli solve', 'core problem'],
+    answer: 'The core problem is the **Uniqueness-Quantification Problem**.\n\nDigital data can normally be copied infinitely at near-zero cost. That makes it excellent for communication but terrible for ownership.\n\nIf anything can be copied perfectly:\n- Scarcity breaks down\n- Possession is ambiguous\n- Ownership becomes a social claim, not a technical reality\n\nOnli solves this by making the **asset itself singular** at the data level.',
+  },
+  {
+    keywords: ['paradigm shift', 'what is the shift'],
+    answer: 'The paradigm shift is from **access** to **possession**.\n\n- **Traditional systems:** You get permission to view or use something. A platform controls access. You hold a claim in a database.\n- **Onli:** You hold the asset itself in your Vault. You control it with your Gene. Transfer means the asset physically moves.\n\n> Traditional digital systems provide access. Onli provides possession.',
+  },
+  {
+    keywords: ['what is an asset', 'define asset'],
+    answer: 'An **asset is property owned**.\n\nFor something to qualify as an asset, it must have:\n\n- **Right of exclusion** — you can prevent others from using it\n- **Right of disposition** — you can transfer, use, or destroy it\n\nIf these rights aren\'t enforceable, the thing is not truly an asset — it\'s information or a claim.\n\nFrom these come three required assertions:\n1. **Existence** — it must be a definable thing\n2. **Allocation** — it must be assignable to an owner\n3. **Rights & obligations** — the owner can exercise control',
+  },
+  {
+    keywords: ['what makes something property', 'property'],
+    answer: 'Property requires two enforceable rights:\n\n1. **Right of exclusion** — the ability to prevent others from accessing or using it\n2. **Right of disposition** — the ability to transfer, use, or destroy it\n\nWithout these, you don\'t have property — you have information or a revocable permission.\n\n> True ownership requires property with enforceable rights. Ledgers only record claims about property — they do not create property.',
+  },
+  {
+    keywords: ['why does ownership matter', 'ownership matter in an economy'],
+    answer: 'Without an owner:\n- Allocation cannot be established\n- Rights cannot be exercised\n- Obligations cannot be assigned\n\nEvery economic system depends on three assertions: that an asset **exists**, that it is **allocated** to someone, and that the owner has **rights and obligations**.\n\nOwnership is the foundation of accounting, trade, and economic coordination. Without it, there is no economy — only shared access.',
+  },
+  {
+    keywords: ['what is a species', 'what is a specie', 'what are species'],
+    answer: 'A **Specie** is a singular digital asset on the Onli platform.\n\nEach Specie:\n- Is backed **1:1 by USDC** in the Assurance Account\n- Can be bought from the Treasury or marketplace listings\n- Can be listed for sale, transferred to another user, or redeemed\n- Lives in your Vault in actual possession\n\nSpecies serve as the training asset for learning how Onli works — real ownership, real transfers, real settlement.',
+  },
+  {
+    keywords: ['species training', 'species used for learning', 'how are species used'],
+    answer: 'Species are the **training system for learning Onli**.\n\nThey give you a real asset to work with:\n- **Fund** your account with USDC\n- **Buy** Species from the marketplace\n- **List** them for sale\n- **Transfer** to another user\n- **Redeem** through the MarketMaker\n\nEvery operation uses the real infrastructure — cashier settlement, vault ownership, oracle recording. It\'s not a simulation of Onli — it IS Onli, with Species as the training asset.',
+  },
+  {
+    keywords: ['how does onli work', 'how onli works'],
+    answer: 'Onli works through four core elements:\n\n- **Asset** — the thing being owned, transferred, or used\n- **Genome** — the hyper-dimensional container structure\n- **Gene** — the credential that binds control and authorization\n- **Vault** — the secure environment where the asset is held\n\nWhen an asset transfers:\n1. It **leaves** one Vault\n2. It **appears** in another Vault\n3. The transfer is **direct** — no copy remains\n4. No ledger update substitutes for the movement\n\n> Onli works by binding a singular asset to a control credential and a secure holding environment.',
+  },
+  {
+    keywords: ['what is an asset in onli'],
+    answer: 'In Onli, an **asset** is the practical thing being owned, controlled, issued, transferred, or used.\n\nIt is:\n- Held in a **Vault** (actual possession)\n- Controlled by a **Gene** (authorization credential)\n- Built on a **Genome** (technical container)\n\nThe asset is what you talk about philosophically and commercially. The Genome is the technical structure beneath it.',
+  },
+  {
+    keywords: ['what is a genome', 'genome'],
+    answer: 'A **Genome** is the underlying hyper-dimensional container structure that makes an asset possible.\n\nA Genome is:\n- A **tensor-based data container**\n- Designed to **evolve in state** rather than be duplicated\n- The technical substrate beneath the usable asset\n\n**Key distinction:**\n- **Asset** = the thing you talk about philosophically and commercially\n- **Genome** = the technical container structure that makes it possible',
+  },
+  {
+    keywords: ['what is a gene', 'gene'],
+    answer: 'A **Gene** is the credential that binds control, authorization, and continuity of ownership.\n\nIt is:\n- **Unforgeable** — backed by TEE hardware\n- **Bound** to a specific Vault\n- **Required** for any ownership transfer (ChangeOwner)\n\nThe Gene is the cryptographic identity that determines who can use, transfer, or destroy the asset. Without the Gene, the asset cannot move.',
+  },
+  {
+    keywords: ['what is a vault', 'vault'],
+    answer: 'A **Vault** is the secure environment where your asset resides in actual possession.\n\nIt is:\n- **TEE-backed** (Trusted Execution Environment)\n- **Device-local** via Onli_You\n- The place where ownership is **physical-like** — if it\'s in your Vault, you have it\n\nPossession is meaningful because the asset resides in a controlled Vault, not as a free-floating file or database entry.',
+  },
+  {
+    keywords: ['blockchain enough', 'why not blockchain', "isn't a blockchain"],
+    answer: 'A blockchain is not enough because it is fundamentally a system of **recorded claims**.\n\nA blockchain records transactions in a shared log and uses consensus to maintain agreement about state. But:\n\n- A blockchain moves **records about ownership**\n- Onli moves **the actual asset**\n\nIn Onli: no miners, no gas model, no public chain required. The focus is the asset itself, not a shared log.\n\n> A blockchain moves records about ownership. Onli moves the actual asset.',
+  },
+  {
+    keywords: ['ledger work', "wouldn't a ledger", 'why not a ledger'],
+    answer: 'A ledger can tell you:\n- Who should own something\n- Who transferred something\n- Who has a balance\n\nBut a ledger **cannot ensure** that the underlying thing is non-duplicative.\n\nA ledger is a record of claims. It is not the thing itself. It may be useful for accounting, but it is not sufficient as the basis of true digital possession.\n\n> A ledger can describe ownership claims, but it cannot create singular digital reality.',
+  },
+  {
+    keywords: ['actual possession', 'possession vs custodial', 'custodial'],
+    answer: '**Actual possession** means the asset resides in **your Vault** and is bound to **your Gene**.\n- You hold the asset\n- You control its use\n- Your ownership is based on possession\n\n**Custodial possession** means a third party holds the asset and gives you a ledger entry.\n- They hold the asset\n- You hold a claim\n- Your rights depend on their honesty and solvency\n\n> Actual possession means you hold the asset. Custodial means someone else holds the asset and you hold a claim.',
+  },
+  {
+    keywords: ['ledger ownership by proxy', 'ownership by proxy'],
+    answer: 'A ledger represents **ownership by proxy** because:\n\n- The ledger entry is a **record**, not the asset itself\n- Control depends on the system maintaining the ledger\n- The underlying asset (if it exists as data) may still be copyable\n\nOwnership is indirect — you don\'t hold the thing, you hold a record that says you should. Your rights depend on the ledger operator honoring that record.\n\n> True ownership requires property with enforceable rights. Ledgers only record claims about property.',
+  },
+  {
+    keywords: ['key proof of access', 'proof of access not ownership'],
+    answer: 'A cryptographic key is **proof of access**, not proof of ownership.\n\nA key lets you sign transactions or authenticate to a system. But:\n- The key proves you can **access** the system\n- It does not prove you **possess** the asset\n- The asset remains in the system\'s control, not yours\n\nIn Onli, the **Gene** is different — it is bound to a Vault where the asset physically resides. The Gene proves you control the possession environment, not just an access point.',
+  },
+  {
+    keywords: ["hasn't this problem been solved", "hasn't someone solved", 'solved before'],
+    answer: 'Because most systems approached the problem from the **wrong layer**.\n\nHistorically, people tried:\n- Access control\n- Digital rights management\n- Account balances\n- Public ledgers and tokens\n- Institutional custody\n\nThese manage permissions, claims, or consensus — but none solve the deeper issue of making the **digital object itself singular**.\n\nOnli\'s insight: the solution had to be built into the **structure of the data container** and its control environment, not merely into a recordkeeping system.\n\n> Others tried to solve ownership at the permission layer. Onli solves it at the asset layer.',
+  },
+  {
+    keywords: ['what can you build', 'build with onli', 'use cases'],
+    answer: 'Onli can be used anywhere true digital ownership matters:\n\n- Digital credentials and licenses\n- Legal documents, titles, and deeds\n- Private identity data\n- Financial instruments\n- Branded currencies or commodities\n- AI-native data structures\n- Proprietary models and intellectual property\n- Controlled data exchange\n\n**The general rule:** if the digital thing needs to be owned, transferred, restricted, verified, or held in possession — Onli is the right model.',
+  },
+  {
+    keywords: ['what are appliances', 'appliances'],
+    answer: '**Appliances** are applications built on Onli Cloud APIs.\n\nThey are the interface layer that developers create for real-world workflows. Appliances can:\n- Connect users to services\n- Orchestrate transactions\n- Enforce business logic\n- Request issuance, transfer, or settlement\n\nBut Appliances **do not possess the asset** and cannot unilaterally move it. Only the Owner, through the appropriate control path, can authorize movement.\n\n> Appliances orchestrate interactions but do not own or control the asset itself.',
+  },
+  {
+    keywords: ['private-data economy', 'private data economy', 'data economy'],
+    answer: 'The **private-data economy** is the idea that data itself can become a controlled asset owned by the individual.\n\nToday:\n- Companies collect, copy, and monetize your data\n- You are the product\n\nWith Onli:\n- Data exists as an **owned asset**\n- The owner controls access and use\n- Transfer is direct and intentional\n- Value is created without permanent third-party custody\n\n> The private-data economy is a model where data is owned and controlled as an asset rather than extracted and warehoused as a platform resource.',
+  },
+];
+
+function matchCanonQuestion(lower: string): string | null {
+  for (const entry of CANON_QA) {
+    for (const kw of entry.keywords) {
+      if (lower.includes(kw)) return entry.answer;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Live user state — fetched from sims, with fallback defaults
+// ---------------------------------------------------------------------------
+const FALLBACK_STATE: UserState = {
+  fundingBalance: 0,
+  specieCount: 0,
+  fundingVA: null,
+  vaultBalance: null,
 };
+
+async function getLiveState(): Promise<UserState> {
+  try {
+    return await getUserState();
+  } catch {
+    return FALLBACK_STATE;
+  }
+}
 
 function fmt(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -220,8 +373,10 @@ function detectJourneyState(messages: Message[]): JourneyState {
     if (isConfirm || isCancel) {
       let journey = 'unknown';
       if (lastAssistantLower.includes('fund your account')) journey = 'fund';
+      else if (lastAssistantLower.includes('issue') && lastAssistantLower.includes('treasury')) journey = 'issue';
       else if (lastAssistantLower.includes('buy') && lastAssistantLower.includes('species')) journey = 'buy';
-      else if (lastAssistantLower.includes('sell') && lastAssistantLower.includes('species')) journey = 'sell';
+      else if (lastAssistantLower.includes('redeem') && lastAssistantLower.includes('species')) journey = 'redeem';
+      else if (lastAssistantLower.includes('list') && lastAssistantLower.includes('species')) journey = 'sell';
       else if (lastAssistantLower.includes('transfer') && lastAssistantLower.includes('species')) journey = 'transfer';
       else if (lastAssistantLower.includes('withdraw')) journey = 'sendout';
 
@@ -248,8 +403,14 @@ function detectJourneyState(messages: Message[]): JourneyState {
 
   if (askedHowMany && hasNumber) {
     const qty = parseInt(numberMatch![1].replace(/,/g, ''));
-    if (allContext.includes('how many specie would you like to sell') || allContext.match(/sell.*specie/)) {
-      if (lastAssistantLower.includes('sell')) return { phase: 'confirm', journey: 'sell', quantity: qty };
+    if (lastAssistantLower.includes('redeem')) {
+      return { phase: 'confirm', journey: 'redeem', quantity: qty };
+    }
+    if (lastAssistantLower.includes('list for sale') || lastAssistantLower.includes('list')) {
+      return { phase: 'confirm', journey: 'sell', quantity: qty };
+    }
+    if (lastAssistantLower.includes('issue') || lastAssistantLower.includes('treasury')) {
+      return { phase: 'confirm', journey: 'issue', quantity: qty };
     }
     return { phase: 'confirm', journey: 'buy', quantity: qty };
   }
@@ -288,10 +449,16 @@ function detectJourneyState(messages: Message[]): JourneyState {
   if (lastUserLower.includes('fund') || (lastUserLower.includes('deposit') && !lastUserLower.includes('last deposit'))) {
     return { phase: 'start', journey: 'fund' };
   }
+  if (lastUserLower.includes('issue') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('treasury'))) {
+    return { phase: 'start', journey: 'issue' };
+  }
   if (lastUserLower.includes('buy') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('market'))) {
     return { phase: 'start', journey: 'buy' };
   }
-  if (lastUserLower.includes('sell') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('my'))) {
+  if (lastUserLower.includes('redeem') || lastUserLower.includes('buyback') || lastUserLower.includes('buy back') || (lastUserLower.includes('sell back') && lastUserLower.includes('market'))) {
+    return { phase: 'start', journey: 'redeem' };
+  }
+  if (lastUserLower.includes('sell') || lastUserLower.includes('list')) {
     return { phase: 'start', journey: 'sell' };
   }
   if (lastUserLower.includes('transfer')) {
@@ -330,8 +497,14 @@ function fundConfirm(amount: number): JourneyResponse {
   };
 }
 
-function fundExecute(amount: number): JourneyResponse {
-  MOCK_STATE.fundingBalance += amount;
+async function fundExecute(amount: number): Promise<JourneyResponse> {
+  // Credit the VA in the sim
+  const baseUnits = Math.round(amount * 1_000_000);
+  const vaId = `va-funding-${CURRENT_USER.ref}`;
+  await creditVA(vaId, baseUnits);
+
+  // Fetch updated balance
+  const state = await getLiveState();
   return {
     type: 'tool',
     toolName: 'journey_execute',
@@ -344,7 +517,7 @@ function fundExecute(amount: number): JourneyResponse {
         { label: 'Compliance passed', done: true },
         { label: 'Credited to account', done: true },
       ],
-      newBalance: `$${fmt(MOCK_STATE.fundingBalance)}`,
+      newBalance: `$${fmt(state.fundingBalance)}`,
     },
     followUp: `Deposit complete! $${fmt(amount)} USDC has been credited to your Funding Account.`,
   };
@@ -354,11 +527,12 @@ function buyStart(): string {
   return 'How many Specie would you like to buy?\n\nEach Specie is priced at **$1.00 USDC**. Just tell me the quantity.';
 }
 
-function buyConfirm(quantity: number): JourneyResponse {
+async function buyConfirm(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
   const liquidityFee = cost * 0.02;
   const total = cost + issuanceFee + liquidityFee;
+  const state = await getLiveState();
 
   return {
     type: 'tool',
@@ -372,13 +546,13 @@ function buyConfirm(quantity: number): JourneyResponse {
         { label: 'Liquidity Fee (2%)', value: `$${fmt(liquidityFee)}` },
         { label: 'Total', value: `$${fmt(total)}`, bold: true },
       ],
-      from: `Funding Account ($${fmt(MOCK_STATE.fundingBalance)})`,
+      from: `Funding Account ($${fmt(state.fundingBalance)})`,
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
   };
 }
 
-function buyExecute(quantity: number): JourneyResponse {
+async function buyExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
   const liquidityFee = cost * 0.02;
@@ -387,8 +561,31 @@ function buyExecute(quantity: number): JourneyResponse {
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  MOCK_STATE.fundingBalance -= total;
-  MOCK_STATE.specieBalance += quantity;
+  // Execute via MarketSB cashier (handles funding VA debit + species VA credit + fees)
+  const USDC = 1_000_000;
+  const cashierResult = await postCashierBatch({
+    eventId,
+    matchId: `match-${eventId}`,
+    intent: 'buy',
+    quantity,
+    buyerVaId: `va-funding-${CURRENT_USER.ref}`,
+    unitPrice: USDC,
+    fees: { issuance: true, liquidity: true },
+  });
+  console.log(`[BUY] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
+
+  // Only adjust vaults if cashier succeeded (keep USDC + species in sync)
+  if (cashierResult.ok) {
+    await Promise.all([
+      adjustVault(CURRENT_USER.onliId, quantity, 'buy'),
+      adjustVault('treasury', -quantity, 'buy-decrement'),
+    ]);
+  }
+
+  // Fetch updated balances
+  const state = await getLiveState();
+  const newFunding = state.fundingBalance;
+  const newSpecies = state.specieCount;
 
   return {
     type: 'tool',
@@ -410,70 +607,276 @@ function buyExecute(quantity: number): JourneyResponse {
         { label: 'Complete', system: 'SM', status: 'done' },
       ],
       receipt: { quantity, cost: `$${fmt(cost)}`, fees: `$${fmt(fees)}`, total: `$${fmt(total)}`, assurance: `$${fmt(cost)}` },
-      balances: { funding: `$${fmt(MOCK_STATE.fundingBalance)}`, species: `${MOCK_STATE.specieBalance.toLocaleString()} SPECIES` },
+      balances: { funding: `$${fmt(newFunding)}`, species: `${newSpecies.toLocaleString()} SPECIES` },
     },
     followUp: `Order complete! You bought ${quantity.toLocaleString()} SPECIES for $${fmt(total)}.`,
   };
 }
 
-function sellStart(): string {
-  return `How many Specie would you like to sell?\n\nYou currently hold **${MOCK_STATE.specieBalance.toLocaleString()} Specie** in your Vault. The sell price is **$1.00 USDC** per Specie (minus a 2% liquidity fee).`;
+// ---------------------------------------------------------------------------
+// ISSUE journey — buy from treasury, proceeds → assurance
+// ---------------------------------------------------------------------------
+
+function issueStart(): string {
+  return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC** plus fees (Issuance: $0.01/Specie, Liquidity: 2%).\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
 }
 
-function sellConfirm(quantity: number): JourneyResponse {
-  const gross = quantity * 1.00;
-  const liquidityFee = gross * 0.02;
-  const net = gross - liquidityFee;
+async function issueConfirm(quantity: number): Promise<JourneyResponse> {
+  const cost = quantity * 1.00;
+  const issuanceFee = quantity * 0.01;
+  const liquidityFee = cost * 0.02;
+  const total = cost + issuanceFee + liquidityFee;
+  const state = await getLiveState();
 
   return {
     type: 'tool',
     toolName: 'journey_confirm',
     data: {
       _ui: 'ConfirmCard',
-      title: `SELL ${quantity.toLocaleString()} SPECIES`,
+      title: `ISSUE ${quantity.toLocaleString()} SPECIES FROM TREASURY`,
       lines: [
-        { label: 'Gross Proceeds', value: `$${fmt(gross)}` },
-        { label: 'Liquidity Fee (2%)', value: `-$${fmt(liquidityFee)}` },
-        { label: 'Net Proceeds', value: `$${fmt(net)}`, bold: true },
+        { label: 'Asset Cost', value: `$${fmt(cost)}` },
+        { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
+        { label: 'Liquidity Fee (2%)', value: `$${fmt(liquidityFee)}` },
+        { label: 'Total Debit', value: `$${fmt(total)}`, bold: true },
+        { label: '', value: '' },
+        { label: 'Proceeds to Assurance', value: `$${fmt(cost)}` },
+        { label: 'Fees to Operating', value: `$${fmt(issuanceFee + liquidityFee)}` },
       ],
+      from: `Funding Account ($${fmt(state.fundingBalance)})`,
+      warning: 'This issues new Specie from the Treasury. The full asset cost flows to the Assurance Account.',
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
   };
 }
 
-function sellExecute(quantity: number): JourneyResponse {
-  const gross = quantity * 1.00;
-  const liquidityFee = gross * 0.02;
-  const net = gross - liquidityFee;
+async function issueExecute(quantity: number): Promise<JourneyResponse> {
+  const cost = quantity * 1.00;
+  const issuanceFee = quantity * 0.01;
+  const liquidityFee = cost * 0.02;
+  const total = cost + issuanceFee + liquidityFee;
+  const fees = issuanceFee + liquidityFee;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  MOCK_STATE.specieBalance -= quantity;
-  MOCK_STATE.fundingBalance += net;
+  // Execute via MarketSB cashier (same as buy — treasury issuance)
+  const USDC = 1_000_000;
+  const cashierResult = await postCashierBatch({
+    eventId,
+    matchId: `match-${eventId}`,
+    intent: 'buy',
+    quantity,
+    buyerVaId: `va-funding-${CURRENT_USER.ref}`,
+    unitPrice: USDC,
+    fees: { issuance: true, liquidity: true },
+  });
+  console.log(`[ISSUE] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
+
+  if (cashierResult.ok) {
+    await Promise.all([
+      adjustVault(CURRENT_USER.onliId, quantity, 'issue'),
+      adjustVault('treasury', -quantity, 'issue-decrement'),
+    ]);
+  }
+
+  const state = await getLiveState();
+  const newFunding = state.fundingBalance;
+  const newSpecies = state.specieCount;
 
   return {
     type: 'tool',
     toolName: 'journey_execute',
     data: {
       _ui: 'PipelineCard',
-      title: `SELL ${quantity.toLocaleString()} SPECIES`,
+      title: `ISSUE ${quantity.toLocaleString()} SPECIES FROM TREASURY`,
       eventId,
       batchId,
       stages: [
         { label: 'Submitted', system: 'SM', status: 'done' },
         { label: 'Authenticated', system: 'SM', status: 'done' },
         { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Matched', system: 'SM', status: 'done' },
-        { label: 'Asset staged', system: 'OC', status: 'done' },
-        { label: 'Payment processed', system: 'MB', status: 'done' },
-        { label: 'Delivered to Treasury Vault', system: 'OC', status: 'done' },
+        { label: 'Treasury matched', system: 'SM', status: 'done' },
+        { label: 'Asset staged from Treasury', system: 'OC', status: 'done' },
+        { label: 'Payment to Assurance', system: 'MB', status: 'done' },
+        { label: 'Delivered to Vault', system: 'OC', status: 'done' },
         { label: 'Oracle verified', system: 'SM', status: 'done' },
         { label: 'Complete', system: 'SM', status: 'done' },
       ],
-      receipt: { quantity, gross: `$${fmt(gross)}`, fees: `$${fmt(liquidityFee)}`, net: `$${fmt(net)}` },
-      balances: { funding: `$${fmt(MOCK_STATE.fundingBalance)}`, species: `${MOCK_STATE.specieBalance.toLocaleString()} SPECIES` },
+      receipt: {
+        quantity,
+        cost: `$${fmt(cost)}`,
+        fees: `$${fmt(fees)}`,
+        total: `$${fmt(total)}`,
+        assurance: `$${fmt(cost)}`,
+        note: 'Asset cost → Assurance Account | Fees → Operating Revenue',
+      },
+      balances: { funding: `$${fmt(newFunding)}`, species: `${newSpecies.toLocaleString()} SPECIES` },
     },
-    followUp: `Order complete! You sold ${quantity.toLocaleString()} SPECIES for $${fmt(net)} net.`,
+    followUp: `Issuance complete! ${quantity.toLocaleString()} SPECIES issued from Treasury.\n\n$${fmt(cost)} flows to Assurance, $${fmt(fees)} to Operating.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// SELL journey — list species for sale on marketplace (flat listing fee)
+// ---------------------------------------------------------------------------
+
+async function sellStart(): Promise<string> {
+  const state = await getLiveState();
+  return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nA **$50.00 listing fee** is charged per listing. Your species will be held in escrow until a buyer purchases them.`;
+}
+
+async function sellConfirm(quantity: number): Promise<JourneyResponse> {
+  const listingFee = 50.00;
+  const listingValue = quantity * 1.00;
+  const state = await getLiveState();
+
+  return {
+    type: 'tool',
+    toolName: 'journey_confirm',
+    data: {
+      _ui: 'ConfirmCard',
+      title: `LIST ${quantity.toLocaleString()} SPECIES FOR SALE`,
+      lines: [
+        { label: 'Quantity', value: `${quantity.toLocaleString()} SPECIES` },
+        { label: 'Listing Price', value: `$${fmt(listingValue)} ($1.00/Specie)` },
+        { label: 'Listing Fee', value: `$${fmt(listingFee)}`, bold: true },
+      ],
+      from: `Funding Account ($${fmt(state.fundingBalance)})`,
+      warning: 'Species will be moved to escrow until sold. Listing fee is non-refundable.',
+    },
+    followUp: 'Type **confirm** to proceed or **cancel** to abort.',
+  };
+}
+
+async function sellExecute(quantity: number): Promise<JourneyResponse> {
+  const listingFee = 50.00;
+  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
+
+  // 1. Charge listing fee via cashier spec
+  const listResult = await cashierList({
+    sellerRef: CURRENT_USER.ref,
+    metadata: { quantity, eventId },
+    idempotencyKey: `list-${eventId}`,
+  });
+  console.log(`[SELL/LIST] cashier list result: ok=${listResult.ok}`);
+
+  // 2. Create listing in Species sim (moves species to escrow)
+  if (listResult.ok) {
+    await createSpeciesListing({
+      sellerOnliId: CURRENT_USER.onliId,
+      quantity,
+    });
+  }
+
+  const state = await getLiveState();
+
+  return {
+    type: 'tool',
+    toolName: 'journey_execute',
+    data: {
+      _ui: 'PipelineCard',
+      title: `LIST ${quantity.toLocaleString()} SPECIES`,
+      eventId,
+      batchId: null,
+      stages: [
+        { label: 'Submitted', system: 'SM', status: 'done' },
+        { label: 'Validated', system: 'SM', status: 'done' },
+        { label: 'Listing fee charged', system: 'MB', status: 'done' },
+        { label: 'Species escrowed', system: 'OC', status: 'done' },
+        { label: 'Listing active', system: 'SM', status: 'done' },
+      ],
+      receipt: { quantity, cost: `$${fmt(quantity * 1.00)}`, fees: `$${fmt(listingFee)}`, total: `$${fmt(listingFee)}` },
+      balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
+    },
+    followUp: `Listing created! ${quantity.toLocaleString()} SPECIES listed for sale at $1.00/Specie. Listing fee: $${fmt(listingFee)}.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// REDEEM journey — sell back to MarketMaker (assurance buyback)
+// ---------------------------------------------------------------------------
+
+async function redeemStart(): Promise<string> {
+  const state = await getLiveState();
+  return `How many Specie would you like to redeem?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nThe MarketMaker will buy back at **$1.00/Specie** from the Assurance Account. A **1% liquidity fee** is charged.`;
+}
+
+async function redeemConfirm(quantity: number): Promise<JourneyResponse> {
+  const gross = quantity * 1.00;
+  const liquidityFee = gross * 0.01; // 1% (matches cashier default 100 bps)
+  const net = gross - liquidityFee;
+  const state = await getLiveState();
+
+  return {
+    type: 'tool',
+    toolName: 'journey_confirm',
+    data: {
+      _ui: 'ConfirmCard',
+      title: `REDEEM ${quantity.toLocaleString()} SPECIES`,
+      lines: [
+        { label: 'Redemption Value', value: `$${fmt(gross)} (1:1 from Assurance)` },
+        { label: 'Liquidity Fee (1%)', value: `-$${fmt(liquidityFee)}` },
+        { label: 'Net Payout', value: `$${fmt(net)}`, bold: true },
+      ],
+      from: `Vault (${state.specieCount.toLocaleString()} SPECIES)`,
+      warning: 'Assurance Account funds the buyback. Species return to MarketMaker.',
+    },
+    followUp: 'Type **confirm** to proceed or **cancel** to abort.',
+  };
+}
+
+async function redeemExecute(quantity: number): Promise<JourneyResponse> {
+  const gross = quantity * 1.00;
+  const liquidityFee = gross * 0.01;
+  const net = gross - liquidityFee;
+  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
+
+  // 1. Execute redeem via cashier spec (fee + assurance payout)
+  const redeemResult = await cashierRedeem({
+    sellerRef: CURRENT_USER.ref,
+    redeemAmount: gross.toFixed(2),
+    metadata: { quantity, eventId },
+    idempotencyKey: `redeem-${eventId}`,
+  });
+  console.log(`[REDEEM] cashier result: ok=${redeemResult.ok}`);
+
+  // 2. Adjust Species vaults (user → treasury) only if cashier succeeded
+  if (redeemResult.ok) {
+    await Promise.all([
+      adjustVault(CURRENT_USER.onliId, -quantity, 'redeem'),
+      adjustVault('treasury', quantity, 'redeem-return'),
+    ]);
+  }
+
+  const state = await getLiveState();
+
+  return {
+    type: 'tool',
+    toolName: 'journey_execute',
+    data: {
+      _ui: 'PipelineCard',
+      title: `REDEEM ${quantity.toLocaleString()} SPECIES`,
+      eventId,
+      batchId: null,
+      stages: [
+        { label: 'Submitted', system: 'SM', status: 'done' },
+        { label: 'Validated', system: 'SM', status: 'done' },
+        { label: 'Liquidity fee charged', system: 'MB', status: 'done' },
+        { label: 'Assurance payout', system: 'MB', status: 'done' },
+        { label: 'Species returned to MarketMaker', system: 'OC', status: 'done' },
+        { label: 'Oracle verified', system: 'SM', status: 'done' },
+        { label: 'Complete', system: 'SM', status: 'done' },
+      ],
+      receipt: {
+        quantity,
+        cost: `$${fmt(gross)}`,
+        fees: `$${fmt(liquidityFee)}`,
+        total: `$${fmt(net)}`,
+        note: 'Assurance → You (1:1) | Liquidity fee → MarketMaker',
+      },
+      balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
+    },
+    followUp: `Redemption complete! ${quantity.toLocaleString()} SPECIES redeemed for $${fmt(net)} net (after 1% liquidity fee).`,
   };
 }
 
@@ -514,10 +917,25 @@ function transferConfirm(quantity: number, recipient: string): JourneyResponse {
   };
 }
 
-function transferExecute(quantity: number): JourneyResponse {
+async function transferExecute(quantity: number, recipient?: string): Promise<JourneyResponse> {
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
 
-  MOCK_STATE.specieBalance -= quantity;
+  // Resolve recipient onliId
+  const contacts: Record<string, string> = {
+    'pepper': 'onli-user-456', 'pepper potts': 'onli-user-456',
+    'tony': 'onli-user-789', 'tony stark': 'onli-user-789',
+    'happy': 'onli-user-012', 'happy hogan': 'onli-user-012',
+  };
+  const recipientOnliId = contacts[(recipient || '').toLowerCase()] || 'onli-user-456';
+
+  // Adjust Species vaults (sender → recipient)
+  await Promise.all([
+    adjustVault(CURRENT_USER.onliId, -quantity, `transfer-to-${recipientOnliId}`),
+    adjustVault(recipientOnliId, quantity, `transfer-from-${CURRENT_USER.onliId}`),
+  ]);
+
+  const state = await getLiveState();
+  const newSpecies = state.specieCount;
 
   return {
     type: 'tool',
@@ -538,7 +956,7 @@ function transferExecute(quantity: number): JourneyResponse {
         { label: 'Complete', system: 'SM', status: 'done' },
       ],
       receipt: { quantity, fees: 'None' },
-      balances: { species: `${MOCK_STATE.specieBalance.toLocaleString()} SPECIES` },
+      balances: { species: `${newSpecies.toLocaleString()} SPECIES` },
     },
     followUp: `Transfer complete! ${quantity.toLocaleString()} SPECIES sent.`,
   };
@@ -567,8 +985,14 @@ function sendoutConfirm(amount: number, destination?: string): JourneyResponse {
   };
 }
 
-function sendoutExecute(amount: number): JourneyResponse {
-  MOCK_STATE.fundingBalance -= amount;
+async function sendoutExecute(amount: number): Promise<JourneyResponse> {
+  // Debit the VA in the sim
+  const baseUnits = Math.round(amount * 1_000_000);
+  const vaId = `va-funding-${CURRENT_USER.ref}`;
+  await debitVA(vaId, baseUnits);
+
+  const state = await getLiveState();
+  const newBalance = state.fundingBalance;
 
   return {
     type: 'tool',
@@ -583,7 +1007,7 @@ function sendoutExecute(amount: number): JourneyResponse {
         { label: 'Debited from Funding Account', done: true },
         { label: 'USDC sent on-chain', done: true },
       ],
-      newBalance: `$${fmt(MOCK_STATE.fundingBalance)}`,
+      newBalance: `$${fmt(newBalance)}`,
     },
     followUp: `Withdrawal complete! $${fmt(amount)} USDC sent to your wallet.`,
   };
@@ -603,7 +1027,7 @@ interface ToolResult {
   commentary?: string;
 }
 
-function getToolResult(message: string, mode: string): ToolResult | null {
+async function getToolResult(message: string, mode: string): Promise<ToolResult | null> {
   // Only trigger generative UI tool cards in Ask mode
   // Trade mode uses the journey state machine, Learn mode uses text
   if (mode !== 'ask') return null;
@@ -611,111 +1035,121 @@ function getToolResult(message: string, mode: string): ToolResult | null {
   const lower = (message || '').toLowerCase();
 
   if (lower.includes('funding balance') || lower.includes('my balance')) {
-    const bal = MOCK_STATE.fundingBalance;
+    const va = await getFundingBalance();
+    const posted = va?.posted ?? 0;
     return {
       toolName: 'get_funding_balance',
       data: {
         _ui: 'BalanceCard',
         label: 'Funding Account',
-        vaId: 'va-funding-user-001',
+        vaId: va?.vaId || 'va-funding-user-001',
         subtype: 'funding',
-        balance: { posted: bal * 1_000_000, pending: 0, available: bal * 1_000_000 },
+        balance: { posted, pending: va?.pending ?? 0, available: posted },
         currency: 'USDC',
-        status: 'active',
+        status: va?.status || 'active',
       },
-      commentary: `Your funding account balance is $${fmt(bal)} USDC. The account is active and fully available for transactions.`,
+      commentary: `Your funding account balance is $${fmtUSDC(posted)} USDC. The account is active and fully available for transactions.`,
     };
   }
 
   if (lower.includes('last 5') || lower.includes('last five') || (lower.includes('transaction') && lower.includes('last'))) {
+    const ledger = await getOracleLedger(CURRENT_USER.ref, 5);
     return {
       toolName: 'get_recent_transactions',
       data: {
         _ui: 'TransactionList',
-        transactions: [
-          { type: 'deposit', description: 'USDC Deposit', amount: 5000000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'buy', description: 'Buy 1,000 SPECIES', amount: -1030000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'transfer', description: 'Transfer to Pepper Potts', amount: -100000000, date: 'Apr 3, 2026', status: 'completed' },
-          { type: 'sell', description: 'Sell 500 SPECIES', amount: 490000000, date: 'Apr 4, 2026', status: 'pending' },
-          { type: 'withdrawal', description: 'USDC Withdrawal', amount: -2000000000, date: 'Apr 4, 2026', status: 'completed' },
-        ],
+        transactions: ledger || [],
       },
-      commentary: 'Here are your 5 most recent transactions.',
+      commentary: ledger && ledger.length > 0
+        ? `Here are your ${ledger.length} most recent transactions.`
+        : 'No transactions found yet. Your account is new.',
     };
   }
 
   if (lower.includes('last deposit') || lower.includes('when was my last deposit')) {
+    const ledger = await getOracleLedger(CURRENT_USER.ref, 20);
+    const deposit = ledger?.find((e: any) => e.type === 'deposit_credited' || e.type?.includes('deposit'));
     return {
       toolName: 'get_deposit_status',
       data: {
         _ui: 'DepositCard',
-        depositId: 'dep-001',
-        amount: 5000000000,
-        status: 'credited',
-        lifecycle: [
-          { state: 'detected', timestamp: '2026-04-03T11:00:00Z' },
-          { state: 'compliance_pending', timestamp: '2026-04-03T11:00:01Z' },
-          { state: 'compliance_passed', timestamp: '2026-04-03T11:00:05Z' },
-          { state: 'credited', timestamp: '2026-04-03T11:00:06Z' },
-          { state: 'registered', timestamp: '2026-04-03T11:00:06.5Z' },
-        ],
-        txHash: '0xabc123def456789...',
+        ...(deposit || { depositId: 'none', amount: 0, status: 'none' }),
       },
-      commentary: 'Your last deposit was on April 3, 2026 and has been fully credited.',
+      commentary: deposit
+        ? 'Here is your most recent deposit.'
+        : 'No deposits found. Your account has not received any deposits yet.',
     };
   }
 
   if (lower.includes('assurance') || lower.includes('coverage')) {
+    const assurance = await getAssuranceBalance();
     return {
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        balance: 950000000000,
-        outstanding: 1000000000000,
-        coverage: 95,
+        balance: assurance?.balance ?? 0,
+        outstanding: assurance?.outstanding ?? 0,
+        coverage: assurance?.coverage ?? 0,
       },
-      commentary: 'Coverage is healthy at 95%. The Assurance account is backed by proceeds from all Specie issuance sales.',
+      commentary: assurance
+        ? `Coverage is at ${assurance.coverage}%. The Assurance account is backed by proceeds from all Specie issuance sales.`
+        : 'Unable to fetch assurance data.',
     };
   }
 
   if (lower.includes('species balance') || lower.includes('asset balance') || lower.includes('specie count')) {
-    const specBal = MOCK_STATE.specieBalance;
+    const [specVA, vault] = await Promise.all([
+      getSpeciesVABalance(),
+      getVaultBalance(),
+    ]);
+    const vaultCount = vault?.count ?? 0;
     return {
       toolName: 'get_asset_balance',
       data: {
         _ui: 'BalanceCard',
         label: 'Species Account',
-        vaId: 'va-species-user-001',
+        vaId: specVA?.vaId || 'va-species-user-001',
         subtype: 'species',
-        balance: { posted: specBal * 1_000_000, pending: 0, available: specBal * 1_000_000 },
+        balance: { posted: specVA?.posted ?? 0, pending: specVA?.pending ?? 0, available: specVA?.posted ?? 0 },
         currency: 'USDC',
-        status: 'active',
-        vaultCount: specBal,
+        status: specVA?.status || 'active',
+        vaultCount,
       },
-      commentary: `Your Species account holds ${specBal.toLocaleString()} Specie valued at $${fmt(specBal)}.`,
+      commentary: `Your Vault holds ${vaultCount.toLocaleString()} Specie.`,
     };
   }
 
   if (lower.includes('market') && (lower.includes('stats') || lower.includes('overview'))) {
+    const [stats, listings] = await Promise.all([
+      getMarketplaceStats(),
+      getListings(),
+    ]);
+    const s = (stats || {}) as Record<string, unknown>;
+    const listedSpecieCount = (listings || []).reduce((sum: number, l: any) => sum + (l.remainingQuantity || 0), 0);
     return {
       toolName: 'get_marketplace_stats',
       data: {
         _ui: 'MarketStats',
-        totalOrders: 12847,
-        completedOrders: 12500,
-        totalVolumeSpecie: 5000000,
-        activeListings: 42,
-        treasuryCount: 999000000,
+        totalOrders: s.totalOrders ?? 0,
+        completedOrders: s.completedOrders ?? 0,
+        totalVolumeSpecie: s.totalVolumeSpecie ?? 0,
+        activeListings: s.activeListings ?? 0,
+        treasuryCount: s.treasuryCount ?? 0,
+        listedSpecieCount,
       },
-      commentary: 'The marketplace is active with 42 open listings.',
+      commentary: stats
+        ? `${listedSpecieCount.toLocaleString()} species listed for sale. Treasury: ${((s.treasuryCount as number) ?? 0).toLocaleString()}.`
+        : 'Unable to fetch marketplace stats.',
     };
   }
 
   if (lower.includes('vault')) {
+    const vault = await getVaultBalance();
+    const count = vault?.count ?? 0;
     return {
       toolName: 'get_vault_balance',
-      data: { _ui: 'VaultCard', userId: 'onli-user-001', count: 8500 },
-      commentary: 'Your Onli Vault holds 8,500 Specie in actual possession.',
+      data: { _ui: 'VaultCard', userId: CURRENT_USER.onliId, count },
+      commentary: `Your Onli Vault holds ${count.toLocaleString()} Specie in actual possession.`,
     };
   }
 
@@ -725,7 +1159,7 @@ function getToolResult(message: string, mode: string): ToolResult | null {
 // ---------------------------------------------------------------------------
 // Main response dispatcher
 // ---------------------------------------------------------------------------
-function getResponse(message: string, mode: string, context: string, messages: Message[], chatId?: string): string | JourneyResponse {
+async function getResponse(message: string, mode: string, context: string, messages: Message[], chatId?: string): Promise<string | JourneyResponse> {
   const lower = (message || '').toLowerCase();
   const cid = chatId || 'default';
 
@@ -744,9 +1178,11 @@ function getResponse(message: string, mode: string, context: string, messages: M
         console.log('[JOURNEY] Executing pending:', pending.journey);
         switch (pending.journey) {
           case 'fund': return fundExecute(pending.amount || 5000);
+          case 'issue': return issueExecute(pending.quantity || 1000);
           case 'buy': return buyExecute(pending.quantity || 1000);
           case 'sell': return sellExecute(pending.quantity || 500);
-          case 'transfer': return transferExecute(pending.quantity || 100);
+          case 'redeem': return redeemExecute(pending.quantity || 500);
+          case 'transfer': return transferExecute(pending.quantity || 100, pending.recipient);
           case 'sendout': return sendoutExecute(pending.amount || 2000);
         }
       }
@@ -765,9 +1201,11 @@ function getResponse(message: string, mode: string, context: string, messages: M
     if (state.phase === 'execute') {
       switch (state.journey) {
         case 'fund': return fundExecute(state.amount || 5000);
+        case 'issue': return issueExecute(state.quantity || 1000);
         case 'buy': return buyExecute(state.quantity || 1000);
         case 'sell': return sellExecute(state.quantity || 500);
-        case 'transfer': return transferExecute(state.quantity || 100);
+        case 'redeem': return redeemExecute(state.quantity || 500);
+        case 'transfer': return transferExecute(state.quantity || 100, state.recipient);
         case 'sendout': return sendoutExecute(state.amount || 2000);
       }
     }
@@ -786,8 +1224,10 @@ function getResponse(message: string, mode: string, context: string, messages: M
 
       switch (state.journey) {
         case 'fund': return fundConfirm(state.amount || 5000);
+        case 'issue': return issueConfirm(state.quantity || 1000);
         case 'buy': return buyConfirm(state.quantity || 1000);
         case 'sell': return sellConfirm(state.quantity || 500);
+        case 'redeem': return redeemConfirm(state.quantity || 500);
         case 'transfer': return transferConfirm(state.quantity || 100, state.recipient || 'Pepper Potts');
         case 'sendout': return sendoutConfirm(state.amount || 2000, state.destination);
       }
@@ -796,8 +1236,10 @@ function getResponse(message: string, mode: string, context: string, messages: M
     if (state.phase === 'start') {
       switch (state.journey) {
         case 'fund': return fundStart();
+        case 'issue': return issueStart();
         case 'buy': return buyStart();
         case 'sell': return sellStart();
+        case 'redeem': return redeemStart();
         case 'transfer': return transferStart();
         case 'sendout': return sendoutStart();
       }
@@ -805,8 +1247,10 @@ function getResponse(message: string, mode: string, context: string, messages: M
 
     return 'Welcome to Species Market! I can help you:\n\n' +
       '- **Fund** \u2014 Deposit USDC into your account\n' +
-      '- **Buy** \u2014 Purchase Specie from the marketplace\n' +
-      '- **Sell** \u2014 Sell your Specie back\n' +
+      '- **Issue** \u2014 Buy Specie from Treasury (proceeds \u2192 Assurance)\n' +
+      '- **Buy** \u2014 Purchase Specie from a marketplace listing\n' +
+      '- **Sell** \u2014 List your Specie for sale on the marketplace\n' +
+      '- **Redeem** \u2014 Sell back to MarketMaker (Assurance buyback)\n' +
       '- **Transfer** \u2014 Send Specie to a contact\n' +
       '- **Withdraw** \u2014 Send USDC to an external wallet\n\n' +
       'What would you like to do?';
@@ -864,34 +1308,67 @@ function getResponse(message: string, mode: string, context: string, messages: M
   }
 
   // ============================================
-  // ASK MODE (default)
+  // ASK MODE (default) — canon-based Q&A + live data
   // ============================================
+
+  // Canon Q&A — match user question to canonical answers from onli-canon.md
+  const canonAnswer = matchCanonQuestion(lower);
+  if (canonAnswer) return canonAnswer;
+
+  // Data queries (balances, transactions, etc.)
   if (lower.includes('funding balance') || lower.includes('my balance')) {
-    return 'Your current **Funding Balance** is:\n\n**$12,450.00 USDC**\n\nThis is the available balance in your MarketSB Funding VA (Code 500). You can use these funds to buy Specie or transfer to contacts.';
+    const va = await getFundingBalance();
+    const bal = va ? fmtUSDC(va.posted) : '$0.00';
+    return `Your current **Funding Balance** is:\n\n**$${bal} USDC**\n\nThis is the available balance in your MarketSB Funding VA (Code 500). You can use these funds to buy Specie or transfer to contacts.`;
   }
 
   if (lower.includes('last 5') || lower.includes('last five') || (lower.includes('transaction') && lower.includes('last'))) {
-    return 'Here are your last 5 transactions:\n\n| # | Type | Description | Amount | Date |\n|---|---|---|---|---|\n| 1 | Deposit | USDC Deposit | +$5,000.00 | Apr 3 |\n| 2 | Buy | Buy 1,000 SPECIES | -$1,030.00 | Apr 3 |\n| 3 | Transfer | To Pepper Potts | -$100.00 | Apr 3 |\n| 4 | Sell | Sell 500 SPECIES | +$490.00 | Apr 4 |\n| 5 | Withdrawal | USDC Withdrawal | -$2,000.00 | Apr 4 |';
+    const ledger = await getOracleLedger(CURRENT_USER.ref, 5);
+    if (ledger && ledger.length > 0) {
+      const rows = ledger.map((e: any, i: number) =>
+        `| ${i + 1} | ${e.type || 'unknown'} | ${e.ref || '-'} | ${fmtUSDC(Number(e.amount ?? 0))} | ${e.timestamp?.slice(0, 10) || '-'} |`
+      ).join('\n');
+      return `Here are your last ${ledger.length} transactions:\n\n| # | Type | Ref | Amount | Date |\n|---|---|---|---|---|\n${rows}`;
+    }
+    return 'No transactions found yet. Your account is new.';
   }
 
   if (lower.includes('last deposit') || lower.includes('when was my last deposit')) {
-    return 'Your last deposit was on **April 3, 2026** at 7:30 AM:\n\n- **Amount:** $5,000.00 USDC\n- **Status:** Credited\n- **Source:** MetaMask (0x742d...01E23)\n- **Confirmations:** 6/6\n\nThe funds were fully credited to your Funding account.';
+    const ledger = await getOracleLedger(CURRENT_USER.ref, 20);
+    const deposit = ledger?.find((e: any) => e.type?.includes('deposit'));
+    if (deposit) {
+      return `Your last deposit:\n\n- **Amount:** $${fmtUSDC(Number((deposit as any).amount ?? 0))} USDC\n- **Status:** Credited\n- **Date:** ${(deposit as any).timestamp?.slice(0, 10) || 'unknown'}`;
+    }
+    return 'No deposits found for your account.';
   }
 
   if (lower.includes('pending deposit') || lower.includes('approval')) {
-    return 'I checked your MarketSB deposit queue. You have 1 pending deposit:\n\n- **$5,000.00 USDC** \u2014 Status: awaiting_confirmations (2/6 confirmations)\n\nThis should be credited within the next few minutes once all 6 confirmations are received.';
+    return 'Checking your MarketSB deposit queue... No pending deposits found.';
   }
 
   if (lower.includes('assurance') || lower.includes('coverage')) {
-    return 'Your current assurance coverage:\n\n- **Assurance Balance:** $950,000.00\n- **Total Outstanding:** $1,000,000.00\n- **Coverage:** 95%\n\nCoverage is healthy (\u226550%). The Assurance account is backed by proceeds from all Specie issuance sales.';
+    const assurance = await getAssuranceBalance();
+    if (assurance) {
+      return `Your current assurance coverage:\n\n- **Assurance Balance:** $${fmtUSDC(assurance.balance)}\n- **Total Outstanding:** $${fmtUSDC(assurance.outstanding)}\n- **Coverage:** ${assurance.coverage}%\n\nCoverage is ${assurance.coverage >= 50 ? 'healthy' : 'low'} (${assurance.coverage}%). The Assurance account is backed by proceeds from all Specie issuance sales.`;
+    }
+    return 'Unable to fetch assurance data at this time.';
   }
 
   if (lower.includes('history') || lower.includes('transaction')) {
-    return 'Here are your recent transactions:\n\n1. **USDC Deposit** \u2014 +$5,000.00 \u2014 Completed \u2014 Apr 3\n2. **Buy 1,000 SPECIES** \u2014 -$1,030.00 \u2014 Completed \u2014 Apr 3\n3. **Transfer to Pepper Potts** \u2014 -$100.00 \u2014 Completed \u2014 Apr 3\n4. **Sell 500 SPECIES** \u2014 +$490.00 \u2014 Pending \u2014 Apr 4';
+    const ledger = await getOracleLedger(CURRENT_USER.ref, 5);
+    if (ledger && ledger.length > 0) {
+      const items = ledger.map((e: any, i: number) =>
+        `${i + 1}. **${e.type || 'unknown'}** — $${fmtUSDC(Number(e.amount ?? 0))} — ${e.timestamp?.slice(0, 10) || '-'}`
+      ).join('\n');
+      return `Here are your recent transactions:\n\n${items}`;
+    }
+    return 'No transactions found yet.';
   }
 
   if (lower.includes('risk') || lower.includes('alert') || lower.includes('escalate')) {
-    return 'No critical coverage shortfalls detected. Current status:\n\n- Coverage: 95% (Healthy)\n- Last reconciliation: Pass\n- Variance: $0.00\n\nAll systems operating normally.';
+    const assurance = await getAssuranceBalance();
+    const coverage = assurance?.coverage ?? 0;
+    return `No critical coverage shortfalls detected. Current status:\n\n- Coverage: ${coverage}% (${coverage >= 50 ? 'Healthy' : 'Warning'})\n- Last reconciliation: Pass\n\nAll systems operating normally.`;
   }
 
   return 'I\'m Synth, your Onli AI assistant. I can help you with:\n\n- **Balances** \u2014 Check your funding and asset balances\n- **Transactions** \u2014 View recent activity and deposits\n- **Assurance** \u2014 Coverage monitoring and risk alerts\n\nWhat would you like to know?';
@@ -910,11 +1387,11 @@ function handleMockChat(messages: Message[], mode: string, chatId?: string): Res
   const lastText = allTexts[allTexts.length - 1] || '';
   const conversationContext = allTexts.join(' ').toLowerCase();
 
-  // Check if this query should render a generative UI tool card
-  const toolResult = getToolResult(lastText, mode);
-
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
+      // Check if this query should render a generative UI tool card
+      const toolResult = await getToolResult(lastText, mode);
+
       if (toolResult) {
         const toolCallId = `call_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -952,7 +1429,7 @@ function handleMockChat(messages: Message[], mode: string, chatId?: string): Res
       }
 
       // Fallback: regular text response (journeys, learn mode, etc.)
-      const response = getResponse(lastText, mode, conversationContext, messages, chatId);
+      const response = await getResponse(lastText, mode, conversationContext, messages, chatId);
 
       // Journey responses return structured tool events instead of markdown
       if (typeof response === 'object' && response.type === 'tool') {
@@ -1050,7 +1527,7 @@ function buildTools() {
       try {
         const [vaRes, vaultRes] = await Promise.all([
           fetch('http://localhost:4001/api/v1/virtual-accounts/va-species-user-001'),
-          fetch('http://localhost:4002/marketplace/v1/vault/onli-user-001'),
+          fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001'),
         ]);
         const va = await vaRes.json();
         const vault = await vaultRes.json();
@@ -1143,7 +1620,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4002/marketplace/v1/stats');
+        const res = await fetch('http://localhost:4012/marketplace/v1/stats');
         return await res.json();
       } catch {
         return {
@@ -1212,12 +1689,32 @@ async function handleRealChat(messages: Message[], mode: string): Promise<Respon
     apiKey: process.env.ANTHROPIC_API_KEY!,
   });
 
-  // Convert UI messages to the format streamText expects
-  // The messages from useChat already come in the correct format
+  // Convert UI messages to ModelMessage format
+  // The useChat hook may send messages with `parts` arrays instead of `content` strings
+  const cleaned = messages.map((m: any) => {
+    // If content is already a string, use as-is
+    if (typeof m.content === 'string') {
+      return { role: m.role, content: m.content };
+    }
+    // If content is an array (model message format), pass through
+    if (Array.isArray(m.content)) {
+      return { role: m.role, content: m.content };
+    }
+    // If it has parts (UI message format), extract text
+    if (Array.isArray(m.parts)) {
+      const text = m.parts
+        .filter((p: any) => p.type === 'text')
+        .map((p: any) => p.text || '')
+        .join('');
+      return { role: m.role, content: text || '' };
+    }
+    return { role: m.role, content: '' };
+  }).filter((m: any) => m.content !== '');
+
   const result = streamText({
-    model: anthropic('claude-sonnet-4-6'),
+    model: anthropic('claude-haiku-4-5'),
     system: getSystemPrompt(mode),
-    messages: messages as Parameters<typeof streamText>[0]['messages'],
+    messages: cleaned as Parameters<typeof streamText>[0]['messages'],
     tools: buildTools(),
     stopWhen: stepCountIs(5),
   });
