@@ -1,6 +1,8 @@
 import type { VaultBalance, TransferReceipt } from '@/types';
+import { IS_MOCK_ONLI_CLOUD, withMockFallback } from './mock-interceptor';
+import { MOCK_VAULT_BALANCE } from '@/lib/mock-data';
 
-const ONLI_CLOUD_URL = import.meta.env.VITE_ONLI_CLOUD_API_URL || 'http://localhost:3003';
+const ONLI_CLOUD_URL = '/marketplace/v1';
 
 async function onliCloudFetch<T>(path: string): Promise<T> {
   const response = await fetch(`${ONLI_CLOUD_URL}${path}`);
@@ -9,9 +11,25 @@ async function onliCloudFetch<T>(path: string): Promise<T> {
 }
 
 export async function getVaultBalance(userId: string): Promise<VaultBalance> {
-  return onliCloudFetch(`/vaults/${userId}/balance`);
+  return withMockFallback(
+    IS_MOCK_ONLI_CLOUD,
+    () => onliCloudFetch(`/vault/${userId}`),
+    { ...MOCK_VAULT_BALANCE, user_id: userId },
+  );
 }
 
 export async function getTransferReceipt(receiptId: string): Promise<TransferReceipt> {
-  return onliCloudFetch(`/transfers/${receiptId}/receipt`);
+  const mockReceipt: TransferReceipt = {
+    receipt_id: receiptId,
+    from_vault: 'vault_001',
+    to_vault: 'vault_002',
+    specie_count: 100,
+    status: 'completed',
+    timestamp: new Date().toISOString(),
+  };
+  return withMockFallback(
+    IS_MOCK_ONLI_CLOUD,
+    () => onliCloudFetch(`/transfers/${receiptId}/receipt`),
+    mockReceipt,
+  );
 }

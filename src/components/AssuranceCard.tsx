@@ -1,0 +1,59 @@
+'use client';
+
+import { formatUsdcDisplay } from '@/lib/amount';
+
+interface AssuranceCardProps {
+  assuranceBalance: bigint;
+  totalOutstanding: bigint;
+}
+
+export function AssuranceCard({ assuranceBalance, totalOutstanding }: AssuranceCardProps) {
+  const coveragePercent = totalOutstanding > 0n
+    ? Number((assuranceBalance * 100n) / totalOutstanding)
+    : 100;
+
+  const statusColor = coveragePercent >= 50
+    ? 'var(--color-accent-green)'
+    : coveragePercent >= 25
+      ? 'var(--color-accent-amber)'
+      : 'var(--color-accent-red)';
+
+  return (
+    <div className="rounded-[var(--radius-card)] bg-white border border-[var(--color-border)] p-[var(--padding-card)] shadow-[var(--shadow-card)]">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)] mb-3">
+        Assurance Account
+      </h3>
+
+      <div className="space-y-3">
+        <div className="flex justify-between items-baseline">
+          <span className="text-xs text-[var(--color-text-secondary)]">Balance</span>
+          <span className="text-lg font-bold">{formatUsdcDisplay(assuranceBalance)}</span>
+        </div>
+
+        <div className="flex justify-between items-baseline">
+          <span className="text-xs text-[var(--color-text-secondary)]">Outstanding</span>
+          <span className="text-sm">{formatUsdcDisplay(totalOutstanding)}</span>
+        </div>
+
+        {/* Coverage bar */}
+        <div>
+          <div className="flex justify-between mb-1">
+            <span className="text-xs text-[var(--color-text-secondary)]">Coverage</span>
+            <span className="text-xs font-semibold" style={{ color: statusColor }}>
+              {coveragePercent}%
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-[var(--color-bg-card)]">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(coveragePercent, 100)}%`,
+                backgroundColor: statusColor,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

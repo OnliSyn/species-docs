@@ -1,14 +1,25 @@
 import type { VirtualAccount, Deposit, Withdrawal, Transfer, OracleEvent, ReconciliationStatus, MarketSBError } from '@/types';
+import { IS_MOCK_MARKETSB, withMockFallback } from './mock-interceptor';
+import {
+  MOCK_VIRTUAL_ACCOUNTS,
+  MOCK_DEPOSITS,
+  MOCK_WITHDRAWALS,
+  MOCK_TRANSFERS as _MOCK_TRANSFERS,
+  MOCK_ORACLE_EVENTS,
+  MOCK_RECONCILIATION_STATUS,
+} from '@/lib/mock-data';
 
-const MARKETSB_BASE_URL = import.meta.env.VITE_MARKETSB_API_URL || 'http://localhost:3001';
+const MARKETSB_BASE_URL = '/api/v1';
 
 class MarketSBApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly body: MarketSBError
-  ) {
+  readonly status: number;
+  readonly body: MarketSBError;
+
+  constructor(status: number, body: MarketSBError) {
     super(body.message);
     this.name = 'MarketSBApiError';
+    this.status = status;
+    this.body = body;
   }
 }
 
@@ -36,27 +47,32 @@ async function marketsbFetch<T>(path: string, options?: RequestInit): Promise<T>
 // === READ Operations ===
 
 export async function getVirtualAccount(vaId: string): Promise<VirtualAccount> {
-  return marketsbFetch(`/virtual-accounts/${vaId}`);
+  const mock = MOCK_VIRTUAL_ACCOUNTS.find((a) => a.id === vaId) ?? MOCK_VIRTUAL_ACCOUNTS[0];
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/virtual-accounts/${vaId}`), mock);
 }
 
 export async function listVirtualAccounts(ownerRef: string): Promise<VirtualAccount[]> {
-  return marketsbFetch(`/virtual-accounts?owner_ref=${ownerRef}`);
+  const mock = MOCK_VIRTUAL_ACCOUNTS.filter((a) => a.owner_ref === ownerRef);
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/virtual-accounts?owner_ref=${ownerRef}`), mock);
 }
 
 export async function getDepositStatus(depositId: string): Promise<Deposit> {
-  return marketsbFetch(`/deposits/${depositId}`);
+  const mock = MOCK_DEPOSITS.find((d) => d.id === depositId) ?? MOCK_DEPOSITS[0];
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/deposits/${depositId}`), mock);
 }
 
 export async function getWithdrawalStatus(withdrawalId: string): Promise<Withdrawal> {
-  return marketsbFetch(`/withdrawals/${withdrawalId}`);
+  const mock = MOCK_WITHDRAWALS.find((w) => w.id === withdrawalId) ?? MOCK_WITHDRAWALS[0];
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/withdrawals/${withdrawalId}`), mock);
 }
 
 export async function getOracleLedger(vaId: string): Promise<OracleEvent[]> {
-  return marketsbFetch(`/oracle/virtual-accounts/${vaId}/ledger`);
+  const mock = MOCK_ORACLE_EVENTS.filter((e) => e.va_id === vaId);
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/oracle/virtual-accounts/${vaId}/ledger`), mock);
 }
 
 export async function getReconciliationStatus(): Promise<ReconciliationStatus> {
-  return marketsbFetch('/reconciliation/status');
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch('/reconciliation/status'), MOCK_RECONCILIATION_STATUS);
 }
 
 // === WRITE Operations ===
@@ -67,10 +83,20 @@ export async function createTransfer(params: {
   amount: string;
   idempotency_key: string;
 }): Promise<Transfer> {
-  return marketsbFetch('/transfers', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
+  const mockTransfer: Transfer = {
+    id: `txfr_mock_${Date.now()}`,
+    source_va_id: params.source_va_id,
+    destination_va_id: params.destination_va_id,
+    amount: params.amount,
+    idempotency_key: params.idempotency_key,
+    status: 'completed',
+    created_at: new Date().toISOString(),
+  };
+  return withMockFallback(
+    IS_MOCK_MARKETSB,
+    () => marketsbFetch('/transfers', { method: 'POST', body: JSON.stringify(params) }),
+    mockTransfer,
+  );
 }
 
 export async function requestWithdrawal(params: {
@@ -79,18 +105,36 @@ export async function requestWithdrawal(params: {
   amount: string;
   idempotency_key: string;
 }): Promise<Withdrawal> {
-  return marketsbFetch('/withdrawals', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
+  const mockWithdrawal: Withdrawal = {
+    id: `wd_mock_${Date.now()}`,
+    va_id: params.va_id,
+    amount: params.amount,
+    destination: params.destination,
+    status: 'requested',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  return withMockFallback(
+    IS_MOCK_MARKETSB,
+    () => marketsbFetch('/withdrawals', { method: 'POST', body: JSON.stringify(params) }),
+    mockWithdrawal,
+  );
 }
 
 export async function verifyOracle(vaId: string): Promise<{ verified: boolean; details: unknown }> {
-  return marketsbFetch(`/oracle/virtual-accounts/${vaId}/verify`, { method: 'POST' });
+  return withMockFallback(
+    IS_MOCK_MARKETSB,
+    () => marketsbFetch(`/oracle/virtual-accounts/${vaId}/verify`, { method: 'POST' }),
+    { verified: true, details: { checked_at: new Date().toISOString() } },
+  );
 }
 
 export async function runReconciliation(): Promise<ReconciliationStatus> {
-  return marketsbFetch('/reconciliation/run', { method: 'POST' });
+  return withMockFallback(
+    IS_MOCK_MARKETSB,
+    () => marketsbFetch('/reconciliation/run', { method: 'POST' }),
+    { ...MOCK_RECONCILIATION_STATUS, last_run: new Date().toISOString(), status: 'running' },
+  );
 }
 
 export { MarketSBApiError };

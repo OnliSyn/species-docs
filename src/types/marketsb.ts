@@ -1,12 +1,14 @@
 /** TigerBeetle account codes */
-export enum AccountCode {
-  TreasuryReserve = 100,
-  SettlementReserve = 200,
-  OperatingRevenue = 300,
-  PendingDeposit = 400,
-  PendingWithdrawal = 450,
-  VirtualAccount = 500,
-}
+export const AccountCode = {
+  TreasuryReserve: 100,
+  SettlementReserve: 200,
+  OperatingRevenue: 300,
+  PendingDeposit: 400,
+  PendingWithdrawal: 450,
+  VirtualAccount: 500,
+} as const;
+
+export type AccountCode = (typeof AccountCode)[keyof typeof AccountCode];
 
 export type VirtualAccountSubtype = 'funding' | 'species' | 'assurance';
 
