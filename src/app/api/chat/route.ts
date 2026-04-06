@@ -78,11 +78,39 @@ Important rules:
 - For write operations (buy, sell, transfer, redeem), present a clear summary and ask for confirmation`;
 
   if (mode === 'ask')
-    return base + `\nYou are in Ask mode — general information about Onli. You answer questions about what Onli is, how it works, its core concepts, balances, transactions, and account status. Use the Onli Canon below as your foundational knowledge — never contradict it. Be concise for data queries. Be clear and canonical for conceptual questions. Use the baseball card analogy when simplifying.\n\n--- ONLI CANON ---\n${FULL_CANON}\n--- END CANON ---`;
+    return base + `\nYou are in Ask mode — general information about Onli.
+
+CRITICAL RESPONSE RULES:
+- Keep answers SHORT — 2-4 sentences max for simple questions
+- Use bullet points, not paragraphs
+- No headers or markdown sections unless the user asks for detail
+- If the user asks "what is X" give ONE clear sentence, then 2-3 bullet points max
+- Never repeat the question back
+- Never say "Great question!" or similar filler
+- For balance/data queries, just show the number with minimal commentary
+
+Use the Onli Canon below as your foundational knowledge — never contradict it. Use the baseball card analogy when simplifying.
+
+--- ONLI CANON ---
+${FULL_CANON}
+--- END CANON ---`;
   if (mode === 'trade')
     return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace ($50 listing fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1).';
   if (mode === 'learn')
-    return base + `\nYou are in Learn mode — developer-focused and technical. You help developers understand the Onli architecture, APIs, and how to build Appliances. Explain the Species pipeline, Cashier settlement, Vault operations, ChangeOwner, AskToMove, and the dual-sim architecture (MarketSB for funding, Species-sim for assets). Reference API endpoints, data flows, and transaction types. Use the Canon for foundational concepts but focus on technical implementation.\n\n--- ONLI CANON ---\n${FULL_CANON}\n--- END CANON ---`;
+    return base + `\nYou are in Learn mode — developer-focused and technical.
+
+RESPONSE RULES:
+- Keep answers focused and practical — 3-5 bullet points preferred over long paragraphs
+- Reference specific API endpoints (POST /eventRequest, POST /cashier/post-batch, etc.)
+- Show data flow, not theory
+- When explaining pipeline stages, list them concisely
+- Use code-like formatting for endpoint paths and field names
+
+Help developers understand the Onli architecture, APIs, and how to build Appliances. Explain the Species pipeline, Cashier settlement, Vault operations, ChangeOwner, AskToMove, and the dual-sim architecture (MarketSB for funding, Species-sim for assets).
+
+--- ONLI CANON ---
+${FULL_CANON}
+--- END CANON ---`;
   return base;
 }
 
@@ -475,8 +503,16 @@ function detectJourneyState(messages: Message[]): JourneyState {
 // Journey response generators
 // ---------------------------------------------------------------------------
 
+// Fund constants
+const INCOMING_ACCOUNT = '0x7F4e...2A9d'; // System incoming USDC address
+const USER_ACCOUNT_NUMBER = 'MSB-VA-500-0x8F3a...7B2c'; // Alex's FBO reference
+
 function fundStart(): string {
-  return 'How much USDC would you like to deposit into your Funding Account?\n\nYou can deposit from any connected wallet. Just tell me the amount.';
+  return `To fund your account, send USDC to:\n\n` +
+    `**Incoming Account:** \`${INCOMING_ACCOUNT}\`\n` +
+    `**Memo / Notes:** For Benefit Of \`${USER_ACCOUNT_NUMBER}\`\n\n` +
+    `**This is a simulation — do NOT send real USDC.** We will simulate the deposit for testing purposes.\n\n` +
+    `How much USDC would you like to simulate depositing?`;
 }
 
 function fundConfirm(amount: number): JourneyResponse {
@@ -485,12 +521,12 @@ function fundConfirm(amount: number): JourneyResponse {
     toolName: 'journey_confirm',
     data: {
       _ui: 'ConfirmCard',
-      title: 'FUND YOUR ACCOUNT',
+      title: 'SIMULATED DEPOSIT',
       lines: [
         { label: 'Amount', value: `$${fmt(amount)} USDC` },
-        { label: 'From', value: 'Connected Wallet' },
-        { label: 'To', value: 'Funding Account (VA-500)' },
-        { label: 'For Benefit Of', value: 'MSB-VA-500-0x8F3a...7B2c' },
+        { label: 'Send To', value: `Incoming Account (${INCOMING_ACCOUNT})` },
+        { label: 'For Benefit Of', value: USER_ACCOUNT_NUMBER },
+        { label: 'Credit To', value: 'Your Funding Account (VA-500)' },
       ],
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
@@ -513,13 +549,14 @@ async function fundExecute(amount: number): Promise<JourneyResponse> {
       title: 'Deposit',
       amount: `$${fmt(amount)}`,
       steps: [
-        { label: 'Deposit detected', done: true },
-        { label: 'Compliance passed', done: true },
-        { label: 'Credited to account', done: true },
+        { label: `USDC sent to Incoming (${INCOMING_ACCOUNT})`, done: true },
+        { label: `FBO matched: ${USER_ACCOUNT_NUMBER}`, done: true },
+        { label: 'Compliance check passed', done: true },
+        { label: 'Credited to Funding Account', done: true },
       ],
       newBalance: `$${fmt(state.fundingBalance)}`,
     },
-    followUp: `Deposit complete! $${fmt(amount)} USDC has been credited to your Funding Account.`,
+    followUp: `Deposit complete! $${fmt(amount)} USDC received at Incoming Account, matched to your FBO, and credited to your Funding Account.`,
   };
 }
 
@@ -963,7 +1000,8 @@ async function transferExecute(quantity: number, recipient?: string): Promise<Jo
 }
 
 function sendoutStart(): string {
-  return `How much USDC and where would you like to withdraw?\n\nTell me the amount and destination address (e.g. "2000 to 0x9876...fedc").`;
+  return `To withdraw, USDC is debited from your Funding Account and sent from the Outgoing Account to your destination address.\n\n` +
+    `How much USDC and where? (e.g. "2000 to 0x9876...fedc")`;
 }
 
 function sendoutConfirm(amount: number, destination?: string): JourneyResponse {
@@ -976,8 +1014,10 @@ function sendoutConfirm(amount: number, destination?: string): JourneyResponse {
       title: `WITHDRAW $${fmt(amount)} USDC`,
       lines: [
         { label: 'Amount', value: `$${fmt(amount)} USDC` },
+        { label: 'From', value: `Funding Account (${USER_ACCOUNT_NUMBER})` },
+        { label: 'Via', value: 'Outgoing Account' },
         { label: 'To', value: dest },
-        { label: 'Network', value: 'Base' },
+        { label: 'Network', value: 'Base (USDC)' },
       ],
       warning: 'THIS WITHDRAWAL IS IRREVERSIBLE. Once confirmed, funds cannot be returned.',
     },
@@ -999,17 +1039,17 @@ async function sendoutExecute(amount: number): Promise<JourneyResponse> {
     toolName: 'journey_execute',
     data: {
       _ui: 'LifecycleCard',
-      title: 'Withdrawal',
+      title: 'Withdrawal (Simulated)',
       amount: `$${fmt(amount)}`,
       steps: [
-        { label: 'Withdrawal initiated', done: true },
-        { label: 'Compliance passed', done: true },
-        { label: 'Debited from Funding Account', done: true },
-        { label: 'USDC sent on-chain', done: true },
+        { label: 'Withdrawal requested', done: true },
+        { label: `Debited from Funding Account (${USER_ACCOUNT_NUMBER})`, done: true },
+        { label: 'Compliance check passed', done: true },
+        { label: 'USDC sent from Outgoing Account on-chain', done: true },
       ],
       newBalance: `$${fmt(newBalance)}`,
     },
-    followUp: `Withdrawal complete! $${fmt(amount)} USDC sent to your wallet.`,
+    followUp: `Withdrawal complete! $${fmt(amount)} USDC debited from your Funding Account and sent via the Outgoing Account.`,
   };
 }
 
