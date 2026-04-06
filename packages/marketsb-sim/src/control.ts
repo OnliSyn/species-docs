@@ -77,6 +77,161 @@ export function createControlRouter(
     res.json(serializeBigints(result));
   });
 
+  // POST /sim/simulate-deposit — full deposit lifecycle through MarketSB accounting
+  router.post('/simulate-deposit', (req: Request, res: Response) => {
+    const state = getState();
+    const { vaId, amount, fbo } = req.body;
+
+    if (!vaId || amount === undefined) {
+      res.status(400).json({ code: 'bad_request', message: 'vaId and amount required' });
+      return;
+    }
+
+    const va = state.virtualAccounts.get(vaId);
+    if (!va) {
+      res.status(404).json({ code: 'not_found', message: `VA ${vaId} not found` });
+      return;
+    }
+
+    const depositAmount = BigInt(amount);
+    const now = new Date().toISOString();
+    const depId = `dep-sim-${Date.now()}`;
+
+    // 1. Credit incoming system wallet
+    state.systemWallets.incoming += depositAmount;
+
+    // 2. Create deposit record with full lifecycle
+    state.deposits.set(depId, {
+      depositId: depId,
+      vaId,
+      amount: depositAmount,
+      status: 'credited',
+      lifecycle: [
+        { state: 'detected', timestamp: now },
+        { state: 'compliance_pending', timestamp: now },
+        { state: 'compliance_passed', timestamp: now },
+        { state: 'credited', timestamp: now },
+      ],
+      txHash: `0xsim${Date.now().toString(16)}`,
+      chain: 'base',
+      oracleRef: `fo-${depId}`,
+    });
+
+    // 3. Credit user funding VA
+    const before = va.posted;
+    va.posted += depositAmount;
+    va.updatedAt = now;
+
+    // 4. Debit incoming wallet (funds moved to user VA)
+    state.systemWallets.incoming -= depositAmount;
+
+    // 5. Oracle entry
+    const entries = state.oracleLog.get(vaId) ?? [];
+    entries.push({
+      entryId: `fo-${depId}`,
+      vaId,
+      type: 'deposit_credited',
+      amount: depositAmount,
+      balanceBefore: before,
+      balanceAfter: va.posted,
+      ref: depId,
+      timestamp: now,
+    });
+    state.oracleLog.set(vaId, entries);
+
+    res.json(serializeBigints({
+      depositId: depId,
+      vaId,
+      amount: depositAmount,
+      fbo: fbo || vaId,
+      status: 'credited',
+      lifecycle: ['detected', 'compliance_pending', 'compliance_passed', 'credited'],
+      newBalance: va.posted,
+      timestamp: now,
+    }));
+  });
+
+  // POST /sim/simulate-withdrawal — full withdrawal lifecycle through MarketSB accounting
+  router.post('/simulate-withdrawal', (req: Request, res: Response) => {
+    const state = getState();
+    const { vaId, amount, destination } = req.body;
+
+    if (!vaId || amount === undefined) {
+      res.status(400).json({ code: 'bad_request', message: 'vaId and amount required' });
+      return;
+    }
+
+    const va = state.virtualAccounts.get(vaId);
+    if (!va) {
+      res.status(404).json({ code: 'not_found', message: `VA ${vaId} not found` });
+      return;
+    }
+
+    const withdrawAmount = BigInt(amount);
+    if (va.posted < withdrawAmount) {
+      res.status(400).json({ code: 'insufficient_balance', message: 'Not enough balance' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const wdId = `wd-sim-${Date.now()}`;
+
+    // 1. Debit user funding VA
+    const before = va.posted;
+    va.posted -= withdrawAmount;
+    va.updatedAt = now;
+
+    // 2. Credit outgoing system wallet
+    state.systemWallets.outgoing += withdrawAmount;
+
+    // 3. Create withdrawal record
+    state.withdrawals.set(wdId, {
+      withdrawalId: wdId,
+      vaId,
+      amount: withdrawAmount,
+      destination: destination || '0xexternal',
+      status: 'sent',
+      chain: 'base',
+      lifecycle: [
+        { state: 'requested', timestamp: now },
+        { state: 'compliance_passed', timestamp: now },
+        { state: 'debited', timestamp: now },
+        { state: 'sent', timestamp: now },
+      ],
+      txHash: `0xwd${Date.now().toString(16)}`,
+      oracleRef: `fo-${wdId}`,
+      idempotencyKey: wdId,
+    });
+
+    // 4. Debit outgoing wallet (funds sent on-chain)
+    state.systemWallets.outgoing -= withdrawAmount;
+
+    // 5. Oracle entry
+    const entries = state.oracleLog.get(vaId) ?? [];
+    entries.push({
+      entryId: `fo-${wdId}`,
+      vaId,
+      type: 'withdrawal_sent',
+      amount: withdrawAmount,
+      balanceBefore: before,
+      balanceAfter: va.posted,
+      ref: wdId,
+      timestamp: now,
+    });
+    state.oracleLog.set(vaId, entries);
+
+    res.json(serializeBigints({
+      withdrawalId: wdId,
+      vaId,
+      amount: withdrawAmount,
+      destination: destination || '0xexternal',
+      status: 'sent',
+      lifecycle: ['requested', 'compliance_passed', 'debited', 'sent'],
+      newBalance: va.posted,
+      timestamp: now,
+    }));
+  });
+
   // POST /sim/credit-va — directly credit a VA (for mock chat fund journeys)
   router.post('/credit-va', (req: Request, res: Response) => {
     const state = getState();

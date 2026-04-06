@@ -18,6 +18,8 @@ import {
   getOracleLedger,
   getMarketplaceStats,
   getListings,
+  simulateDeposit,
+  simulateWithdrawal,
   creditVA,
   debitVA,
   postCashierBatch,
@@ -534,10 +536,10 @@ function fundConfirm(amount: number): JourneyResponse {
 }
 
 async function fundExecute(amount: number): Promise<JourneyResponse> {
-  // Credit the VA in the sim
+  // Simulate deposit through MarketSB lifecycle
   const baseUnits = Math.round(amount * 1_000_000);
   const vaId = `va-funding-${CURRENT_USER.ref}`;
-  await creditVA(vaId, baseUnits);
+  await simulateDeposit(vaId, baseUnits, USER_ACCOUNT_NUMBER);
 
   // Fetch updated balance
   const state = await getLiveState();
@@ -1026,10 +1028,10 @@ function sendoutConfirm(amount: number, destination?: string): JourneyResponse {
 }
 
 async function sendoutExecute(amount: number): Promise<JourneyResponse> {
-  // Debit the VA in the sim
+  // Simulate withdrawal through MarketSB lifecycle
   const baseUnits = Math.round(amount * 1_000_000);
   const vaId = `va-funding-${CURRENT_USER.ref}`;
-  await debitVA(vaId, baseUnits);
+  await simulateWithdrawal(vaId, baseUnits);
 
   const state = await getLiveState();
   const newBalance = state.fundingBalance;
@@ -1678,30 +1680,32 @@ function buildTools() {
 
   const simulate_deposit = tool({
     description:
-      `Simulate a USDC deposit (fund) into the user's Funding Account. USDC is sent to the Incoming Account (${INCOMING_ACCOUNT}) for the benefit of account ${USER_ACCOUNT_NUMBER}. Use this when the user says "fund", "deposit", "simulate deposit", or wants to add USDC. Ask the user how much if they haven't specified an amount.`,
+      `Simulate a USDC deposit (fund) into the user's Funding Account via MarketSB. USDC is sent to the Incoming Account (${INCOMING_ACCOUNT}) for the benefit of account ${USER_ACCOUNT_NUMBER}. The deposit flows through: incoming wallet → FBO match → compliance → credit to Funding VA. Use this when the user says "fund", "deposit", "simulate deposit", or wants to add USDC. Ask the user how much if they haven't specified an amount.`,
     inputSchema: z.object({
       amount: z.number().positive().describe('Amount in USDC dollars (e.g. 5000 for $5,000)'),
     }),
     outputSchema: z.any(),
     execute: async ({ amount }: { amount: number }) => {
       const baseUnits = Math.round(amount * 1_000_000);
-      const ok = await creditVA(`va-funding-${CURRENT_USER.ref}`, baseUnits);
-      if (!ok) return { success: false, error: 'Sim not running' };
-      const state = await getLiveState();
+      const vaId = `va-funding-${CURRENT_USER.ref}`;
+      const result = await simulateDeposit(vaId, baseUnits, USER_ACCOUNT_NUMBER);
+      if (!result.ok) return { success: false, error: 'Deposit failed — sim may not be running' };
+      const data = result.data as Record<string, unknown>;
       return {
         success: true,
+        depositId: data.depositId,
         deposited: `$${fmt(amount)}`,
         incomingAccount: INCOMING_ACCOUNT,
         forBenefitOf: USER_ACCOUNT_NUMBER,
-        newBalance: `$${fmt(state.fundingBalance)}`,
-        lifecycle: ['USDC sent to Incoming', 'FBO matched', 'Compliance passed', 'Credited to Funding Account'],
+        newBalance: data.newBalance,
+        lifecycle: data.lifecycle,
       };
     },
   });
 
   const simulate_withdrawal = tool({
     description:
-      `Simulate a USDC withdrawal from the user's Funding Account (${USER_ACCOUNT_NUMBER}). Debits the account and sends USDC from the Outgoing Account. Use when the user says "withdraw", "send out", or "simulate withdrawal". Ask the user how much and where if not specified.`,
+      `Simulate a USDC withdrawal from the user's Funding Account (${USER_ACCOUNT_NUMBER}) via MarketSB. Debits the Funding VA, routes through compliance, sends from the Outgoing Account. Use when the user says "withdraw", "send out", or "simulate withdrawal". Ask the user how much and where if not specified.`,
     inputSchema: z.object({
       amount: z.number().positive().describe('Amount in USDC dollars (e.g. 2000 for $2,000)'),
       destination: z.string().optional().describe('Destination wallet address (e.g. 0x...)'),
@@ -1709,16 +1713,18 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async ({ amount, destination }: { amount: number; destination?: string }) => {
       const baseUnits = Math.round(amount * 1_000_000);
-      const ok = await debitVA(`va-funding-${CURRENT_USER.ref}`, baseUnits);
-      if (!ok) return { success: false, error: 'Insufficient balance' };
-      const state = await getLiveState();
+      const vaId = `va-funding-${CURRENT_USER.ref}`;
+      const result = await simulateWithdrawal(vaId, baseUnits, destination);
+      if (!result.ok) return { success: false, error: 'Insufficient balance or sim not running' };
+      const data = result.data as Record<string, unknown>;
       return {
         success: true,
+        withdrawalId: data.withdrawalId,
         withdrawn: `$${fmt(amount)}`,
         from: USER_ACCOUNT_NUMBER,
         to: destination || 'external wallet',
-        newBalance: `$${fmt(state.fundingBalance)}`,
-        lifecycle: ['Withdrawal requested', 'Debited from Funding', 'Compliance passed', 'Sent from Outgoing Account'],
+        newBalance: data.newBalance,
+        lifecycle: data.lifecycle,
       };
     },
   });

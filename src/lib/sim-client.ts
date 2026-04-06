@@ -212,7 +212,37 @@ export async function getUserState(userRef = CURRENT_USER.ref, onliId = CURRENT_
 // Mutations — actually change sim state
 // ---------------------------------------------------------------------------
 
-/** Credit a VA directly (mock deposit). Amount in USDC base units. */
+/** Simulate deposit through MarketSB lifecycle (incoming → FBO → compliance → credit). */
+export async function simulateDeposit(vaId: string, amount: number, fbo?: string): Promise<{ ok: boolean; data?: unknown }> {
+  try {
+    const res = await simFetch(`${MARKETSB}/sim/simulate-deposit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vaId, amount: String(amount), fbo }),
+    });
+    if (!res.ok) return { ok: false, data: await res.json().catch(() => null) };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Simulate withdrawal through MarketSB lifecycle (debit → compliance → outgoing → sent). */
+export async function simulateWithdrawal(vaId: string, amount: number, destination?: string): Promise<{ ok: boolean; data?: unknown }> {
+  try {
+    const res = await simFetch(`${MARKETSB}/sim/simulate-withdrawal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vaId, amount: String(amount), destination }),
+    });
+    if (!res.ok) return { ok: false, data: await res.json().catch(() => null) };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Credit a VA directly (legacy shortcut). Amount in USDC base units. */
 export async function creditVA(vaId: string, amount: number): Promise<boolean> {
   try {
     const res = await simFetch(`${MARKETSB}/sim/credit-va`, {
@@ -226,7 +256,7 @@ export async function creditVA(vaId: string, amount: number): Promise<boolean> {
   }
 }
 
-/** Debit a VA directly (mock withdrawal). Amount in USDC base units. */
+/** Debit a VA directly (legacy shortcut). Amount in USDC base units. */
 export async function debitVA(vaId: string, amount: number): Promise<boolean> {
   try {
     const res = await simFetch(`${MARKETSB}/sim/debit-va`, {
