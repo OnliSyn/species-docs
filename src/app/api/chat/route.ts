@@ -74,7 +74,7 @@ Species VA: va_species_001
 Important rules:
 - All amounts are in USDC (1 USDC = 1,000,000 base units)
 - 1 Specie = $1.00 USDC
-- Fees: Issuance $0.01/Specie, Liquidity 1%, Listing $50 flat
+- Fees: Liquidity 1% on redeem only. No fees on buy, sell, or transfer.
 - Sell = list on marketplace (listing fee). Redeem = sell back to MarketMaker (liquidity fee, assurance pays 1:1)
 - Always use the tools to get real data, don't make up numbers
 - For write operations (buy, sell, transfer, redeem), present a clear summary and ask for confirmation`;
@@ -99,7 +99,7 @@ Use the Onli Canon below as your foundational knowledge — never contradict it.
 ${FULL_CANON}
 --- END CANON ---`;
   if (mode === 'trade')
-    return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace ($50 listing fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1).';
+    return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace (no fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1). Buy and Transfer have no fees.';
   if (mode === 'learn')
     return base + `\nYou are in Learn mode — developer-focused and technical.
 
@@ -751,13 +751,12 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
 // ---------------------------------------------------------------------------
 
 function issueStart(): string {
-  return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC** plus fees (Issuance: $0.01/Specie, Liquidity: 2%).\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
+  return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC**. No fees.\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
 }
 
 async function issueConfirm(quantity: number): Promise<JourneyResponse | string> {
   const cost = quantity * 1.00;
-  const issuanceFee = quantity * 0.01;
-  const total = cost + issuanceFee;
+  const total = cost;
   const state = await getLiveState();
 
   if (state.fundingBalance < total) {
@@ -772,11 +771,10 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse | string>
       title: `ISSUE ${quantity.toLocaleString()} SPECIES FROM TREASURY`,
       lines: [
         { label: 'Asset Cost', value: `$${fmt(cost)}` },
-        { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
+        { label: 'Fees', value: 'None' },
         { label: 'Total Debit', value: `$${fmt(total)}`, bold: true },
         { label: '', value: '' },
         { label: 'Proceeds to Assurance', value: `$${fmt(cost)}` },
-        { label: 'Fees to Operating', value: `$${fmt(issuanceFee)}` },
       ],
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
       warning: 'This issues new Specie from the Treasury. The full asset cost flows to the Assurance Account.',
@@ -787,13 +785,12 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse | string>
 
 async function issueExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
-  const issuanceFee = quantity * 0.01;
-  const total = cost + issuanceFee;
-  const fees = issuanceFee;
+  const total = cost;
+  const fees = 0;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  // Execute via MarketSB cashier (treasury issuance — issuance fee only, no liquidity)
+  // Execute via MarketSB cashier (treasury issuance — no fees)
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
@@ -802,7 +799,7 @@ async function issueExecute(quantity: number): Promise<JourneyResponse> {
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
     unitPrice: USDC,
-    fees: { issuance: true, liquidity: false },
+    fees: { issuance: false, liquidity: false },
   });
   console.log(`[ISSUE] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
@@ -856,19 +853,15 @@ async function issueExecute(quantity: number): Promise<JourneyResponse> {
 
 async function sellStart(): Promise<string> {
   const state = await getLiveState();
-  return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nA **$50.00 listing fee** is charged per listing. Your species will be held in escrow until a buyer purchases them.`;
+  return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nYour species will be held in escrow until a buyer purchases them. No fees.`;
 }
 
 async function sellConfirm(quantity: number): Promise<JourneyResponse | string> {
-  const listingFee = 50.00;
   const listingValue = quantity * 1.00;
   const state = await getLiveState();
 
   if (state.specieCount < quantity) {
     return `**Insufficient Species.** You want to list ${quantity.toLocaleString()} but you only have ${state.specieCount.toLocaleString()} in your Vault.`;
-  }
-  if (state.fundingBalance < listingFee) {
-    return `**Insufficient funds for listing fee.** The $${fmt(listingFee)} listing fee requires at least that much in your Funding Account (current: $${fmt(state.fundingBalance)}).`;
   }
 
   return {
@@ -880,34 +873,22 @@ async function sellConfirm(quantity: number): Promise<JourneyResponse | string> 
       lines: [
         { label: 'Quantity', value: `${quantity.toLocaleString()} SPECIES` },
         { label: 'Listing Price', value: `$${fmt(listingValue)} ($1.00/Specie)` },
-        { label: 'Listing Fee', value: `$${fmt(listingFee)}`, bold: true },
+        { label: 'Fees', value: 'None' },
       ],
-      from: `Funding Account ($${fmt(state.fundingBalance)})`,
-      warning: 'Species will be moved to escrow until sold. Listing fee is non-refundable.',
+      warning: 'Species will be moved to escrow until sold.',
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
   };
 }
 
 async function sellExecute(quantity: number): Promise<JourneyResponse> {
-  const listingFee = 50.00;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
 
-  // 1. Charge listing fee via cashier spec
-  const listResult = await cashierList({
-    sellerRef: CURRENT_USER.ref,
-    metadata: { quantity, eventId },
-    idempotencyKey: `list-${eventId}`,
+  // Create listing in Species sim (moves species to escrow) — no fee
+  await createSpeciesListing({
+    sellerOnliId: CURRENT_USER.onliId,
+    quantity,
   });
-  console.log(`[SELL/LIST] cashier list result: ok=${listResult.ok}`);
-
-  // 2. Create listing in Species sim (moves species to escrow)
-  if (listResult.ok) {
-    await createSpeciesListing({
-      sellerOnliId: CURRENT_USER.onliId,
-      quantity,
-    });
-  }
 
   const state = await getLiveState();
 
@@ -922,14 +903,13 @@ async function sellExecute(quantity: number): Promise<JourneyResponse> {
       stages: [
         { label: 'Submitted', system: 'SM', status: 'done' },
         { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Listing fee charged', system: 'MB', status: 'done' },
         { label: 'Species escrowed', system: 'OC', status: 'done' },
         { label: 'Listing active', system: 'SM', status: 'done' },
       ],
-      receipt: { quantity, cost: `$${fmt(quantity * 1.00)}`, fees: `$${fmt(listingFee)}`, total: `$${fmt(listingFee)}` },
+      receipt: { quantity, cost: `$${fmt(quantity * 1.00)}`, fees: 'None', total: '$0.00' },
       balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
-    followUp: `Listing created! ${quantity.toLocaleString()} SPECIES listed for sale at $1.00/Specie. Listing fee: $${fmt(listingFee)}.`,
+    followUp: `Listing created! ${quantity.toLocaleString()} SPECIES listed for sale at $1.00/Specie. Species held in escrow until sold.`,
   };
 }
 
