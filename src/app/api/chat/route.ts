@@ -429,13 +429,16 @@ function detectJourneyState(messages: Message[]): JourneyState {
 
   // ---- Phase: FRESH INTENT CHECK (before amount parsing) ----
   // If the user's message contains a clear journey keyword, treat as a new journey
-  // This prevents "buy 10000 species" from being misread as a transfer amount
+  // Only trigger fresh journey if message has an ACTION verb (not just "species" or a number)
   const hasJourneyKeyword = lastUserLower.includes('fund') || lastUserLower.includes('deposit') ||
     lastUserLower.includes('buy') || lastUserLower.includes('sell') || lastUserLower.includes('list') ||
     lastUserLower.includes('redeem') || lastUserLower.includes('transfer') ||
     lastUserLower.includes('withdraw') || lastUserLower.includes('issue');
+  // Don't treat "100 species" as a journey keyword — it's a quantity response
+  const isJustQuantity = /^\d[\d,]*\s*(species?|sp)?$/i.test(lastUserText.trim());
+  const shouldStartFreshJourney = hasJourneyKeyword && !isJustQuantity;
 
-  if (hasJourneyKeyword) {
+  if (shouldStartFreshJourney) {
     // Extract inline number from the message (e.g. "buy 10000 species" → 10000)
     const inlineNum = lastUserText.match(/(\d[\d,]*)/);
     const inlineQty = inlineNum ? parseInt(inlineNum[1].replace(/,/g, '')) : 0;
@@ -493,7 +496,8 @@ function detectJourneyState(messages: Message[]): JourneyState {
   const askedHowMany = lastAssistantLower.includes('how many specie');
   const askedWhoAndHowMany = lastAssistantLower.includes('who and how many');
 
-  const numberMatch = lastUserText.match(/^[\$]?(\d[\d,]*\.?\d*)$/);
+  // Match bare number ("100") or number + species ("100 species", "100 sp")
+  const numberMatch = lastUserText.match(/^[\$]?(\d[\d,]*\.?\d*)\s*(species?|sp)?$/i);
   const hasNumber = numberMatch !== null;
 
   if (askedHowMany && hasNumber) {
@@ -654,10 +658,15 @@ function buyStart(): string {
   return 'How many Specie would you like to buy?\n\nEach Specie is priced at **$1.00 USDC**. Just tell me the quantity.';
 }
 
-async function buyConfirm(quantity: number): Promise<JourneyResponse> {
+async function buyConfirm(quantity: number): Promise<JourneyResponse | string> {
   const cost = quantity * 1.00;
-  const total = cost; // Buy from market = asset cost only, no fees
+  const total = cost;
   const state = await getLiveState();
+
+  // Check insufficient funds
+  if (state.fundingBalance < total) {
+    return `**Insufficient funds.** You need $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
+  }
 
   return {
     type: 'tool',
@@ -743,11 +752,15 @@ function issueStart(): string {
   return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC** plus fees (Issuance: $0.01/Specie, Liquidity: 2%).\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
 }
 
-async function issueConfirm(quantity: number): Promise<JourneyResponse> {
+async function issueConfirm(quantity: number): Promise<JourneyResponse | string> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
   const total = cost + issuanceFee;
   const state = await getLiveState();
+
+  if (state.fundingBalance < total) {
+    return `**Insufficient funds.** Issuing ${quantity.toLocaleString()} Specie costs $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
+  }
 
   return {
     type: 'tool',
@@ -844,10 +857,17 @@ async function sellStart(): Promise<string> {
   return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nA **$50.00 listing fee** is charged per listing. Your species will be held in escrow until a buyer purchases them.`;
 }
 
-async function sellConfirm(quantity: number): Promise<JourneyResponse> {
+async function sellConfirm(quantity: number): Promise<JourneyResponse | string> {
   const listingFee = 50.00;
   const listingValue = quantity * 1.00;
   const state = await getLiveState();
+
+  if (state.specieCount < quantity) {
+    return `**Insufficient Species.** You want to list ${quantity.toLocaleString()} but you only have ${state.specieCount.toLocaleString()} in your Vault.`;
+  }
+  if (state.fundingBalance < listingFee) {
+    return `**Insufficient funds for listing fee.** The $${fmt(listingFee)} listing fee requires at least that much in your Funding Account (current: $${fmt(state.fundingBalance)}).`;
+  }
 
   return {
     type: 'tool',
@@ -920,11 +940,15 @@ async function redeemStart(): Promise<string> {
   return `How many Specie would you like to redeem?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nThe MarketMaker will buy back at **$1.00/Specie** from the Assurance Account. A **1% liquidity fee** is charged.`;
 }
 
-async function redeemConfirm(quantity: number): Promise<JourneyResponse> {
+async function redeemConfirm(quantity: number): Promise<JourneyResponse | string> {
   const gross = quantity * 1.00;
-  const liquidityFee = gross * 0.01; // 1% (matches cashier default 100 bps)
+  const liquidityFee = gross * 0.01;
   const net = gross - liquidityFee;
   const state = await getLiveState();
+
+  if (state.specieCount < quantity) {
+    return `**Insufficient Species.** You want to redeem ${quantity.toLocaleString()} but you only have ${state.specieCount.toLocaleString()} in your Vault.`;
+  }
 
   return {
     type: 'tool',
@@ -1015,7 +1039,11 @@ function transferStart(quantity?: number): string {
     `Tell me the recipient and quantity (e.g. "Pepper Potts 100").`;
 }
 
-function transferConfirm(quantity: number, recipient: string): JourneyResponse {
+async function transferConfirm(quantity: number, recipient: string): Promise<JourneyResponse | string> {
+  const state = await getLiveState();
+  if (state.specieCount < quantity) {
+    return `**Insufficient Species.** You want to transfer ${quantity.toLocaleString()} but you only have ${state.specieCount.toLocaleString()} in your Vault.`;
+  }
   const contacts: Record<string, { name: string; id: string }> = {
     'pepper': { name: 'Pepper Potts', id: 'onli-user-456' },
     'pepper potts': { name: 'Pepper Potts', id: 'onli-user-456' },
@@ -1093,7 +1121,11 @@ function sendoutStart(): string {
     `How much USDC and where? (e.g. "2000 to 0x9876...fedc")`;
 }
 
-function sendoutConfirm(amount: number, destination?: string): JourneyResponse {
+async function sendoutConfirm(amount: number, destination?: string): Promise<JourneyResponse | string> {
+  const state = await getLiveState();
+  if (state.fundingBalance < amount) {
+    return `**Insufficient funds.** You want to withdraw $${fmt(amount)} but your Funding Account has $${fmt(state.fundingBalance)}.`;
+  }
   const dest = destination || '0x9876...fedc';
   return {
     type: 'tool',
