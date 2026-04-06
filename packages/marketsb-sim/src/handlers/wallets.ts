@@ -50,7 +50,7 @@ export function createWalletsRouter(state: SimState): Router {
       return;
     }
 
-    const id = req.params.id as WalletId;
+    const id = String(req.params.id) as WalletId;
     if (!(id in WALLET_LABELS)) {
       res.status(404).json({ code: 'not_found', message: `Wallet ${id} not found. Valid: ${Object.keys(WALLET_LABELS).join(', ')}` });
       return;

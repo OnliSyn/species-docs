@@ -88,7 +88,7 @@ export function createOracleRouter(state: SimState): Router {
       res.status(500).json({ code: 'simulated_error', message: 'Injected error on oracle' });
       return;
     }
-    const e = state.cashierOracleEntries.get(req.params.oracleEntryId);
+    const e = state.cashierOracleEntries.get(String(req.params.oracleEntryId));
     if (!e) {
       res.status(404).json({ code: 'not_found', message: 'Oracle entry not found' });
       return;
@@ -103,7 +103,7 @@ export function createOracleRouter(state: SimState): Router {
       res.status(500).json({ code: 'simulated_error', message: 'Injected error on oracle' });
       return;
     }
-    const e = state.cashierOracleEntries.get(req.params.oracleEntryId);
+    const e = state.cashierOracleEntries.get(String(req.params.oracleEntryId));
     if (!e) {
       res.status(404).json({ code: 'not_found', message: 'Oracle entry not found' });
       return;
@@ -164,7 +164,7 @@ export function createOracleRouter(state: SimState): Router {
       return;
     }
 
-    const { vaId } = req.params;
+    const vaId = String(req.params.vaId);
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
@@ -182,7 +182,7 @@ export function createOracleRouter(state: SimState): Router {
       return;
     }
 
-    const { vaId } = req.params;
+    const vaId = String(req.params.vaId);
     const va = state.virtualAccounts.get(vaId);
 
     if (!va) {

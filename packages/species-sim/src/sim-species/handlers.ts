@@ -109,7 +109,7 @@ export function createMarketplaceRouter(
   // ── GET /events/:eventId/receipt ─────────────────────────────────────
   router.get('/events/:eventId/receipt', (req: Request, res: Response) => {
     const state = getState();
-    const order = state.orders.get(req.params.eventId);
+    const order = state.orders.get(String(req.params.eventId));
     if (!order) {
       res.status(404).json({ error: 'Event not found' });
       return;
@@ -145,7 +145,7 @@ export function createMarketplaceRouter(
   // ── GET /events/:eventId/status ──────────────────────────────────────
   router.get('/events/:eventId/status', (req: Request, res: Response) => {
     const state = getState();
-    const order = state.orders.get(req.params.eventId);
+    const order = state.orders.get(String(req.params.eventId));
     if (!order) {
       res.status(404).json({ error: 'Event not found' });
       return;
@@ -196,7 +196,7 @@ export function createMarketplaceRouter(
   // ── GET /listings/:listingId ─────────────────────────────────────────
   router.get('/listings/:listingId', (req: Request, res: Response) => {
     const state = getState();
-    const listing = state.listings.get(req.params.listingId);
+    const listing = state.listings.get(String(req.params.listingId));
     if (!listing) {
       res.status(404).json({ error: 'Listing not found' });
       return;
@@ -207,7 +207,7 @@ export function createMarketplaceRouter(
   // ── GET /vault/:uid ──────────────────────────────────────────────────
   router.get('/vault/:uid', (req: Request, res: Response) => {
     const state = getState();
-    const balance = getVaultBalance(state, req.params.uid);
+    const balance = getVaultBalance(state, String(req.params.uid));
     if (!balance) {
       res.status(404).json({ error: 'Vault not found' });
       return;
@@ -218,7 +218,7 @@ export function createMarketplaceRouter(
   // ── GET /vault/:uid/history ──────────────────────────────────────────
   router.get('/vault/:uid/history', (req: Request, res: Response) => {
     const state = getState();
-    const history = getVaultHistory(state, req.params.uid);
+    const history = getVaultHistory(state, String(req.params.uid));
     if (!history) {
       res.status(404).json({ error: 'Vault not found' });
       return;

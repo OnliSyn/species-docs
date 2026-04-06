@@ -105,9 +105,9 @@ export function createDepositsRouter(state: SimState): Router {
       return;
     }
 
-    const dep = state.deposits.get(req.params.id);
+    const dep = state.deposits.get(String(req.params.id));
     if (!dep) {
-      res.status(404).json({ code: 'not_found', message: `Deposit ${req.params.id} not found` });
+      res.status(404).json({ code: 'not_found', message: `Deposit ${String(req.params.id)} not found` });
       return;
     }
 

@@ -62,16 +62,16 @@ export function createControlRouter(
   // POST /sim/inject-error/:endpoint
   router.post('/inject-error/:endpoint', (req: Request, res: Response) => {
     const state = getState();
-    state.errorInjections.set(req.params.endpoint, true);
-    res.json({ status: 'error_injected', endpoint: req.params.endpoint });
+    state.errorInjections.set(String(req.params.endpoint), true);
+    res.json({ status: 'error_injected', endpoint: String(req.params.endpoint) });
   });
 
   // POST /sim/advance-deposit/:id
   router.post('/advance-deposit/:id', (req: Request, res: Response) => {
     const state = getState();
-    const result = advanceDepositLifecycle(state, req.params.id);
+    const result = advanceDepositLifecycle(state, String(req.params.id));
     if (!result) {
-      res.status(404).json({ code: 'not_found', message: `Deposit ${req.params.id} not found` });
+      res.status(404).json({ code: 'not_found', message: `Deposit ${String(req.params.id)} not found` });
       return;
     }
     res.json(serializeBigints(result));

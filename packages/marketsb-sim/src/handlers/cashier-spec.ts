@@ -269,7 +269,7 @@ export function createCashierSpecRouter(state: SimState): Router {
 
   // ── GET /accounts/:accountId/balance ────────────────────────────────
   router.get('/accounts/:accountId/balance', (req: Request, res: Response) => {
-    const acc = state.cashierAccounts.get(req.params.accountId);
+    const acc = state.cashierAccounts.get(String(req.params.accountId));
     if (!acc) {
       res.status(404).json({ code: 'not_found', message: 'Account not found' });
       return;
@@ -287,7 +287,7 @@ export function createCashierSpecRouter(state: SimState): Router {
 
   // ── GET /accounts/:accountId/transactions ───────────────────────────
   router.get('/accounts/:accountId/transactions', (req: Request, res: Response) => {
-    const id = req.params.accountId;
+    const id = String(req.params.accountId);
     const txs = [...state.cashierTransactions.values()].filter(
       (t) => t.senderAccountId === id || t.receiverAccountId === id,
     );
@@ -301,7 +301,7 @@ export function createCashierSpecRouter(state: SimState): Router {
         res.status(400).json({ code: 'bad_request', message: 'amount required' });
         return;
       }
-      const r = creditAccount(state, req.params.accountId, String(amount));
+      const r = creditAccount(state, String(req.params.accountId), String(amount));
       res.json(serializeBigints({ ...r, formatted: formatBaseUnitsToUsd(r.newBalance) }));
     } catch (e) {
       if (e instanceof CashierEngineError) {
@@ -319,7 +319,7 @@ export function createCashierSpecRouter(state: SimState): Router {
         res.status(400).json({ code: 'bad_request', message: 'amount required' });
         return;
       }
-      const r = debitAccount(state, req.params.accountId, String(amount));
+      const r = debitAccount(state, String(req.params.accountId), String(amount));
       res.json(serializeBigints({ ...r, formatted: formatBaseUnitsToUsd(r.newBalance) }));
     } catch (e) {
       if (e instanceof CashierEngineError) {
@@ -331,7 +331,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.post('/accounts/:accountId/disable', (req: Request, res: Response) => {
-    const acc = state.cashierAccounts.get(req.params.accountId);
+    const acc = state.cashierAccounts.get(String(req.params.accountId));
     if (!acc) {
       res.status(404).json({ code: 'not_found', message: 'Account not found' });
       return;
@@ -342,7 +342,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.post('/accounts/:accountId/enable', (req: Request, res: Response) => {
-    const acc = state.cashierAccounts.get(req.params.accountId);
+    const acc = state.cashierAccounts.get(String(req.params.accountId));
     if (!acc) {
       res.status(404).json({ code: 'not_found', message: 'Account not found' });
       return;
@@ -353,7 +353,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.patch('/accounts/:accountId', (req: Request, res: Response) => {
-    const acc = state.cashierAccounts.get(req.params.accountId);
+    const acc = state.cashierAccounts.get(String(req.params.accountId));
     if (!acc) {
       res.status(404).json({ code: 'not_found', message: 'Account not found' });
       return;
@@ -366,7 +366,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.get('/accounts/:accountId', (req: Request, res: Response) => {
-    const acc = state.cashierAccounts.get(req.params.accountId);
+    const acc = state.cashierAccounts.get(String(req.params.accountId));
     if (!acc) {
       res.status(404).json({ code: 'not_found', message: 'Account not found' });
       return;
@@ -446,7 +446,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.get('/transactions/:transactionId', (req: Request, res: Response) => {
-    const tx = state.cashierTransactions.get(req.params.transactionId);
+    const tx = state.cashierTransactions.get(String(req.params.transactionId));
     if (!tx) {
       res.status(404).json({ code: 'not_found', message: 'Transaction not found' });
       return;
@@ -498,7 +498,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.get('/receipts/:receiptId', (req: Request, res: Response) => {
-    const r = state.cashierReceipts.get(req.params.receiptId);
+    const r = state.cashierReceipts.get(String(req.params.receiptId));
     if (!r) {
       res.status(404).json({ code: 'not_found', message: 'Receipt not found' });
       return;
@@ -535,7 +535,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.get('/system-users/:userId', (req: Request, res: Response) => {
-    const u = state.cashierSystemUsers.get(req.params.userId);
+    const u = state.cashierSystemUsers.get(String(req.params.userId));
     if (!u) {
       res.status(404).json({ code: 'not_found', message: 'User not found' });
       return;
@@ -544,7 +544,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.patch('/system-users/:userId', (req: Request, res: Response) => {
-    const u = state.cashierSystemUsers.get(req.params.userId);
+    const u = state.cashierSystemUsers.get(String(req.params.userId));
     if (!u) {
       res.status(404).json({ code: 'not_found', message: 'User not found' });
       return;
@@ -563,7 +563,7 @@ export function createCashierSpecRouter(state: SimState): Router {
   });
 
   router.get('/audit/events/:eventId', (req: Request, res: Response) => {
-    const e = state.auditEvents.find((x) => x.eventId === req.params.eventId);
+    const e = state.auditEvents.find((x) => x.eventId === String(req.params.eventId));
     if (!e) {
       res.status(404).json({ code: 'not_found', message: 'Event not found' });
       return;

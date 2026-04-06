@@ -72,7 +72,7 @@ export function createControlRouter(
   // ── POST /sim/approve/:eventId ───────────────────────────────────────
   router.post('/sim/approve/:eventId', (req: Request, res: Response) => {
     const state = getState();
-    const result = approveAskToMove(state, req.params.eventId);
+    const result = approveAskToMove(state, String(req.params.eventId));
 
     if (!result.success) {
       res.status(404).json({ error: result.error });
@@ -80,7 +80,7 @@ export function createControlRouter(
     }
 
     res.json({
-      message: `AskToMove approved for ${req.params.eventId}`,
+      message: `AskToMove approved for ${String(req.params.eventId)}`,
       timestamp: new Date().toISOString(),
     });
   });
@@ -205,7 +205,7 @@ export function createControlRouter(
   // ── POST /sim/inject-error/:stage ────────────────────────────────────
   router.post('/sim/inject-error/:stage', (req: Request, res: Response) => {
     const state = getState();
-    const stage = req.params.stage;
+    const stage = String(req.params.stage);
 
     // Normalize: allow both dot and dash notation
     const normalizedStage = stage.replace(/-/g, '.');
@@ -220,8 +220,8 @@ export function createControlRouter(
   // ── POST /sim/set-delay/:stage/:ms ───────────────────────────────────
   router.post('/sim/set-delay/:stage/:ms', (req: Request, res: Response) => {
     const state = getState();
-    const stage = req.params.stage;
-    const ms = parseInt(req.params.ms, 10);
+    const stage = String(req.params.stage);
+    const ms = parseInt(String(req.params.ms), 10);
 
     if (isNaN(ms) || ms < 0) {
       res.status(400).json({ error: 'Invalid delay value' });

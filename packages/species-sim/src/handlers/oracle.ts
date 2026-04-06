@@ -36,7 +36,7 @@ export function createOracleRouter(getState: () => SpeciesSimState): Router {
     const state = getState();
     if (checkInjectedError(state, res)) return;
 
-    const { onliId } = req.params;
+    const onliId = String(req.params.onliId);
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
@@ -50,7 +50,7 @@ export function createOracleRouter(getState: () => SpeciesSimState): Router {
     const state = getState();
     if (checkInjectedError(state, res)) return;
 
-    const { eventId } = req.params;
+    const eventId = String(req.params.eventId);
     const entries = state.assetOracleLog.filter((e) => e.eventId === eventId);
     res.json(entries);
   });
@@ -60,7 +60,7 @@ export function createOracleRouter(getState: () => SpeciesSimState): Router {
     const state = getState();
     if (checkInjectedError(state, res)) return;
 
-    const { onliId } = req.params;
+    const onliId = String(req.params.onliId);
     const vault = state.vaults.users.get(onliId);
     if (!vault) {
       res.status(404).json({ code: 'not_found', message: `No user vault for onliId ${onliId}` });

@@ -49,9 +49,9 @@ export function createAccountsRouter(state: SimState): Router {
       return;
     }
 
-    const va = state.virtualAccounts.get(req.params.vaId);
+    const va = state.virtualAccounts.get(String(req.params.vaId));
     if (!va) {
-      res.status(404).json({ code: 'not_found', message: `VA ${req.params.vaId} not found` });
+      res.status(404).json({ code: 'not_found', message: `VA ${String(req.params.vaId)} not found` });
       return;
     }
 

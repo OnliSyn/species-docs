@@ -152,9 +152,9 @@ export function createWithdrawalsRouter(
       return;
     }
 
-    const wd = state.withdrawals.get(req.params.id);
+    const wd = state.withdrawals.get(String(req.params.id));
     if (!wd) {
-      res.status(404).json({ code: 'not_found', message: `Withdrawal ${req.params.id} not found` });
+      res.status(404).json({ code: 'not_found', message: `Withdrawal ${String(req.params.id)} not found` });
       return;
     }
 
@@ -175,9 +175,9 @@ export function createWithdrawalsRouter(
 
   // POST /withdrawals/:id/approve
   router.post('/:id/approve', (req: Request, res: Response) => {
-    const wd = state.withdrawals.get(req.params.id);
+    const wd = state.withdrawals.get(String(req.params.id));
     if (!wd) {
-      res.status(404).json({ code: 'not_found', message: `Withdrawal ${req.params.id} not found` });
+      res.status(404).json({ code: 'not_found', message: `Withdrawal ${String(req.params.id)} not found` });
       return;
     }
 
@@ -199,9 +199,9 @@ export function createWithdrawalsRouter(
 
   // POST /withdrawals/:id/reject
   router.post('/:id/reject', (req: Request, res: Response) => {
-    const wd = state.withdrawals.get(req.params.id);
+    const wd = state.withdrawals.get(String(req.params.id));
     if (!wd) {
-      res.status(404).json({ code: 'not_found', message: `Withdrawal ${req.params.id} not found` });
+      res.status(404).json({ code: 'not_found', message: `Withdrawal ${String(req.params.id)} not found` });
       return;
     }
 
