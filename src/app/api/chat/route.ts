@@ -436,27 +436,45 @@ function detectJourneyState(messages: Message[]): JourneyState {
     lastUserLower.includes('withdraw') || lastUserLower.includes('issue');
 
   if (hasJourneyKeyword) {
-    // Jump straight to intent detection — don't parse as amount for previous journey
+    // Extract inline number from the message (e.g. "buy 10000 species" → 10000)
+    const inlineNum = lastUserText.match(/(\d[\d,]*)/);
+    const inlineQty = inlineNum ? parseInt(inlineNum[1].replace(/,/g, '')) : 0;
+    const inlineAmt = inlineQty; // same for USDC amount
+
+    // If message has both keyword + number, skip to confirm phase directly
     if (lastUserLower.includes('fund') || (lastUserLower.includes('deposit') && !lastUserLower.includes('last deposit'))) {
-      return { phase: 'start', journey: 'fund' };
+      return inlineAmt > 0
+        ? { phase: 'confirm', journey: 'fund', amount: inlineAmt }
+        : { phase: 'start', journey: 'fund' };
     }
     if (lastUserLower.includes('issue') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('treasury'))) {
-      return { phase: 'start', journey: 'issue' };
+      return inlineQty > 0
+        ? { phase: 'confirm', journey: 'issue', quantity: inlineQty }
+        : { phase: 'start', journey: 'issue' };
     }
     if (lastUserLower.includes('buy') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('market'))) {
-      return { phase: 'start', journey: 'buy' };
+      return inlineQty > 0
+        ? { phase: 'confirm', journey: 'buy', quantity: inlineQty }
+        : { phase: 'start', journey: 'buy' };
     }
     if (lastUserLower.includes('redeem') || lastUserLower.includes('buyback') || lastUserLower.includes('buy back')) {
-      return { phase: 'start', journey: 'redeem' };
+      return inlineQty > 0
+        ? { phase: 'confirm', journey: 'redeem', quantity: inlineQty }
+        : { phase: 'start', journey: 'redeem' };
     }
     if ((lastUserLower.includes('sell') || lastUserLower.includes('list')) && !lastUserLower.includes('buy')) {
-      return { phase: 'start', journey: 'sell' };
+      return inlineQty > 0
+        ? { phase: 'confirm', journey: 'sell', quantity: inlineQty }
+        : { phase: 'start', journey: 'sell' };
     }
     if (lastUserLower.includes('transfer')) {
+      // Transfer needs recipient too — can't skip to confirm with just a number
       return { phase: 'start', journey: 'transfer' };
     }
     if (lastUserLower.includes('sendout') || lastUserLower.includes('withdraw')) {
-      return { phase: 'start', journey: 'sendout' };
+      return inlineAmt > 0
+        ? { phase: 'confirm', journey: 'sendout', amount: inlineAmt }
+        : { phase: 'start', journey: 'sendout' };
     }
   }
 
@@ -605,8 +623,7 @@ function buyStart(): string {
 
 async function buyConfirm(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
-  const issuanceFee = quantity * 0.01;
-  const total = cost + issuanceFee;
+  const total = cost; // Buy from market = asset cost only, no fees
   const state = await getLiveState();
 
   return {
@@ -617,7 +634,7 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse> {
       title: `BUY ${quantity.toLocaleString()} SPECIES`,
       lines: [
         { label: 'Asset Cost', value: `$${fmt(cost)}` },
-        { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
+        { label: 'Fees', value: 'None' },
         { label: 'Total', value: `$${fmt(total)}`, bold: true },
       ],
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
@@ -628,14 +645,12 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse> {
 
 async function buyExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
-  const issuanceFee = quantity * 0.01;
-  const total = cost + issuanceFee;
-  const fees = issuanceFee;
+  const total = cost; // Buy = asset cost only, no fees
+  const fees = 0;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  // Execute via MarketSB cashier
-  // Buy from treasury: issuance fee only. No liquidity fee (liquidity is only on redeem).
+  // Execute via MarketSB cashier — buy from market, no fees
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
@@ -644,7 +659,7 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
     unitPrice: USDC,
-    fees: { issuance: true, liquidity: false },
+    fees: { issuance: false, liquidity: false },
   });
   console.log(`[BUY] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
