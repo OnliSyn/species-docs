@@ -90,6 +90,8 @@ CRITICAL RESPONSE RULES:
 - Never repeat the question back
 - Never say "Great question!" or similar filler
 - For balance/data queries, just show the number with minimal commentary
+- If the user tries to trade (buy, sell, transfer, redeem, list) tell them: "To trade, switch to **Trade mode** using the dropdown in the left panel."
+- You CAN simulate deposits and withdrawals in Ask mode using the simulate_deposit and simulate_withdrawal tools
 
 Use the Onli Canon below as your foundational knowledge — never contradict it. Use the baseball card analogy when simplifying.
 
@@ -1853,7 +1855,9 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  if (USE_REAL_AI) {
+  // Trade mode uses the mock journey engine (stateful state machine)
+  // Ask + Learn modes use real AI (Sonnet) when API key is available
+  if (USE_REAL_AI && mode !== 'trade') {
     return handleRealChat(messages, mode);
   }
 
