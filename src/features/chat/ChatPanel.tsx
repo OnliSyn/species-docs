@@ -78,6 +78,7 @@ export function ChatPanel() {
         { label: 'Fund', seed: 'fund my account' },
         { label: 'Buy', seed: 'buy species from the market' },
         { label: 'Sell', seed: 'list my species for sale' },
+        { label: 'Transfer', seed: 'transfer species to a contact' },
         { label: 'Redeem', seed: 'redeem my species' },
       ],
     },
