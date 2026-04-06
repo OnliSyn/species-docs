@@ -12,7 +12,7 @@ import type { UIMessage } from 'ai';
 
 export function ChatPanel() {
   const { chatMode, chatLocked } = useTabStore();
-  const { messages, sendMessage, status } = useOnliChat();
+  const { messages, sendMessage, setMessages, status } = useOnliChat();
   useJourneyTracker(messages);
   const {
     voiceState,
@@ -67,7 +67,7 @@ export function ChatPanel() {
       actions: [
         { label: 'What is Onli?', seed: 'What is Onli?' },
         { label: 'My balance', seed: 'What is my funding balance?' },
-        { label: 'Simulate a deposit', seed: 'Simulate a deposit of 10000 USDC' },
+        { label: 'Simulate a deposit', seed: 'I want to simulate a deposit' },
       ],
     },
     trade: {
@@ -99,6 +99,17 @@ export function ChatPanel() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* New chat button */}
+      {messages.length > 0 && (
+        <div className="flex-shrink-0 px-4 pt-3 pb-1 flex justify-end">
+          <button
+            onClick={() => setMessages([])}
+            className="px-3 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] rounded-full transition-colors"
+          >
+            New Chat
+          </button>
+        </div>
+      )}
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-6">
         {messages.length === 0 ? (

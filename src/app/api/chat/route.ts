@@ -105,9 +105,11 @@ ${FULL_CANON}
 
 RESPONSE RULES:
 - Keep answers focused and practical — 3-5 bullet points preferred over long paragraphs
+- Use markdown bullet lists (- item) with each item on its own line
+- NEVER put multiple items on one line separated by commas — always use vertical bullet lists
 - Reference specific API endpoints (POST /eventRequest, POST /cashier/post-batch, etc.)
 - Show data flow, not theory
-- When explaining pipeline stages, list them concisely
+- When explaining pipeline stages, use a numbered list with each stage on its own line
 - Use code-like formatting for endpoint paths and field names
 
 Help developers understand the Onli architecture, APIs, and how to build Appliances. Explain the Species pipeline, Cashier settlement, Vault operations, ChangeOwner, AskToMove, and the dual-sim architecture (MarketSB for funding, Species-sim for assets).
@@ -571,8 +573,7 @@ function buyStart(): string {
 async function buyConfirm(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
-  const liquidityFee = cost * 0.02;
-  const total = cost + issuanceFee + liquidityFee;
+  const total = cost + issuanceFee;
   const state = await getLiveState();
 
   return {
@@ -583,8 +584,7 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse> {
       title: `BUY ${quantity.toLocaleString()} SPECIES`,
       lines: [
         { label: 'Asset Cost', value: `$${fmt(cost)}` },
-        { label: 'Issuance Fee', value: `$${fmt(issuanceFee)}` },
-        { label: 'Liquidity Fee (2%)', value: `$${fmt(liquidityFee)}` },
+        { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
         { label: 'Total', value: `$${fmt(total)}`, bold: true },
       ],
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
@@ -596,13 +596,13 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse> {
 async function buyExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
-  const liquidityFee = cost * 0.02;
-  const total = cost + issuanceFee + liquidityFee;
-  const fees = issuanceFee + liquidityFee;
+  const total = cost + issuanceFee;
+  const fees = issuanceFee;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  // Execute via MarketSB cashier (handles funding VA debit + species VA credit + fees)
+  // Execute via MarketSB cashier
+  // Buy from treasury: issuance fee only. No liquidity fee (liquidity is only on redeem).
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
@@ -611,7 +611,7 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
     unitPrice: USDC,
-    fees: { issuance: true, liquidity: true },
+    fees: { issuance: true, liquidity: false },
   });
   console.log(`[BUY] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
@@ -665,8 +665,7 @@ function issueStart(): string {
 async function issueConfirm(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
-  const liquidityFee = cost * 0.02;
-  const total = cost + issuanceFee + liquidityFee;
+  const total = cost + issuanceFee;
   const state = await getLiveState();
 
   return {
@@ -678,11 +677,10 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse> {
       lines: [
         { label: 'Asset Cost', value: `$${fmt(cost)}` },
         { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
-        { label: 'Liquidity Fee (2%)', value: `$${fmt(liquidityFee)}` },
         { label: 'Total Debit', value: `$${fmt(total)}`, bold: true },
         { label: '', value: '' },
         { label: 'Proceeds to Assurance', value: `$${fmt(cost)}` },
-        { label: 'Fees to Operating', value: `$${fmt(issuanceFee + liquidityFee)}` },
+        { label: 'Fees to Operating', value: `$${fmt(issuanceFee)}` },
       ],
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
       warning: 'This issues new Specie from the Treasury. The full asset cost flows to the Assurance Account.',
@@ -694,13 +692,12 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse> {
 async function issueExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
   const issuanceFee = quantity * 0.01;
-  const liquidityFee = cost * 0.02;
-  const total = cost + issuanceFee + liquidityFee;
-  const fees = issuanceFee + liquidityFee;
+  const total = cost + issuanceFee;
+  const fees = issuanceFee;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  // Execute via MarketSB cashier (same as buy — treasury issuance)
+  // Execute via MarketSB cashier (treasury issuance — issuance fee only, no liquidity)
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
@@ -709,7 +706,7 @@ async function issueExecute(quantity: number): Promise<JourneyResponse> {
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
     unitPrice: USDC,
-    fees: { issuance: true, liquidity: true },
+    fees: { issuance: true, liquidity: false },
   });
   console.log(`[ISSUE] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
@@ -1682,7 +1679,7 @@ function buildTools() {
 
   const simulate_deposit = tool({
     description:
-      `Simulate a USDC deposit (fund) into the user's Funding Account via MarketSB. USDC is sent to the Incoming Account (${INCOMING_ACCOUNT}) for the benefit of account ${USER_ACCOUNT_NUMBER}. The deposit flows through: incoming wallet → FBO match → compliance → credit to Funding VA. Use this when the user says "fund", "deposit", "simulate deposit", or wants to add USDC. Ask the user how much if they haven't specified an amount.`,
+      `Simulate a USDC deposit (fund) into the user's Funding Account via MarketSB. USDC is sent to the Incoming Account (${INCOMING_ACCOUNT}) for the benefit of account ${USER_ACCOUNT_NUMBER}. IMPORTANT: Do NOT call this tool immediately. First: (1) Ask the user how much USDC they want to deposit if not specified. (2) Show them a summary: amount, incoming account, FBO reference. (3) Ask "Shall I proceed?" (4) Only call this tool AFTER the user confirms with "yes", "confirm", or similar.`,
     inputSchema: z.object({
       amount: z.number().positive().describe('Amount in USDC dollars (e.g. 5000 for $5,000)'),
     }),
@@ -1707,7 +1704,7 @@ function buildTools() {
 
   const simulate_withdrawal = tool({
     description:
-      `Simulate a USDC withdrawal from the user's Funding Account (${USER_ACCOUNT_NUMBER}) via MarketSB. Debits the Funding VA, routes through compliance, sends from the Outgoing Account. Use when the user says "withdraw", "send out", or "simulate withdrawal". Ask the user how much and where if not specified.`,
+      `Simulate a USDC withdrawal from the user's Funding Account (${USER_ACCOUNT_NUMBER}) via MarketSB. IMPORTANT: Do NOT call this tool immediately. First: (1) Ask the user how much and destination address. (2) Show a summary. (3) Ask "Shall I proceed?" (4) Only call after user confirms.`,
     inputSchema: z.object({
       amount: z.number().positive().describe('Amount in USDC dollars (e.g. 2000 for $2,000)'),
       destination: z.string().optional().describe('Destination wallet address (e.g. 0x...)'),
