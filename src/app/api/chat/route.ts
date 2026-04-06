@@ -424,6 +424,25 @@ function detectJourneyState(messages: Message[]): JourneyState {
       if (isCancel) return { phase: 'cancelled', journey };
       return { phase: 'execute', journey, amount, quantity };
     }
+    // User provided a new number while awaiting confirm — restart with new amount
+    const newNum = lastUserText.match(/(\d[\d,]*)/);
+    if (newNum) {
+      let journey = 'unknown';
+      if (lastAssistantLower.includes('fund') || lastAssistantLower.includes('deposit')) journey = 'fund';
+      else if (lastAssistantLower.includes('issue') && lastAssistantLower.includes('treasury')) journey = 'issue';
+      else if (lastAssistantLower.includes('buy') && lastAssistantLower.includes('species')) journey = 'buy';
+      else if (lastAssistantLower.includes('redeem') && lastAssistantLower.includes('species')) journey = 'redeem';
+      else if (lastAssistantLower.includes('list') && lastAssistantLower.includes('species')) journey = 'sell';
+      else if (lastAssistantLower.includes('transfer') && lastAssistantLower.includes('species')) journey = 'transfer';
+      else if (lastAssistantLower.includes('withdraw')) journey = 'sendout';
+
+      const newVal = parseInt(newNum[1].replace(/,/g, ''));
+      if (journey === 'fund' || journey === 'sendout') {
+        return { phase: 'confirm', journey, amount: newVal };
+      }
+      return { phase: 'confirm', journey, quantity: newVal };
+    }
+
     return { phase: 'awaiting_confirm_reminder' };
   }
 
