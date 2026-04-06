@@ -680,14 +680,31 @@ function buyStart(): string {
 }
 
 async function buyConfirm(quantity: number): Promise<JourneyResponse | string> {
-  const cost = quantity * 1.00;
-  const total = cost;
   const state = await getLiveState();
 
-  // Check insufficient funds
+  // Check marketplace availability
+  const listings = await getListings();
+  const availableOnMarket = listings ? listings.reduce((sum: number, l: any) => sum + (l.remainingQuantity || 0), 0) : 0;
+  const fromMarket = Math.min(quantity, availableOnMarket);
+  const fromTreasury = quantity - fromMarket;
+  const issuanceFee = fromTreasury * 0.05;
+  const cost = quantity * 1.00;
+  const total = cost + issuanceFee;
+
   if (state.fundingBalance < total) {
     return `**Insufficient funds.** You need $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
   }
+
+  const lines: { label: string; value: string; bold?: boolean }[] = [];
+  if (fromMarket > 0) {
+    lines.push({ label: 'From Marketplace', value: `${fromMarket.toLocaleString()} @ $1.00 (no fees)` });
+  }
+  if (fromTreasury > 0) {
+    lines.push({ label: 'From Treasury', value: `${fromTreasury.toLocaleString()} @ $1.00` });
+    lines.push({ label: 'Issuance Fee', value: `$${fmt(issuanceFee)}` });
+  }
+  lines.push({ label: 'Asset Cost', value: `$${fmt(cost)}` });
+  lines.push({ label: 'Total', value: `$${fmt(total)}`, bold: true });
 
   return {
     type: 'tool',
@@ -695,11 +712,7 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse | string> {
     data: {
       _ui: 'ConfirmCard',
       title: `BUY ${quantity.toLocaleString()} SPECIES`,
-      lines: [
-        { label: 'Asset Cost', value: `$${fmt(cost)}` },
-        { label: 'Fees', value: 'None' },
-        { label: 'Total', value: `$${fmt(total)}`, bold: true },
-      ],
+      lines,
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
@@ -707,32 +720,63 @@ async function buyConfirm(quantity: number): Promise<JourneyResponse | string> {
 }
 
 async function buyExecute(quantity: number): Promise<JourneyResponse> {
-  const cost = quantity * 1.00;
-  const total = cost; // Buy = asset cost only, no fees
-  const fees = 0;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
-
-  // Execute via MarketSB cashier — buy from market, no fees
   const USDC = 1_000_000;
-  const cashierResult = await postCashierBatch({
-    eventId,
-    matchId: `match-${eventId}`,
-    intent: 'buy',
-    quantity,
-    buyerVaId: `va-funding-${CURRENT_USER.ref}`,
-    unitPrice: USDC,
-    fees: { issuance: false, liquidity: false },
-  });
-  console.log(`[BUY] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
-  // Only adjust vaults if cashier succeeded (keep USDC + species in sync)
-  if (cashierResult.ok) {
-    await Promise.all([
-      adjustVault(CURRENT_USER.onliId, quantity, 'buy'),
-      adjustVault('treasury', -quantity, 'buy-decrement'),
-    ]);
+  // 1. Check marketplace listings — buy from listed species first (no fees)
+  const listings = await getListings();
+  let availableOnMarket = 0;
+  if (listings) {
+    availableOnMarket = listings.reduce((sum: number, l: any) => sum + (l.remainingQuantity || 0), 0);
   }
+
+  const fromMarket = Math.min(quantity, availableOnMarket);
+  const fromTreasury = quantity - fromMarket;
+
+  console.log(`[BUY] qty=${quantity} fromMarket=${fromMarket} fromTreasury=${fromTreasury}`);
+
+  // 2. Market portion — P2P buy, no fees, debit funding, species from settlement/listings
+  if (fromMarket > 0) {
+    const marketResult = await postCashierBatch({
+      eventId: `${eventId}-mkt`,
+      matchId: `match-${eventId}-mkt`,
+      intent: 'buy',
+      quantity: fromMarket,
+      buyerVaId: `va-funding-${CURRENT_USER.ref}`,
+      unitPrice: USDC,
+      fees: { issuance: false, liquidity: false },
+    });
+    if (marketResult.ok) {
+      await adjustVault(CURRENT_USER.onliId, fromMarket, 'buy-from-market');
+      // Market listings decrease (settlement releases to buyer)
+      await adjustVault('settlement', -fromMarket, 'buy-from-listing');
+    }
+  }
+
+  // 3. Treasury portion — issuance fee applies
+  if (fromTreasury > 0) {
+    const treasuryResult = await postCashierBatch({
+      eventId: `${eventId}-trs`,
+      matchId: `match-${eventId}-trs`,
+      intent: 'buy',
+      quantity: fromTreasury,
+      buyerVaId: `va-funding-${CURRENT_USER.ref}`,
+      unitPrice: USDC,
+      fees: { issuance: true, liquidity: false },
+    });
+    if (treasuryResult.ok) {
+      await Promise.all([
+        adjustVault(CURRENT_USER.onliId, fromTreasury, 'buy-from-treasury'),
+        adjustVault('treasury', -fromTreasury, 'treasury-issue'),
+      ]);
+    }
+  }
+
+  const issuanceFee = fromTreasury * 0.05;
+  const cost = quantity * 1.00;
+  const total = cost + issuanceFee;
+  const fees = issuanceFee;
 
   // Fetch updated balances
   const state = await getLiveState();
