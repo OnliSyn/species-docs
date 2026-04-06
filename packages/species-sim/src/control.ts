@@ -85,6 +85,123 @@ export function createControlRouter(
     });
   });
 
+  // ── POST /sim/buy-from-market ─────────────────────────────────────────
+  // Buy species from active listings (FIFO). Decrements listing quantities,
+  // moves species from settlement to buyer vault. Returns what was matched.
+  router.post('/sim/buy-from-market', (req: Request, res: Response) => {
+    const state = getState();
+    const { buyerOnliId, quantity } = req.body;
+
+    if (!buyerOnliId || !quantity || quantity <= 0) {
+      res.status(400).json({ error: 'buyerOnliId and quantity required' });
+      return;
+    }
+
+    // Match against listings FIFO
+    const activeListings = Array.from(state.listings.values())
+      .filter(l => l.status === 'active' && l.remainingQuantity > 0)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    let remaining = quantity;
+    const fills: { listingId: string; sellerOnliId: string; qty: number }[] = [];
+
+    for (const listing of activeListings) {
+      if (remaining <= 0) break;
+      const fillQty = Math.min(remaining, listing.remainingQuantity);
+      listing.remainingQuantity -= fillQty;
+      if (listing.remainingQuantity === 0) listing.status = 'filled';
+      fills.push({ listingId: listing.listingId, sellerOnliId: listing.sellerOnliId, qty: fillQty });
+      remaining -= fillQty;
+    }
+
+    const matched = quantity - remaining;
+    const now = new Date().toISOString();
+
+    // Move species from settlement to buyer vault
+    if (matched > 0) {
+      state.vaults.settlement.count -= matched;
+      const buyer = state.vaults.users.get(buyerOnliId);
+      if (buyer) {
+        buyer.count += matched;
+        buyer.history.push({
+          type: 'credit',
+          count: matched,
+          from: 'settlement',
+          to: buyerOnliId,
+          eventId: `buy-market-${Date.now()}`,
+          timestamp: now,
+        });
+      }
+
+      state.assetOracleLog.push({
+        id: `ao-buy-market-${Date.now()}`,
+        eventId: `buy-market-${Date.now()}`,
+        type: 'change_owner',
+        from: 'settlement',
+        to: buyerOnliId,
+        count: matched,
+        timestamp: now,
+      });
+    }
+
+    res.json({
+      matched,
+      fromTreasury: remaining,
+      fills,
+      buyerVaultCount: state.vaults.users.get(buyerOnliId)?.count ?? 0,
+      settlementCount: state.vaults.settlement.count,
+    });
+  });
+
+  // ── POST /sim/buy-from-treasury ─────────────────────────────────────
+  // Issue new species from treasury to buyer vault.
+  router.post('/sim/buy-from-treasury', (req: Request, res: Response) => {
+    const state = getState();
+    const { buyerOnliId, quantity } = req.body;
+
+    if (!buyerOnliId || !quantity || quantity <= 0) {
+      res.status(400).json({ error: 'buyerOnliId and quantity required' });
+      return;
+    }
+
+    if (state.vaults.treasury.count < quantity) {
+      res.status(400).json({ error: 'Insufficient treasury stock', available: state.vaults.treasury.count });
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    state.vaults.treasury.count -= quantity;
+    const buyer = state.vaults.users.get(buyerOnliId);
+    if (buyer) {
+      buyer.count += quantity;
+      buyer.history.push({
+        type: 'credit',
+        count: quantity,
+        from: 'treasury',
+        to: buyerOnliId,
+        eventId: `buy-treasury-${Date.now()}`,
+        timestamp: now,
+      });
+    }
+
+    state.assetOracleLog.push({
+      id: `ao-buy-treasury-${Date.now()}`,
+      eventId: `buy-treasury-${Date.now()}`,
+      type: 'change_owner',
+      from: 'treasury',
+      to: buyerOnliId,
+      count: quantity,
+      timestamp: now,
+    });
+
+    res.json({
+      issued: quantity,
+      treasuryCount: state.vaults.treasury.count,
+      buyerVaultCount: buyer?.count ?? 0,
+    });
+  });
+
   // ── POST /sim/create-listing ──────────────────────────────────────────
   // Create a marketplace listing (species moved to settlement/escrow)
   router.post('/sim/create-listing', (req: Request, res: Response) => {

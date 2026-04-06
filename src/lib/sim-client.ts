@@ -209,6 +209,41 @@ export async function getUserState(userRef = CURRENT_USER.ref, onliId = CURRENT_
 }
 
 // ---------------------------------------------------------------------------
+// Species sim buy operations (proper listing/treasury management)
+// ---------------------------------------------------------------------------
+
+/** Buy from marketplace listings (FIFO). Decrements listing quantities. */
+export async function buyFromMarket(buyerOnliId: string, quantity: number): Promise<{ ok: boolean; matched: number; data?: unknown }> {
+  try {
+    const res = await simFetch(`${SPECIES}/sim/buy-from-market`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerOnliId, quantity }),
+    });
+    if (!res.ok) return { ok: false, matched: 0 };
+    const data = await res.json();
+    return { ok: true, matched: data.matched ?? 0, data };
+  } catch {
+    return { ok: false, matched: 0 };
+  }
+}
+
+/** Issue new species from treasury to buyer vault. */
+export async function buyFromTreasury(buyerOnliId: string, quantity: number): Promise<{ ok: boolean; data?: unknown }> {
+  try {
+    const res = await simFetch(`${SPECIES}/sim/buy-from-treasury`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerOnliId, quantity }),
+    });
+    if (!res.ok) return { ok: false };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Mutations — actually change sim state
 // ---------------------------------------------------------------------------
 

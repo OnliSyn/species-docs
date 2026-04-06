@@ -24,6 +24,8 @@ import {
   debitVA,
   postCashierBatch,
   adjustVault,
+  buyFromMarket,
+  buyFromTreasury,
   cashierRedeem,
   cashierList,
   createSpeciesListing,
@@ -736,9 +738,10 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
 
   console.log(`[BUY] qty=${quantity} fromMarket=${fromMarket} fromTreasury=${fromTreasury}`);
 
-  // 2. Market portion — P2P buy, no fees, debit funding, species from settlement/listings
+  // 2. Market portion — Species sim handles listing decrements + vault transfers
   if (fromMarket > 0) {
-    const marketResult = await postCashierBatch({
+    // MarketSB: debit buyer funding (no fees for P2P)
+    await postCashierBatch({
       eventId: `${eventId}-mkt`,
       matchId: `match-${eventId}-mkt`,
       intent: 'buy',
@@ -747,16 +750,14 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
       unitPrice: USDC,
       fees: { issuance: false, liquidity: false },
     });
-    if (marketResult.ok) {
-      await adjustVault(CURRENT_USER.onliId, fromMarket, 'buy-from-market');
-      // Market listings decrease (settlement releases to buyer)
-      await adjustVault('settlement', -fromMarket, 'buy-from-listing');
-    }
+    // Species sim: match against listings, decrement quantities, move to buyer vault
+    await buyFromMarket(CURRENT_USER.onliId, fromMarket);
   }
 
   // 3. Treasury portion — issuance fee applies
   if (fromTreasury > 0) {
-    const treasuryResult = await postCashierBatch({
+    // MarketSB: debit buyer funding + issuance fee
+    await postCashierBatch({
       eventId: `${eventId}-trs`,
       matchId: `match-${eventId}-trs`,
       intent: 'buy',
@@ -765,12 +766,8 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
       unitPrice: USDC,
       fees: { issuance: true, liquidity: false },
     });
-    if (treasuryResult.ok) {
-      await Promise.all([
-        adjustVault(CURRENT_USER.onliId, fromTreasury, 'buy-from-treasury'),
-        adjustVault('treasury', -fromTreasury, 'treasury-issue'),
-      ]);
-    }
+    // Species sim: issue from treasury to buyer vault
+    await buyFromTreasury(CURRENT_USER.onliId, fromTreasury);
   }
 
   const issuanceFee = fromTreasury * 0.05;
