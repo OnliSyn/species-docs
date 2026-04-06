@@ -1037,7 +1037,10 @@ async function transferConfirm(quantity: number, recipient: string): Promise<Jou
     'happy': { name: 'Happy Hogan', id: 'onli-user-012' },
     'happy hogan': { name: 'Happy Hogan', id: 'onli-user-012' },
   };
-  const contact = contacts[recipient.toLowerCase()] || { name: recipient, id: 'onli-user-unknown' };
+  const contact = contacts[recipient.toLowerCase()];
+  if (!contact) {
+    return `**Unknown recipient: "${recipient}".**\n\nYour contacts:\n- **Pepper Potts** (onli-user-456)\n- **Tony Stark** (onli-user-789)\n- **Happy Hogan** (onli-user-012)\n\nPlease enter a valid contact name.`;
+  }
 
   return {
     type: 'tool',
