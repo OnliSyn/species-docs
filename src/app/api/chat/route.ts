@@ -468,7 +468,17 @@ function detectJourneyState(messages: Message[]): JourneyState {
         : { phase: 'start', journey: 'sell' };
     }
     if (lastUserLower.includes('transfer')) {
-      // Transfer needs recipient too — can't skip to confirm with just a number
+      // Check if message has "transfer X to NAME" pattern
+      const xferFullMatch = lastUserText.match(/transfer\s+(\d[\d,]*)\s+(?:species?\s+)?(?:to\s+)?(.+)/i);
+      if (xferFullMatch) {
+        const qty = parseInt(xferFullMatch[1].replace(/,/g, ''));
+        const recipient = xferFullMatch[2].trim();
+        return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+      }
+      // Has quantity but no recipient — ask for recipient only
+      if (inlineQty > 0) {
+        return { phase: 'transfer_need_recipient', journey: 'transfer', quantity: inlineQty } as JourneyState;
+      }
       return { phase: 'start', journey: 'transfer' };
     }
     if (lastUserLower.includes('sendout') || lastUserLower.includes('withdraw')) {
@@ -509,14 +519,37 @@ function detectJourneyState(messages: Message[]): JourneyState {
   }
 
   // Transfer: user responds with "pepper 100" or "pepper potts 100" style
-  // Check both last assistant message and full context (in case a failed parse caused a fallback response)
-  const transferContextActive = askedWhoAndHowMany || allContext.includes('who and how many');
+  const transferContextActive = askedWhoAndHowMany || allContext.includes('who and how many') ||
+    lastAssistantLower.includes('who would you like to transfer') || lastAssistantLower.includes('your contacts');
   if (transferContextActive) {
+    // "pepper potts 3000" or "pepper 100"
     const transferMatch = lastUserText.match(/(.+?)\s+(\d+)/i);
     if (transferMatch) {
       const recipient = transferMatch[1].trim();
       const qty = parseInt(transferMatch[2]);
       return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+    }
+
+    // Just a name (recipient only) — look for quantity in earlier context
+    const knownContacts = ['pepper', 'pepper potts', 'tony', 'tony stark', 'happy', 'happy hogan'];
+    const isContactName = knownContacts.some(c => lastUserLower.includes(c));
+    if (isContactName) {
+      // Find quantity from conversation context (user previously said a number, or it was in the transfer command)
+      let ctxQty = 0;
+      for (let i = userTexts.length - 2; i >= 0; i--) {
+        const prevNum = userTexts[i].match(/(\d[\d,]*)/);
+        if (prevNum) { ctxQty = parseInt(prevNum[1].replace(/,/g, '')); break; }
+      }
+      // Also check if assistant mentioned a quantity
+      if (ctxQty === 0) {
+        const assistantQty = allContext.match(/transfer\s+(\d[\d,]*)/i);
+        if (assistantQty) ctxQty = parseInt(assistantQty[1].replace(/,/g, ''));
+      }
+      if (ctxQty > 0) {
+        return { phase: 'confirm', journey: 'transfer', quantity: ctxQty, recipient: lastUserText.trim() };
+      }
+      // No quantity found anywhere — ask for it
+      return { phase: 'start', journey: 'transfer' };
     }
   }
 
@@ -966,7 +999,14 @@ async function redeemExecute(quantity: number): Promise<JourneyResponse> {
   };
 }
 
-function transferStart(): string {
+function transferStart(quantity?: number): string {
+  if (quantity && quantity > 0) {
+    return `Transfer **${quantity.toLocaleString()} Specie** — who would you like to transfer to?\n\n` +
+      `Your contacts:\n` +
+      `- **Pepper Potts** (onli-user-456)\n` +
+      `- **Tony Stark** (onli-user-789)\n` +
+      `- **Happy Hogan** (onli-user-012)`;
+  }
   return `Who and how many Specie would you like to transfer?\n\n` +
     `Your contacts:\n` +
     `- **Pepper Potts** (onli-user-456)\n` +
@@ -1320,6 +1360,17 @@ async function getResponse(message: string, mode: string, context: string, messa
         case 'transfer': return transferConfirm(state.quantity || 100, state.recipient || 'Pepper Potts');
         case 'sendout': return sendoutConfirm(state.amount || 2000, state.destination);
       }
+    }
+
+    // Transfer with quantity but needs recipient
+    if (state.phase === 'transfer_need_recipient') {
+      // Store quantity in pending so when user provides name, we can confirm
+      setPendingJourney(cid, {
+        journey: 'transfer',
+        quantity: state.quantity,
+        timestamp: Date.now(),
+      });
+      return transferStart(state.quantity);
     }
 
     if (state.phase === 'start') {
