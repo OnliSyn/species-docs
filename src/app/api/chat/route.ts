@@ -476,7 +476,7 @@ function detectJourneyState(messages: Message[]): JourneyState {
         ? { phase: 'confirm', journey: 'issue', quantity: inlineQty }
         : { phase: 'start', journey: 'issue' };
     }
-    if (lastUserLower.includes('buy') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('market'))) {
+    if (lastUserLower.includes('buy')) {
       return inlineQty > 0
         ? { phase: 'confirm', journey: 'buy', quantity: inlineQty }
         : { phase: 'start', journey: 'buy' };
@@ -597,7 +597,7 @@ function detectJourneyState(messages: Message[]): JourneyState {
   if (lastUserLower.includes('issue') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('treasury'))) {
     return { phase: 'start', journey: 'issue' };
   }
-  if (lastUserLower.includes('buy') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('market'))) {
+  if (lastUserLower.includes('buy')) {
     return { phase: 'start', journey: 'buy' };
   }
   if (lastUserLower.includes('redeem') || lastUserLower.includes('buyback') || lastUserLower.includes('buy back') || (lastUserLower.includes('sell back') && lastUserLower.includes('market'))) {
