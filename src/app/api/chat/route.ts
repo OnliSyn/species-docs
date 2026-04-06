@@ -1674,6 +1674,55 @@ function buildTools() {
     },
   });
 
+  // ========== SIMULATION TOOLS (auto-executed, mutate sim state) ==========
+
+  const simulate_deposit = tool({
+    description:
+      `Simulate a USDC deposit (fund) into the user's Funding Account. USDC is sent to the Incoming Account (${INCOMING_ACCOUNT}) for the benefit of account ${USER_ACCOUNT_NUMBER}. Use this when the user says "fund", "deposit", "simulate deposit", or wants to add USDC. Ask the user how much if they haven't specified an amount.`,
+    inputSchema: z.object({
+      amount: z.number().positive().describe('Amount in USDC dollars (e.g. 5000 for $5,000)'),
+    }),
+    outputSchema: z.any(),
+    execute: async ({ amount }: { amount: number }) => {
+      const baseUnits = Math.round(amount * 1_000_000);
+      const ok = await creditVA(`va-funding-${CURRENT_USER.ref}`, baseUnits);
+      if (!ok) return { success: false, error: 'Sim not running' };
+      const state = await getLiveState();
+      return {
+        success: true,
+        deposited: `$${fmt(amount)}`,
+        incomingAccount: INCOMING_ACCOUNT,
+        forBenefitOf: USER_ACCOUNT_NUMBER,
+        newBalance: `$${fmt(state.fundingBalance)}`,
+        lifecycle: ['USDC sent to Incoming', 'FBO matched', 'Compliance passed', 'Credited to Funding Account'],
+      };
+    },
+  });
+
+  const simulate_withdrawal = tool({
+    description:
+      `Simulate a USDC withdrawal from the user's Funding Account (${USER_ACCOUNT_NUMBER}). Debits the account and sends USDC from the Outgoing Account. Use when the user says "withdraw", "send out", or "simulate withdrawal". Ask the user how much and where if not specified.`,
+    inputSchema: z.object({
+      amount: z.number().positive().describe('Amount in USDC dollars (e.g. 2000 for $2,000)'),
+      destination: z.string().optional().describe('Destination wallet address (e.g. 0x...)'),
+    }),
+    outputSchema: z.any(),
+    execute: async ({ amount, destination }: { amount: number; destination?: string }) => {
+      const baseUnits = Math.round(amount * 1_000_000);
+      const ok = await debitVA(`va-funding-${CURRENT_USER.ref}`, baseUnits);
+      if (!ok) return { success: false, error: 'Insufficient balance' };
+      const state = await getLiveState();
+      return {
+        success: true,
+        withdrawn: `$${fmt(amount)}`,
+        from: USER_ACCOUNT_NUMBER,
+        to: destination || 'external wallet',
+        newBalance: `$${fmt(state.fundingBalance)}`,
+        lifecycle: ['Withdrawal requested', 'Debited from Funding', 'Compliance passed', 'Sent from Outgoing Account'],
+      };
+    },
+  });
+
   // ========== WRITE TOOLS (NO execute — returned to frontend for confirmation) ==========
 
   const submit_buy_order = tool({
@@ -1717,6 +1766,8 @@ function buildTools() {
     get_recent_transactions,
     get_deposit_status,
     get_marketplace_stats,
+    simulate_deposit,
+    simulate_withdrawal,
     submit_buy_order,
     submit_sell_order,
     transfer_usdc,
@@ -1727,6 +1778,7 @@ function buildTools() {
 async function handleRealChat(messages: Message[], mode: string): Promise<Response> {
   const anthropic = createAnthropic({
     apiKey: process.env.ANTHROPIC_API_KEY!,
+    baseURL: 'https://api.anthropic.com/v1',
   });
 
   // Convert UI messages to ModelMessage format
@@ -1751,15 +1803,22 @@ async function handleRealChat(messages: Message[], mode: string): Promise<Respon
     return { role: m.role, content: '' };
   }).filter((m: any) => m.content !== '');
 
-  const result = streamText({
-    model: anthropic('claude-haiku-4-5'),
-    system: getSystemPrompt(mode),
-    messages: cleaned as Parameters<typeof streamText>[0]['messages'],
-    tools: buildTools(),
-    stopWhen: stepCountIs(5),
-  });
+  console.log(`[REAL AI] Model: claude-3-haiku-20240307 | System prompt length: ${getSystemPrompt(mode).length} | Messages: ${cleaned.length} | Tools: ${Object.keys(buildTools()).length}`);
 
-  return result.toUIMessageStreamResponse();
+  try {
+    const result = streamText({
+      model: anthropic('claude-3-haiku-20240307'),
+      system: getSystemPrompt(mode),
+      messages: cleaned as Parameters<typeof streamText>[0]['messages'],
+      tools: buildTools(),
+      stopWhen: stepCountIs(5),
+    });
+
+    return result.toUIMessageStreamResponse();
+  } catch (err: any) {
+    console.error('[REAL AI] Error:', err.message || err);
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
