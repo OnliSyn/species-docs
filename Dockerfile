@@ -5,16 +5,16 @@ FROM node:22-alpine AS base
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-COPY packages/marketsb-sim/package.json packages/marketsb-sim/
-COPY packages/species-sim/package.json packages/species-sim/
-RUN npm ci --include=dev
+COPY packages/marketsb-sim/package.json packages/marketsb-sim/package-lock.json* packages/marketsb-sim/
+COPY packages/species-sim/package.json packages/species-sim/package-lock.json* packages/species-sim/
+RUN npm ci --include=dev \
+ && cd packages/marketsb-sim && npm install --omit=dev \
+ && cd ../species-sim && npm install --omit=dev
 
 # Build Next.js
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/marketsb-sim/node_modules ./packages/marketsb-sim/node_modules
-COPY --from=deps /app/packages/species-sim/node_modules ./packages/species-sim/node_modules
 COPY . .
 RUN npx next build
 
@@ -23,9 +23,8 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
+ENV PORT=8080
 ENV MARKETSB_SIM_PORT=4001
-ENV SPECIES_SIM_PORT=4012
 ENV MARKETSB_URL=http://localhost:4001
 ENV SPECIES_URL=http://localhost:4012
 
@@ -34,9 +33,13 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy sim source + deps (run with tsx at runtime)
+# Copy sim source + their node_modules (run with tsx at runtime)
 COPY --from=builder /app/packages/marketsb-sim ./packages/marketsb-sim
 COPY --from=builder /app/packages/species-sim ./packages/species-sim
+COPY --from=deps /app/packages/marketsb-sim/node_modules ./packages/marketsb-sim/node_modules
+COPY --from=deps /app/packages/species-sim/node_modules ./packages/species-sim/node_modules
+
+# Copy shared node_modules
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy config files needed at runtime
@@ -49,5 +52,5 @@ RUN npm install -g tsx
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-EXPOSE 3000
+EXPOSE 8080
 CMD ["./entrypoint.sh"]
