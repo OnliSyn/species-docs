@@ -471,14 +471,16 @@ function detectJourneyState(messages: Message[]): JourneyState {
         : { phase: 'start', journey: 'sell' };
     }
     if (lastUserLower.includes('transfer')) {
-      // Check if message has "transfer X to NAME" pattern
-      const xferFullMatch = lastUserText.match(/transfer\s+(\d[\d,]*)\s+(?:species?\s+)?(?:to\s+)?(.+)/i);
+      // "transfer 3000 to pepper potts" or "transfer 3000 species to tony"
+      const xferFullMatch = lastUserText.match(/transfer\s+(\d[\d,]*)\s+(?:species?\s+)?to\s+(.+)/i);
       if (xferFullMatch) {
         const qty = parseInt(xferFullMatch[1].replace(/,/g, ''));
         const recipient = xferFullMatch[2].trim();
-        return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+        if (recipient.length > 0) {
+          return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+        }
       }
-      // Has quantity but no recipient — ask for recipient only
+      // Has quantity but no valid recipient — ask for recipient
       if (inlineQty > 0) {
         return { phase: 'transfer_need_recipient', journey: 'transfer', quantity: inlineQty } as JourneyState;
       }
