@@ -14,87 +14,59 @@ type StatsData = {
   _ui: string;
 };
 
+function animateCounter(
+  el: HTMLElement | null,
+  displayedRef: { current: number | null },
+  tweenRef: { current: gsap.core.Tween | null },
+  target: number,
+  suffix: string,
+) {
+  if (!el) return;
+  const current = displayedRef.current;
+  if (current !== null && current === target) return; // no change
+  if (tweenRef.current) { tweenRef.current.kill(); tweenRef.current = null; }
+  const from = current ?? 0;
+  displayedRef.current = target;
+  if (from === 0 && target === 0) { el.textContent = `0${suffix}`; return; }
+  const obj = { val: from };
+  tweenRef.current = gsap.to(obj, {
+    val: target,
+    duration: 0.8,
+    ease: 'power2.out',
+    onUpdate: () => { if (el) el.textContent = Math.floor(obj.val).toLocaleString('en-US'); },
+    onComplete: () => { if (el) el.textContent = Math.floor(target).toLocaleString('en-US'); tweenRef.current = null; },
+  });
+}
+
 function MarketStatsUI({ data }: GenUIProps<StatsData>) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const listedRef = useRef<HTMLParagraphElement>(null);
+  const listedRef = useRef<HTMLSpanElement>(null);
   const treasuryRef = useRef<HTMLSpanElement>(null);
-  const prevListedRef = useRef(0);
-  const prevTreasuryRef = useRef(0);
+  const listedDisplayed = useRef<number | null>(null);
+  const treasuryDisplayed = useRef<number | null>(null);
+  const listedTween = useRef<gsap.core.Tween | null>(null);
+  const treasuryTween = useRef<gsap.core.Tween | null>(null);
 
   const listed = data.listedSpecieCount ?? data.totalVolumeSpecie ?? 0;
   const treasury = data.treasuryCount ?? 0;
 
-  // Entrance animation
   useGSAP(() => {
     gsap.from(containerRef.current, { y: 16, opacity: 0, duration: 0.35, ease: 'power2.out' });
   }, { scope: containerRef });
 
-  // Animated counter for Listed for Sale
-  useEffect(() => {
-    if (!listedRef.current) return;
-    const from = prevListedRef.current;
-    const to = listed;
-    prevListedRef.current = listed;
-
-    if (from === to) {
-      listedRef.current.textContent = to.toLocaleString('en-US');
-      return;
-    }
-
-    const target = { val: from };
-    gsap.to(target, {
-      val: to,
-      duration: 0.8,
-      ease: 'power2.out',
-      onUpdate: () => {
-        if (listedRef.current) {
-          listedRef.current.textContent = Math.floor(target.val).toLocaleString('en-US');
-        }
-      },
-    });
-  }, [listed]);
-
-  // Animated counter for Treasury
-  useEffect(() => {
-    if (!treasuryRef.current) return;
-    const from = prevTreasuryRef.current;
-    const to = treasury;
-    prevTreasuryRef.current = treasury;
-
-    if (from === to) {
-      treasuryRef.current.textContent = to.toLocaleString('en-US');
-      return;
-    }
-
-    const target = { val: from };
-    gsap.to(target, {
-      val: to,
-      duration: 0.8,
-      ease: 'power2.out',
-      onUpdate: () => {
-        if (treasuryRef.current) {
-          treasuryRef.current.textContent = Math.floor(target.val).toLocaleString('en-US');
-        }
-      },
-    });
-  }, [treasury]);
+  useEffect(() => { animateCounter(listedRef.current, listedDisplayed, listedTween, listed, ''); }, [listed]);
+  useEffect(() => { animateCounter(treasuryRef.current, treasuryDisplayed, treasuryTween, treasury, ''); }, [treasury]);
 
   return (
     <div ref={containerRef} className="rounded-2xl bg-[#1A1A1A] p-5 my-2 shadow-sm">
       <p className="text-[10px] font-semibold uppercase tracking-[0.1em] mb-1 text-white/50">
         Marketplace
       </p>
-
-      {/* Hero: Listed for Sale */}
       <p className="text-[32px] font-extralight tracking-tight leading-none text-white">
         <span ref={listedRef}>0</span>
         <span className="text-[20px] text-white/40 ml-1">SP</span>
       </p>
-      <p className="text-xs mt-1.5 text-white/50">
-        Listed for Sale
-      </p>
-
-      {/* Treasury */}
+      <p className="text-xs mt-1.5 text-white/50">Listed for Sale</p>
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
         <span className="text-[10px] text-white/40">Treasury</span>
         <span className="text-xs font-semibold text-white/70">

@@ -1813,7 +1813,7 @@ async function handleRealChat(messages: Message[], mode: string): Promise<Respon
 
   try {
     const result = streamText({
-      model: anthropic('claude-3-haiku-20240307'),
+      model: anthropic('claude-sonnet-4-20250514'),
       system: getSystemPrompt(mode),
       messages: cleaned as Parameters<typeof streamText>[0]['messages'],
       tools: buildTools(),

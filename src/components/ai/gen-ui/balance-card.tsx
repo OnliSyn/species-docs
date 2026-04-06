@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
 
@@ -15,57 +15,76 @@ type BalanceData = {
   _ui: string;
 };
 
+function formatAmount(dollars: number, isDark: boolean) {
+  const whole = Math.floor(dollars).toLocaleString('en-US');
+  const cents = (dollars % 1).toFixed(2).slice(1);
+  const cls = isDark ? 'text-[20px] text-white/40' : 'text-[20px] text-[var(--color-text-secondary)]';
+  return '$' + whole + '<span class="' + cls + '">' + cents + '</span>';
+}
+
 function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
-  // Support both flat `amount` and nested `balance.posted` shapes
   const rawAmount = data.amount ?? data.balance?.posted ?? 0;
   const dollars = rawAmount / 1_000_000;
-
   const isDark = data.variant === 'dark';
+
   const containerRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLParagraphElement>(null);
-  const prevDollarsRef = useRef(0);
+  const displayedRef = useRef<number | null>(null); // what's currently shown
+  const tweenRef = useRef<gsap.core.Tween | null>(null);
 
   // Entrance animation (once)
   useGSAP(() => {
     gsap.from(containerRef.current, { y: 16, opacity: 0, duration: 0.35, ease: 'power2.out' });
   }, { scope: containerRef });
 
-  // Counter animation — re-runs whenever dollars changes
+  // Update displayed value — only animate if value actually changed
   useEffect(() => {
     if (!amountRef.current) return;
-    const from = prevDollarsRef.current;
-    const to = dollars;
-    prevDollarsRef.current = dollars;
 
-    // If same value, just set it directly
-    if (from === to) {
-      const whole = Math.floor(to).toLocaleString('en-US');
-      const cents = (to % 1).toFixed(2).slice(1);
-      const centsClass = isDark ? 'text-[20px] text-white/40' : 'text-[20px] text-[var(--color-text-secondary)]';
-      amountRef.current.innerHTML =
-        '$' + whole + '<span class="' + centsClass + '">' + cents + '</span>';
+    const current = displayedRef.current;
+
+    // Same value — just set it (no animation)
+    if (current !== null && current === dollars) {
+      amountRef.current.innerHTML = formatAmount(dollars, isDark);
       return;
     }
 
+    // Kill any running tween
+    if (tweenRef.current) {
+      tweenRef.current.kill();
+      tweenRef.current = null;
+    }
+
+    const from = current ?? 0;
+    displayedRef.current = dollars;
+
+    // If first render or zero, just set directly
+    if (from === 0 && dollars === 0) {
+      amountRef.current.innerHTML = formatAmount(0, isDark);
+      return;
+    }
+
+    // Animate from → to
     const target = { val: from };
-    gsap.to(target, {
-      val: to,
+    tweenRef.current = gsap.to(target, {
+      val: dollars,
       duration: 0.8,
       ease: 'power2.out',
       onUpdate: () => {
         if (amountRef.current) {
-          const v = Math.floor(target.val);
-          const c = (target.val % 1).toFixed(2).slice(1);
-          const centsClass = isDark ? 'text-[20px] text-white/40' : 'text-[20px] text-[var(--color-text-secondary)]';
-          amountRef.current.innerHTML =
-            '$' + v.toLocaleString('en-US') +
-            '<span class="' + centsClass + '">' + c + '</span>';
+          amountRef.current.innerHTML = formatAmount(target.val, isDark);
         }
+      },
+      onComplete: () => {
+        // Ensure final value is exact
+        if (amountRef.current) {
+          amountRef.current.innerHTML = formatAmount(dollars, isDark);
+        }
+        tweenRef.current = null;
       },
     });
   }, [dollars, isDark]);
 
-  // Track specie count changes
   const specieCount = data.specieCount ?? null;
 
   return (
