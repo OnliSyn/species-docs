@@ -427,7 +427,40 @@ function detectJourneyState(messages: Message[]): JourneyState {
     return { phase: 'awaiting_confirm_reminder' };
   }
 
-  // ---- Phase: AMOUNT/QUANTITY detection ----
+  // ---- Phase: FRESH INTENT CHECK (before amount parsing) ----
+  // If the user's message contains a clear journey keyword, treat as a new journey
+  // This prevents "buy 10000 species" from being misread as a transfer amount
+  const hasJourneyKeyword = lastUserLower.includes('fund') || lastUserLower.includes('deposit') ||
+    lastUserLower.includes('buy') || lastUserLower.includes('sell') || lastUserLower.includes('list') ||
+    lastUserLower.includes('redeem') || lastUserLower.includes('transfer') ||
+    lastUserLower.includes('withdraw') || lastUserLower.includes('issue');
+
+  if (hasJourneyKeyword) {
+    // Jump straight to intent detection — don't parse as amount for previous journey
+    if (lastUserLower.includes('fund') || (lastUserLower.includes('deposit') && !lastUserLower.includes('last deposit'))) {
+      return { phase: 'start', journey: 'fund' };
+    }
+    if (lastUserLower.includes('issue') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('treasury'))) {
+      return { phase: 'start', journey: 'issue' };
+    }
+    if (lastUserLower.includes('buy') && (lastUserLower.includes('specie') || lastUserLower.includes('species') || lastUserLower.includes('market'))) {
+      return { phase: 'start', journey: 'buy' };
+    }
+    if (lastUserLower.includes('redeem') || lastUserLower.includes('buyback') || lastUserLower.includes('buy back')) {
+      return { phase: 'start', journey: 'redeem' };
+    }
+    if ((lastUserLower.includes('sell') || lastUserLower.includes('list')) && !lastUserLower.includes('buy')) {
+      return { phase: 'start', journey: 'sell' };
+    }
+    if (lastUserLower.includes('transfer')) {
+      return { phase: 'start', journey: 'transfer' };
+    }
+    if (lastUserLower.includes('sendout') || lastUserLower.includes('withdraw')) {
+      return { phase: 'start', journey: 'sendout' };
+    }
+  }
+
+  // ---- Phase: AMOUNT/QUANTITY detection (only bare numbers, no journey keywords) ----
   const askedHowMuch = lastAssistantLower.includes('how much usdc') || lastAssistantLower.includes('how much and where') || lastAssistantLower.includes('how much usdc and where');
   const askedHowMany = lastAssistantLower.includes('how many specie');
   const askedWhoAndHowMany = lastAssistantLower.includes('who and how many');
