@@ -74,7 +74,7 @@ Species VA: va_species_001
 Important rules:
 - All amounts are in USDC (1 USDC = 1,000,000 base units)
 - 1 Specie = $1.00 USDC
-- Fees: Liquidity 1% on redeem only. No fees on buy, sell, or transfer.
+- Fees: Issuance $0.01/Specie on issue only. Liquidity 1% on redeem only. No fees on buy, sell, or transfer.
 - Sell = list on marketplace (listing fee). Redeem = sell back to MarketMaker (liquidity fee, assurance pays 1:1)
 - Always use the tools to get real data, don't make up numbers
 - For write operations (buy, sell, transfer, redeem), present a clear summary and ask for confirmation`;
@@ -751,12 +751,13 @@ async function buyExecute(quantity: number): Promise<JourneyResponse> {
 // ---------------------------------------------------------------------------
 
 function issueStart(): string {
-  return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC**. No fees.\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
+  return 'How many Specie would you like to issue from the Treasury?\n\nEach Specie costs **$1.00 USDC** plus a **$0.01/Specie issuance fee**.\n\n100% of the asset cost goes to the **Assurance Account** to back the buy-back guarantee.';
 }
 
 async function issueConfirm(quantity: number): Promise<JourneyResponse | string> {
   const cost = quantity * 1.00;
-  const total = cost;
+  const issuanceFee = quantity * 0.01;
+  const total = cost + issuanceFee;
   const state = await getLiveState();
 
   if (state.fundingBalance < total) {
@@ -771,10 +772,11 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse | string>
       title: `ISSUE ${quantity.toLocaleString()} SPECIES FROM TREASURY`,
       lines: [
         { label: 'Asset Cost', value: `$${fmt(cost)}` },
-        { label: 'Fees', value: 'None' },
+        { label: 'Issuance Fee ($0.01/Specie)', value: `$${fmt(issuanceFee)}` },
         { label: 'Total Debit', value: `$${fmt(total)}`, bold: true },
         { label: '', value: '' },
         { label: 'Proceeds to Assurance', value: `$${fmt(cost)}` },
+        { label: 'Fees to Operating', value: `$${fmt(issuanceFee)}` },
       ],
       from: `Funding Account ($${fmt(state.fundingBalance)})`,
       warning: 'This issues new Specie from the Treasury. The full asset cost flows to the Assurance Account.',
@@ -785,12 +787,13 @@ async function issueConfirm(quantity: number): Promise<JourneyResponse | string>
 
 async function issueExecute(quantity: number): Promise<JourneyResponse> {
   const cost = quantity * 1.00;
-  const total = cost;
-  const fees = 0;
+  const issuanceFee = quantity * 0.01;
+  const total = cost + issuanceFee;
+  const fees = issuanceFee;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
   const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
 
-  // Execute via MarketSB cashier (treasury issuance — no fees)
+  // Execute via MarketSB cashier (treasury issuance — issuance fee only)
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
@@ -799,7 +802,7 @@ async function issueExecute(quantity: number): Promise<JourneyResponse> {
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
     unitPrice: USDC,
-    fees: { issuance: false, liquidity: false },
+    fees: { issuance: true, liquidity: false },
   });
   console.log(`[ISSUE] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
