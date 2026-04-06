@@ -123,8 +123,8 @@ function fund(state: SimState, userRef: string, amount: bigint, meta: SeedTxnMet
 function issueFromTreasury(state: SimState, userRef: string, specieCount: bigint, meta: SeedTxnMeta) {
   const ids = vaIds(userRef);
   const cost = specieCount * USDC; // 1 Specie = $1 USDC
-  const issuanceFee = specieCount * 10_000n; // $0.01 per Specie
-  const liquidityFee = (cost * 200n) / 10_000n; // 2%
+  const issuanceFee = specieCount * 50_000n; // $0.05 per Specie
+  const liquidityFee = (cost * 100n) / 10_000n; // 1%
   const total = cost + issuanceFee + liquidityFee;
   const ts = meta.timestamp;
 
@@ -179,8 +179,8 @@ function secondaryMarketPurchase(
   const buyerIds = vaIds(buyerRef);
   const sellerIds = vaIds(sellerRef);
   const assetCost = quantity * unitPrice;
-  const liquidityFee = (assetCost * 200n) / 10_000n; // 2%
-  const totalBuyerDebit = assetCost + liquidityFee;
+  const liquidityFee = 0n; // P2P trade — no fees
+  const totalBuyerDebit = assetCost;
   const ts = meta.timestamp;
 
   const buyerFunding = state.virtualAccounts.get(buyerIds.funding)!;
