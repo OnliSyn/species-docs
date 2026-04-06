@@ -101,7 +101,7 @@ export function createCashierRouter(state: SimState): Router {
     const quantityBig = BigInt(quantity);
     const unitPriceBig = BigInt(unitPrice);
     const assetCost = quantityBig * unitPriceBig;
-    const issuanceFee = fees?.issuance ? quantityBig * 10_000n : 0n;
+    const issuanceFee = fees?.issuance ? quantityBig * 50_000n : 0n; // $0.05/Specie
     // Use configured liquidity fee rate (default 100 bps = 1%) — not hardcoded
     const liquidityBps = state.cashier?.liquidityFeeBps ?? 100n;
     const liquidityFee = fees?.liquidity ? (assetCost * liquidityBps) / 10_000n : 0n;
