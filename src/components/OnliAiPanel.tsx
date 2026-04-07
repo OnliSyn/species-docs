@@ -4,20 +4,15 @@ import { cn } from '@/lib/utils';
 import { useTabStore, type ChatMode } from '@/stores/tab-store';
 import { GenUISlot } from './GenUISlot';
 import { useSystemChat } from '@/hooks/useSystemChat';
-import { useState } from 'react';
-
 const MODES: { key: ChatMode; label: string }[] = [
+  { key: 'learn', label: 'Learn' },
   { key: 'ask', label: 'Ask' },
   { key: 'trade', label: 'Trade' },
-  { key: 'learn', label: 'Learn' },
 ];
 
 export function OnliAiPanel() {
   const { chatMode, setChatMode } = useTabStore();
   const { welcomeMessage } = useSystemChat();
-  const [modeOpen, setModeOpen] = useState(false);
-
-  const currentModeLabel = MODES.find((m) => m.key === chatMode)?.label || 'Ask';
 
   return (
     <div className="flex flex-col h-full">
@@ -54,60 +49,28 @@ export function OnliAiPanel() {
         </div>
       </div>
 
-      {/* Mode selector card */}
+      {/* Mode selector — pill switch */}
       <div className="px-4 pb-3">
         <div className="rounded-[var(--radius-button)] border border-[var(--color-border)] bg-[var(--color-bg-card)] p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)]">
-                Onli Ai
-              </p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                Modes
-              </p>
-            </div>
-            <div className="relative">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] mb-1">
+            Onli Ai
+          </p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mb-2.5">Modes</p>
+          <div className="flex bg-[#EBEBEB] rounded-full p-1">
+            {MODES.map((m) => (
               <button
-                onClick={() => setModeOpen((v) => !v)}
+                key={m.key}
+                onClick={() => setChatMode(m.key)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-input)] border border-[var(--color-border)] bg-white text-sm font-medium transition-colors hover:bg-[var(--color-bg-card)]',
+                  'flex-1 text-center py-2 text-[12px] rounded-full transition-all cursor-pointer',
+                  chatMode === m.key
+                    ? 'font-bold text-[var(--color-text-primary)] bg-white border border-[#E0E0E0] shadow-[0_2px_3px_rgba(10,13,18,0.05)]'
+                    : 'font-medium text-[#858585]',
                 )}
               >
-                {currentModeLabel}
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  className={cn('transition-transform duration-200', modeOpen && 'rotate-180')}
-                >
-                  <path d="M3 4.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                {m.label}
               </button>
-
-              {/* Dropdown */}
-              {modeOpen && (
-                <div className="absolute right-0 top-full mt-1 w-32 rounded-[var(--radius-input)] border border-[var(--color-border)] bg-white shadow-lg z-20 py-1 animate-fade-in">
-                  {MODES.map((m) => (
-                    <button
-                      key={m.key}
-                      onClick={() => {
-                        setChatMode(m.key);
-                        setModeOpen(false);
-                      }}
-                      className={cn(
-                        'w-full text-left px-3 py-2 text-sm transition-colors',
-                        chatMode === m.key
-                          ? 'font-semibold text-[var(--color-text-primary)] bg-[var(--color-bg-card)]'
-                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-card)]',
-                      )}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            ))}
           </div>
         </div>
       </div>

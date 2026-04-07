@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ProcessTraceCanvas } from './ProcessTraceCanvas';
 
 // =============================================================================
 // ASK MODE — Guided walkthrough that sends questions to chat
@@ -388,11 +389,45 @@ function LearnCanvas() {
 }
 
 // =============================================================================
+// LEARN MODE — Trace + Whitepapers toggle
+// =============================================================================
+
+function LearnCanvasWithTrace() {
+  const [view, setView] = useState<'trace' | 'whitepapers'>('trace');
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sub-tab toggle */}
+      <div className="flex-shrink-0 flex gap-1 p-0.5 bg-[var(--color-bg-card)] rounded-lg mb-2">
+        {(['trace', 'whitepapers'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 px-2 py-1 text-[9px] font-semibold rounded-md transition-all ${
+              view === v
+                ? 'bg-white text-[var(--color-text-primary)] shadow-sm'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            {v === 'trace' ? 'Process Trace' : 'Whitepapers'}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {view === 'trace' ? <ProcessTraceCanvas /> : <LearnCanvas />}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Canvas — switches content based on chat mode
 // =============================================================================
 
 export function CanvasTab({ mode }: { mode?: string }) {
   if (mode === 'trade') return <TradeCanvas />;
-  if (mode === 'learn') return <LearnCanvas />;
+  if (mode === 'learn') return <LearnCanvasWithTrace />;
   return <AskCanvas />;
 }

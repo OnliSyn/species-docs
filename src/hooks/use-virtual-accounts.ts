@@ -58,6 +58,24 @@ export function useOracleLedger(vaId: string | null) {
   });
 }
 
+export function useAuditEvents(type?: string) {
+  return useQuery({
+    queryKey: ['audit-events', type],
+    queryFn: () => marketsb.getAuditEvents(type),
+  });
+}
+
+export function useVerifyOracle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vaId: string) => marketsb.verifyOracle(vaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-events'] });
+      queryClient.invalidateQueries({ queryKey: ['oracle-ledger'] });
+    },
+  });
+}
+
 export function useReconciliationStatus() {
   return useQuery({
     queryKey: ['reconciliation-status'],

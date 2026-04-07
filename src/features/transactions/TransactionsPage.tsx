@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatUsdcDisplay } from '@/lib/amount';
+import { useAuditEvents, useVerifyOracle } from '@/hooks/use-virtual-accounts';
+import type { CashierAuditEvent } from '@/api/marketsb';
 
 type TransactionType = 'all' | 'deposit' | 'withdrawal' | 'transfer' | 'buy' | 'sell';
 type TransactionSystem = 'all' | 'funding' | 'asset';
@@ -92,14 +94,28 @@ const MOCK_TRANSACTIONS: Transaction[] = [
   { id: '10', type: 'sell', system: 'asset', description: 'Sell 1,000 SPECIES', amount: 980_000_000n, status: 'failed', timestamp: '2026-04-05T11:00:00Z', auditTrail: makeAudit('sell', 'completed') },
 ];
 
+function mapCashierAuditToTrail(events: CashierAuditEvent[]): AuditEvent[] {
+  return events.map((e) => ({
+    event: e.type,
+    timestamp: e.createdAt,
+    source: (e.detail.type as string) === 'TRADE' || (e.detail.type as string) === 'LIST' || (e.detail.type as string) === 'REDEEM'
+      ? 'MarketSB'
+      : 'FundingSB',
+  }));
+}
+
 function TransactionDetailDrawer({
   transaction,
+  liveAuditTrail,
   onClose,
 }: {
   transaction: Transaction;
+  liveAuditTrail: AuditEvent[] | null;
   onClose: () => void;
 }) {
-  const isMarketSB = transaction.auditTrail.some((e) => e.source === 'MarketSB');
+  const verifyOracle = useVerifyOracle();
+  const displayTrail = liveAuditTrail && liveAuditTrail.length > 0 ? liveAuditTrail : transaction.auditTrail;
+  const isMarketSB = displayTrail.some((e) => e.source === 'MarketSB');
 
   return (
     <>
@@ -189,7 +205,7 @@ function TransactionDetailDrawer({
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] mb-3">Oracle Audit Trail</p>
             <div className="relative pl-4 border-l-2 border-[var(--color-border)] space-y-3">
-              {transaction.auditTrail.map((evt, i) => (
+              {displayTrail.map((evt, i) => (
                 <div key={i} className="relative">
                   <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[var(--color-cta-primary)]" />
                   <p className="text-sm font-mono font-medium">{evt.event}</p>
@@ -205,11 +221,17 @@ function TransactionDetailDrawer({
           {isMarketSB && (
             <button
               onClick={() => {
-                console.log('Verifying audit chain for transaction:', transaction.id);
+                // Use the funding VA for verification (convention: va-funding-{userRef})
+                verifyOracle.mutate('va-funding-pepper');
               }}
-              className="w-full py-2.5 px-4 rounded-[var(--radius-button)] bg-[var(--color-cta-primary)] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+              disabled={verifyOracle.isPending}
+              className={cn(
+                'w-full py-2.5 px-4 rounded-[var(--radius-button)] text-white text-sm font-semibold transition-opacity',
+                verifyOracle.isSuccess ? 'bg-[#3d6b00]' : 'bg-[var(--color-cta-primary)] hover:opacity-90',
+                verifyOracle.isPending && 'opacity-50 cursor-wait',
+              )}
             >
-              Verify Audit Chain
+              {verifyOracle.isPending ? 'Verifying...' : verifyOracle.isSuccess ? 'Verified' : 'Verify Audit Chain'}
             </button>
           )}
         </div>
@@ -222,6 +244,9 @@ export function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionType>('all');
   const [systemFilter, setSystemFilter] = useState<TransactionSystem>('all');
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+
+  const { data: liveAuditEvents } = useAuditEvents();
+  const liveTrail = liveAuditEvents ? mapCashierAuditToTrail(liveAuditEvents) : null;
 
   const filtered = MOCK_TRANSACTIONS.filter((tx) => {
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
@@ -320,7 +345,7 @@ export function TransactionsPage() {
 
       {/* Detail Drawer */}
       {selectedTransaction && (
-        <TransactionDetailDrawer transaction={selectedTransaction} onClose={() => setSelectedTransactionId(null)} />
+        <TransactionDetailDrawer transaction={selectedTransaction} liveAuditTrail={liveTrail} onClose={() => setSelectedTransactionId(null)} />
       )}
     </div>
   );

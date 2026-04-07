@@ -59,7 +59,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function appendAudit(state: SimState, type: string, detail: Record<string, unknown>): void {
+export function appendAudit(state: SimState, type: string, detail: Record<string, unknown>): void {
   auditSeq++;
   state.auditEvents.push({
     eventId: `audit-${String(auditSeq).padStart(8, '0')}`,

@@ -7,6 +7,7 @@ import type { CashierAccount, CashierSystemUser } from '../cashier-types.js';
 import { formatBaseUnitsToUsd, parsePercentToBps, parseUsdToBaseUnits } from '../cashier-money.js';
 import {
   CashierEngineError,
+  appendAudit,
   creditAccount,
   debitAccount,
   executeList,
@@ -179,6 +180,11 @@ export function createCashierSpecRouter(state: SimState): Router {
         state.cashier.liquidityFeeBps = parsePercentToBps(String(b.liquidityFeePercent));
       }
       state.cashier.effectiveAt = nowIso();
+      appendAudit(state, 'config.fees_updated', {
+        listingFee: formatBaseUnitsToUsd(state.cashier.listingFeeBaseUnits),
+        liquidityFeePercent: (Number(state.cashier.liquidityFeeBps) / 100).toFixed(2),
+        effectiveAt: state.cashier.effectiveAt,
+      });
       res.json(
         serializeBigints({
           listingFee: formatBaseUnitsToUsd(state.cashier.listingFeeBaseUnits),
@@ -249,6 +255,7 @@ export function createCashierSpecRouter(state: SimState): Router {
         updatedAt: ts,
       };
       state.cashierAccounts.set(accountId, acc);
+      appendAudit(state, 'account.created', { accountId, ownerId: acc.ownerId, accountType: acc.accountType });
       res.status(201).json({ accountId, state: 'ACTIVE' });
     } catch (e) {
       res.status(400).json({ code: 'bad_request', message: String(e) });
@@ -338,6 +345,7 @@ export function createCashierSpecRouter(state: SimState): Router {
     }
     acc.state = 'DISABLED';
     acc.updatedAt = nowIso();
+    appendAudit(state, 'account.disabled', { accountId: acc.accountId });
     res.json({ accountId: acc.accountId, state: 'DISABLED' });
   });
 
@@ -349,6 +357,7 @@ export function createCashierSpecRouter(state: SimState): Router {
     }
     acc.state = 'ACTIVE';
     acc.updatedAt = nowIso();
+    appendAudit(state, 'account.enabled', { accountId: acc.accountId });
     res.json({ accountId: acc.accountId, state: 'ACTIVE' });
   });
 
@@ -531,6 +540,7 @@ export function createCashierSpecRouter(state: SimState): Router {
       updatedAt: ts,
     };
     state.cashierSystemUsers.set(userId, u);
+    appendAudit(state, 'system_user.created', { userId });
     res.status(201).json(toUserDTO(u));
   });
 
@@ -559,7 +569,9 @@ export function createCashierSpecRouter(state: SimState): Router {
   router.get('/audit/events', (req: Request, res: Response) => {
     let ev = [...state.auditEvents];
     if (req.query.type) ev = ev.filter((e) => e.type === req.query.type);
-    res.json(ev);
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    res.json(ev.slice(offset, offset + limit));
   });
 
   router.get('/audit/events/:eventId', (req: Request, res: Response) => {

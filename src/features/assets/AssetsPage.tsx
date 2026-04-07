@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatUsdcDisplay, formatSpecieCount } from '@/lib/amount';
+import { useOracleLedger } from '@/hooks/use-virtual-accounts';
 
 /* ── Types ──────────────────────────────────────────────── */
 
@@ -119,6 +120,15 @@ function AccountDetailDrawer({
   onClose: () => void;
 }) {
   const style = SUBTYPE_STYLES[account.subtype];
+  const { data: oracleEntries } = useOracleLedger(account.id);
+  const liveTrail: AuditEvent[] | null = oracleEntries && oracleEntries.length > 0
+    ? oracleEntries.map((e: { event_type?: string; type?: string; timestamp: string }) => ({
+        event: e.event_type ?? e.type ?? 'unknown',
+        timestamp: e.timestamp,
+        source: 'Oracle',
+      }))
+    : null;
+  const displayTrail = liveTrail ?? account.auditTrail;
 
   return (
     <>
@@ -214,7 +224,7 @@ function AccountDetailDrawer({
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] mb-3">Oracle Audit Trail</p>
             <div className="relative pl-4 border-l-2 border-[var(--color-border)] space-y-3">
-              {account.auditTrail.map((evt, i) => (
+              {displayTrail.map((evt, i) => (
                 <div key={i} className="relative">
                   <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[var(--color-cta-primary)]" />
                   <p className="text-sm font-mono font-medium">{evt.event}</p>

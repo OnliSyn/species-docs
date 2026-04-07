@@ -121,6 +121,21 @@ export async function requestWithdrawal(params: {
   );
 }
 
+export interface CashierAuditEvent {
+  eventId: string;
+  type: string;
+  detail: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getAuditEvents(type?: string): Promise<CashierAuditEvent[]> {
+  const params = new URLSearchParams();
+  if (type) params.set('type', type);
+  params.set('limit', '100');
+  const qs = params.toString();
+  return withMockFallback(IS_MOCK_MARKETSB, () => marketsbFetch(`/cashier/audit/events?${qs}`), []);
+}
+
 export async function verifyOracle(vaId: string): Promise<{ verified: boolean; details: unknown }> {
   return withMockFallback(
     IS_MOCK_MARKETSB,

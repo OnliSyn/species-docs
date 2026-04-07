@@ -1,22 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { InfoTab } from './right-panel/InfoTab';
 import { CanvasTab } from './right-panel/CanvasTab';
 import { useTabStore } from '@/stores/tab-store';
 import { BlogTab } from './right-panel/BlogTab';
+import type { RightPanelTab } from '@/stores/tab-store';
 
-type Tab = 'info' | 'canvas' | 'blog';
-
-const TABS: { key: Tab; label: string }[] = [
+const TABS: { key: RightPanelTab; label: string }[] = [
   { key: 'info', label: 'Info' },
   { key: 'canvas', label: 'Canvas' },
   { key: 'blog', label: 'Blog' },
 ];
 
 export function RightPanel() {
-  const [activeTab, setActiveTab] = useState<Tab>('info');
+  const activeTab = useTabStore((s) => s.rightPanelTab);
+  const setActiveTab = useTabStore((s) => s.setRightPanelTab);
   const chatMode = useTabStore((s) => s.chatMode);
 
   return (
@@ -42,7 +41,7 @@ export function RightPanel() {
       </div>
 
       {/* Tab content */}
-      <div className={`flex-1 min-h-0 px-4 pb-4 ${activeTab === 'canvas' && chatMode === 'trade' ? 'flex flex-col' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 min-h-0 px-4 pb-4 ${activeTab === 'canvas' && (chatMode === 'trade' || chatMode === 'learn') ? 'flex flex-col' : 'overflow-y-auto'}`}>
         {activeTab === 'info' && <InfoTab />}
         {activeTab === 'canvas' && <CanvasTab mode={chatMode} />}
         {activeTab === 'blog' && <BlogTab />}

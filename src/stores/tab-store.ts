@@ -5,6 +5,7 @@ import { create } from 'zustand';
 type ChatMode = 'ask' | 'trade' | 'learn';
 type BalanceView = 'funding' | 'asset';
 type FundWizardStep = 1 | 2 | 3 | 4;
+type RightPanelTab = 'info' | 'canvas' | 'blog';
 
 // Left panel sub-tabs per mode
 const DEFAULT_TAB: Record<ChatMode, string> = {
@@ -27,6 +28,9 @@ interface TabStore {
   setFundWizardStep: (step: FundWizardStep) => void;
   resetFundWizard: () => void;
 
+  rightPanelTab: RightPanelTab;
+  setRightPanelTab: (tab: RightPanelTab) => void;
+
   chatLocked: boolean;
   setChatLocked: (locked: boolean) => void;
 }
@@ -36,6 +40,7 @@ export const useTabStore = create<TabStore>((set) => ({
   setChatMode: (chatMode) => set({
     chatMode,
     leftPanelTab: DEFAULT_TAB[chatMode],
+    rightPanelTab: chatMode === 'learn' ? 'canvas' : 'info',
     fundWizardStep: 1,
   }),
 
@@ -49,8 +54,11 @@ export const useTabStore = create<TabStore>((set) => ({
   setFundWizardStep: (fundWizardStep) => set({ fundWizardStep }),
   resetFundWizard: () => set({ fundWizardStep: 1 }),
 
+  rightPanelTab: 'info',
+  setRightPanelTab: (rightPanelTab) => set({ rightPanelTab }),
+
   chatLocked: false,
   setChatLocked: (chatLocked) => set({ chatLocked }),
 }));
 
-export type { ChatMode, BalanceView, FundWizardStep };
+export type { ChatMode, BalanceView, FundWizardStep, RightPanelTab };

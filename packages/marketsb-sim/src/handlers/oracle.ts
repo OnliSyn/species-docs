@@ -9,6 +9,7 @@ import { Router, type Request, type Response } from 'express';
 import type { OracleEntry, SimState } from '../state.js';
 import { serializeBigints } from '../state.js';
 import { verifyVaOracleLedger } from '../oracle-verify.js';
+import { appendAudit } from '../cashier-engine.js';
 import type { CashierOracleEntry } from '../cashier-types.js';
 
 export function createOracleRouter(state: SimState): Router {
@@ -121,6 +122,12 @@ export function createOracleRouter(state: SimState): Router {
     const chain = verifyVaOracleLedger(va.posted, state.oracleLog.get(e.vaId) ?? []);
     const ok = chain.isValid;
     e.state = ok ? 'VERIFIED' : 'FAILED';
+    appendAudit(state, 'oracle.entry_verified', {
+      oracleEntryId: e.oracleEntryId,
+      vaId: e.vaId,
+      isValid: ok,
+      entryCount: chain.entryCount,
+    });
     res.json({
       oracleEntryId: e.oracleEntryId,
       state: e.state,
@@ -192,6 +199,13 @@ export function createOracleRouter(state: SimState): Router {
 
     const entries = state.oracleLog.get(vaId) ?? [];
     const chain = verifyVaOracleLedger(va.posted, entries);
+
+    appendAudit(state, 'oracle.verified', {
+      vaId,
+      isValid: chain.isValid,
+      entryCount: chain.entryCount,
+      variance: Number(chain.variance),
+    });
 
     res.json(
       serializeBigints({
