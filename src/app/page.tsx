@@ -9,19 +9,13 @@ import { RightPanel } from '@/components/RightPanel';
 import { MobileGate } from '@/components/MobileGate';
 import { CoverPage } from '@/components/CoverPage';
 
-function hasEnteredBefore(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('onli-entered-v2') === 'true';
-}
-
 export default function HomePage() {
-  const [showCover, setShowCover] = useState(() => !hasEnteredBefore());
+  const [showCover, setShowCover] = useState(true);
   const coverRef = useRef<HTMLDivElement>(null);
 
   const handleEnter = useCallback(() => {
     const cover = coverRef.current;
     if (!cover) {
-      localStorage.setItem('onli-entered-v2', 'true');
       setShowCover(false);
       return;
     }
@@ -33,7 +27,6 @@ export default function HomePage() {
     const tl = gsap.timeline({
       defaults: { duration: 1.1, ease: 'power2.inOut' },
       onComplete: () => {
-        localStorage.setItem('onli-entered-v2', 'true');
         setShowCover(false);
       },
     });

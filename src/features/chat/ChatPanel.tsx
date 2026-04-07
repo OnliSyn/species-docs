@@ -35,14 +35,10 @@ export function ChatPanel() {
   const [input, setInput] = useState('');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const modeMenuRef = useRef<HTMLDivElement>(null);
-  const [showHello, setShowHello] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return !sessionStorage.getItem('onli-hello-seen');
-  });
+  const [showHello, setShowHello] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleHelloComplete = useCallback(() => {
-    sessionStorage.setItem('onli-hello-seen', 'true');
     setShowHello(false);
   }, []);
 
