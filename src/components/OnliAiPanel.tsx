@@ -88,8 +88,8 @@ export function OnliAiPanel() {
         <GenUISlot />
       </div>
 
-      {/* Users gallery — pinned bottom */}
-      <div className="flex-shrink-0 border-t border-[var(--color-border)]">
+      {/* Users gallery — pinned bottom, ask mode only */}
+      {chatMode === 'ask' && <div className="flex-shrink-0 border-t border-[var(--color-border)]">
         <p className="px-4 pt-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)]">
           People
         </p>
@@ -117,7 +117,7 @@ export function OnliAiPanel() {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
