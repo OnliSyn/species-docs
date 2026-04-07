@@ -11,7 +11,7 @@ import { CoverPage } from '@/components/CoverPage';
 
 function hasEnteredBefore(): boolean {
   if (typeof window === 'undefined') return false;
-  return localStorage.getItem('onli-entered') === 'true';
+  return localStorage.getItem('onli-entered-v2') === 'true';
 }
 
 export default function HomePage() {
@@ -21,7 +21,7 @@ export default function HomePage() {
   const handleEnter = useCallback(() => {
     const cover = coverRef.current;
     if (!cover) {
-      localStorage.setItem('onli-entered', 'true');
+      localStorage.setItem('onli-entered-v2', 'true');
       setShowCover(false);
       return;
     }
@@ -33,7 +33,7 @@ export default function HomePage() {
     const tl = gsap.timeline({
       defaults: { duration: 1.1, ease: 'power2.inOut' },
       onComplete: () => {
-        localStorage.setItem('onli-entered', 'true');
+        localStorage.setItem('onli-entered-v2', 'true');
         setShowCover(false);
       },
     });
