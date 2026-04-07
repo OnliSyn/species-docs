@@ -102,8 +102,8 @@ ${FULL_CANON}
 --- END CANON ---`;
   if (mode === 'trade')
     return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace (no fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1). Buy and Transfer have no fees.';
-  if (mode === 'learn')
-    return base + `\nYou are in Learn mode — developer-focused and technical.
+  if (mode === 'develop')
+    return base + `\nYou are in Develop mode — developer-focused and technical.
 
 RESPONSE RULES:
 - Keep answers focused and practical — 3-5 bullet points preferred over long paragraphs
@@ -1479,7 +1479,7 @@ async function getResponse(message: string, mode: string, context: string, messa
   // ============================================
   // LEARN MODE
   // ============================================
-  if (mode === 'learn') {
+  if (mode === 'develop') {
     if (lower.includes('what is onli') || lower.includes('how does it work')) {
       return '**Onli** is a hyper-dimensional vector storage system that enables actual possession of digital assets.\n\n' +
         'Unlike blockchain, Onli doesn\'t use a shared ledger. Instead, it transfers possession through three core primitives:\n\n' +

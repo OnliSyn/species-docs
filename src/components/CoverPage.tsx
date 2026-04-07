@@ -121,9 +121,9 @@ export function CoverPage({ onEnter }: CoverPageProps) {
             <p className="text-[15px] text-[#525252] mb-1">Modes</p>
             <p className="text-[11px] text-black mb-3">use different modes to change context</p>
             <div className="flex bg-[#EBEBEB] rounded-full p-1">
-              <span className="flex-1 text-center py-2.5 text-[13px] font-medium text-[#858585] rounded-full">Learn</span>
+              <span className="flex-1 text-center py-2.5 text-[13px] font-bold text-[#0A0A0A] rounded-full bg-white border border-[#E0E0E0] shadow-[0_2px_3px_rgba(10,13,18,0.05)]">Ask</span>
+              <span className="flex-1 text-center py-2.5 text-[13px] font-medium text-[#858585] rounded-full">Trade</span>
               <span className="flex-1 text-center py-2.5 text-[13px] font-medium text-[#858585] rounded-full">Develop</span>
-              <span className="flex-1 text-center py-2.5 text-[13px] font-bold text-[#0A0A0A] rounded-full bg-white border border-[#E0E0E0] shadow-[0_2px_3px_rgba(10,13,18,0.05)]">Trade</span>
             </div>
           </div>
 

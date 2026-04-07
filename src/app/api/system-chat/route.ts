@@ -206,6 +206,24 @@ async function matchPromptToTool(prompt: string): Promise<SystemToolResult | nul
     };
   }
 
+  // How to get started
+  if (lower.includes('get started') || lower.includes('how do i')) {
+    return {
+      toolName: 'system_info',
+      data: {
+        _ui: 'RotatingFactCard',
+        facts: [
+          'How do I check my balance? Switch to Trade mode and type or say "what\'s my balance".',
+          'How do I buy Specie? In Trade mode, just say "buy" and the assistant will walk you through it.',
+          'How do I fund my account? Switch to Trade mode and say "fund my account" to simulate a USDC deposit.',
+          'How do I sell? In Trade mode, say "sell" and choose how many Specie to list on the marketplace.',
+        ],
+        title: 'How To',
+      },
+      commentary: 'Getting started with Specie.',
+    };
+  }
+
   // Genome (canonical)
   if (lower.includes('genome')) {
     return {

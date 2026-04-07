@@ -6,14 +6,12 @@ import { useTabStore } from '@/stores/tab-store';
 // ---------------------------------------------------------------------------
 // Parse userSystem.md — prompts grouped by mode
 // ---------------------------------------------------------------------------
-const WELCOME_MESSAGE = 'Welcome to Onli Ai. Your intelligent assistant for managing digital assets, exploring the Onli ecosystem, and trading on the Species Marketplace.';
+const WELCOME_MESSAGE = 'Your assistant for digital assets, the Onli ecosystem, and the Species Marketplace.';
 
 const SYSTEM_PROMPTS: Record<string, string[]> = {
   ask: [
-    'What is the definition of Onli?',
-    'How does Onli work?',
-    'What is the paradigm shift?',
     'Give me an interesting fact about Onli',
+    'How do I get started with Onli?',
   ],
   trade: [
     'What is my current funding balance?',
@@ -21,7 +19,7 @@ const SYSTEM_PROMPTS: Record<string, string[]> = {
     'What are the current market statistics?',
     'Show me my last 5 transactions',
   ],
-  learn: [
+  develop: [
     'What is a Genome in the Onli system?',
     'Explain the Species marketplace pipeline',
   ],

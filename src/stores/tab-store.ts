@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 
-type ChatMode = 'ask' | 'trade' | 'learn';
+type ChatMode = 'ask' | 'trade' | 'develop';
 type BalanceView = 'funding' | 'asset';
 type FundWizardStep = 1 | 2 | 3 | 4;
 type RightPanelTab = 'info' | 'canvas' | 'blog';
@@ -11,7 +11,7 @@ type RightPanelTab = 'info' | 'canvas' | 'blog';
 const DEFAULT_TAB: Record<ChatMode, string> = {
   ask: 'ads',
   trade: 'account',
-  learn: 'blogs',
+  develop: 'blogs',
 };
 
 interface TabStore {
@@ -40,7 +40,7 @@ export const useTabStore = create<TabStore>((set) => ({
   setChatMode: (chatMode) => set({
     chatMode,
     leftPanelTab: DEFAULT_TAB[chatMode],
-    rightPanelTab: chatMode === 'learn' ? 'canvas' : 'info',
+    rightPanelTab: chatMode === 'develop' ? 'canvas' : 'info',
     fundWizardStep: 1,
   }),
 

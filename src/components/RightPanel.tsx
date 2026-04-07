@@ -41,7 +41,7 @@ export function RightPanel() {
       </div>
 
       {/* Tab content */}
-      <div className={`flex-1 min-h-0 px-4 pb-4 ${activeTab === 'canvas' && (chatMode === 'trade' || chatMode === 'learn') ? 'flex flex-col' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 min-h-0 px-4 pb-4 ${activeTab === 'canvas' && (chatMode === 'trade' || chatMode === 'develop') ? 'flex flex-col' : 'overflow-y-auto'}`}>
         {activeTab === 'info' && <InfoTab />}
         {activeTab === 'canvas' && <CanvasTab mode={chatMode} />}
         {activeTab === 'blog' && <BlogTab />}

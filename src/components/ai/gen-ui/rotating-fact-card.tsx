@@ -82,7 +82,7 @@ function RotatingFactCardUI({ data }: GenUIProps<RotatingFactData>) {
       </div>
       <p
         ref={textRef}
-        className="text-[13px] text-[var(--color-text-primary)] leading-relaxed"
+        className="text-[15px] text-[var(--color-text-primary)] leading-relaxed"
       >
         {facts[idx]}
       </p>

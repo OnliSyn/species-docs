@@ -1,4 +1,4 @@
-export type ChatMode = 'ask' | 'trade' | 'learn';
+export type ChatMode = 'ask' | 'trade' | 'develop';
 
 // Web Speech API type augmentation
 declare global {

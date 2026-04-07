@@ -61,8 +61,8 @@ const NAV_SECTIONS: NavSection[] = [
       </span>
     ),
     brand: 'Onli Ai',
-    label: 'Learn',
-    mode: 'learn',
+    label: 'Develop',
+    mode: 'develop',
   },
   {
     key: 'niech-trade',

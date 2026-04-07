@@ -428,6 +428,6 @@ function LearnCanvasWithTrace() {
 
 export function CanvasTab({ mode }: { mode?: string }) {
   if (mode === 'trade') return <TradeCanvas />;
-  if (mode === 'learn') return <LearnCanvasWithTrace />;
+  if (mode === 'develop') return <LearnCanvasWithTrace />;
   return <AskCanvas />;
 }

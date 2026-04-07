@@ -1,17 +1,25 @@
 'use client';
 
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
-import { useTabStore } from '@/stores/tab-store';
+import { useTabStore, type ChatMode } from '@/stores/tab-store';
 import { useOnliChat } from './hooks/useOnliChat';
 import { useSpeechToText } from './hooks/useSpeechToText';
 import { useJourneyTracker } from './hooks/useJourneyTracker';
 import { VoiceWave } from './components/VoiceWave';
+import { HelloGreeting } from './components/HelloGreeting';
 import type { UIMessage } from 'ai';
 
+const MODE_LABELS: Record<ChatMode, string> = {
+  ask: 'Ask',
+  trade: 'Trade',
+  develop: 'Develop',
+};
+
 export function ChatPanel() {
-  const { chatMode, chatLocked } = useTabStore();
+  const { chatMode, setChatMode, chatLocked } = useTabStore();
   const { messages, sendMessage, setMessages, status } = useOnliChat();
   useJourneyTracker(messages);
   const {
@@ -25,7 +33,18 @@ export function ChatPanel() {
     getAnalyserData,
   } = useSpeechToText();
   const [input, setInput] = useState('');
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const [showHello, setShowHello] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !sessionStorage.getItem('onli-hello-seen');
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleHelloComplete = useCallback(() => {
+    sessionStorage.setItem('onli-hello-seen', 'true');
+    setShowHello(false);
+  }, []);
 
   const isLoading = status === 'submitted' || status === 'streaming';
 
@@ -33,6 +52,18 @@ export function ChatPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Close mode menu on outside click
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modeMenuRef.current && !modeMenuRef.current.contains(e.target as Node)) {
+        setModeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [modeMenuOpen]);
 
   // Auto-send when voice transcript is finalized
   useEffect(() => {
@@ -65,9 +96,9 @@ export function ChatPanel() {
       title: 'Ask Synth',
       subtitle: 'I can answer questions about Onli, check your balances, and explain how digital ownership works. What would you like to know?',
       actions: [
+        { label: 'What is Species?', seed: 'What is Species?' },
         { label: 'What is Onli?', seed: 'What is Onli?' },
-        { label: 'My balance', seed: 'What is my funding balance?' },
-        { label: 'Simulate a deposit', seed: 'I want to simulate a deposit' },
+        { label: 'How do I trade?', seed: 'How do I trade?' },
       ],
     },
     trade: {
@@ -82,9 +113,9 @@ export function ChatPanel() {
         { label: 'Redeem', seed: 'redeem my species' },
       ],
     },
-    learn: {
+    develop: {
       badge: 'DEVELOPER',
-      title: 'Learn',
+      title: 'Develop',
       subtitle: 'Technical deep dives into Onli architecture, the Species pipeline, and how to build Appliances.',
       actions: [
         { label: 'How does the pipeline work?', seed: 'How does the Species marketplace pipeline work?' },
@@ -99,7 +130,7 @@ export function ChatPanel() {
   const isVoiceActive = voiceState === 'listening' || voiceState === 'requesting';
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* New chat button */}
       {messages.length > 0 && (
         <div className="flex-shrink-0 px-4 pt-3 pb-1 flex justify-end">
@@ -114,8 +145,11 @@ export function ChatPanel() {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-6">
         {messages.length === 0 ? (
+          showHello && chatMode === 'ask' ? (
+            <HelloGreeting onComplete={handleHelloComplete} />
+          ) :
           /* Welcome state — mode-specific */
-          <div className="text-center py-12 px-4 max-w-lg mx-auto">
+          <div className="flex flex-col items-center justify-center text-center px-4 max-w-lg mx-auto h-full">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-accent-green)]/20 text-xs font-semibold mb-6">
               <span className="w-2 h-2 rounded-full bg-[var(--color-accent-green)]" />
               {currentMode.badge}
@@ -242,14 +276,46 @@ export function ChatPanel() {
           </div>
         </div>
       ) : (
-        /* Floating input bar */
-        <div className="p-4">
+        /* Floating glassmorphic input bar */
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 pt-2 z-10">
           <form
             onSubmit={handleSubmit}
-            className="flex items-center gap-2 px-4 py-2 rounded-[var(--radius-card)] bg-white border border-[var(--color-border)] shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
+            className="flex items-center gap-2 rounded-full border border-white/60 bg-white/70 backdrop-blur-xl pl-3 pr-1.5 py-1.5"
+            style={{
+              boxShadow: '0px 16px 48px rgba(0,0,0,0.10), 0px 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6)',
+            }}
           >
-            <span className="text-[var(--color-accent-green)] text-lg flex-shrink-0">&#10024;</span>
-            <div className="relative flex-1">
+            {/* Mode dropdown */}
+            <div ref={modeMenuRef} className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setModeMenuOpen((v) => !v)}
+                className="flex items-center gap-1 text-[12px] font-semibold text-[#8F8F8F] hover:text-[#0A0A0A] transition-colors cursor-pointer px-1"
+              >
+                {MODE_LABELS[chatMode]}
+                <ChevronDown className={cn('h-3 w-3 transition-transform', modeMenuOpen && 'rotate-180')} strokeWidth={2.5} />
+              </button>
+              {modeMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-[110px] rounded-[12px] bg-white/90 backdrop-blur-lg p-1 shadow-[0px_12px_40px_rgba(0,0,0,0.12)] border border-white/50 z-20">
+                  {(Object.entries(MODE_LABELS) as [ChatMode, string][]).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setChatMode(key); setModeMenuOpen(false); }}
+                      className={cn(
+                        'w-full rounded-[8px] px-3 py-1.5 text-[12px] font-medium text-[#171717] text-left hover:bg-[#F0F0F0] transition-colors',
+                        chatMode === key && 'bg-[#F0F0F0] font-bold',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Input field — darker off-white */}
+            <div className="flex-1 min-w-0 rounded-full bg-[#EAEAEA] px-4 py-2">
               <input
                 type="text"
                 value={input}
@@ -258,52 +324,48 @@ export function ChatPanel() {
                   ? 'Journey in progress...'
                   : chatMode === 'trade'
                     ? 'Fund, Buy, Sell, Transfer, or SendOut...'
-                    : chatMode === 'learn'
+                    : chatMode === 'develop'
                       ? 'Ask about Onli concepts and architecture...'
                       : 'Ask about your balances, transactions, or account...'}
                 className={cn(
-                  'w-full py-2 text-sm bg-transparent focus:outline-none',
+                  'w-full text-[14px] bg-transparent focus:outline-none text-[#0A0A0A] placeholder:text-[#B0B0B0]',
                   chatLocked && 'opacity-60 cursor-not-allowed',
                 )}
                 disabled={chatLocked}
               />
-              {chatLocked && (
-                <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] text-xs">
-                  &#128274;
-                </span>
-              )}
             </div>
+
             {/* Mic button */}
             <button
               type="button"
               disabled={chatLocked}
               onClick={handleMicClick}
               className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0',
-                chatLocked && 'opacity-50 cursor-not-allowed',
-                'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-sidebar)]',
+                'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
+                chatLocked ? 'opacity-50 cursor-not-allowed text-[#B0B0B0]' : 'text-[#8F8F8F] hover:text-[#0A0A0A] hover:bg-[#EAEAEA]',
               )}
               aria-label="Start voice input"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" x2="12" y1="19" y2="22" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 4C10.3431 4 9 5.34315 9 7V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V7C15 5.34315 13.6569 4 12 4Z" stroke="currentColor" strokeWidth="2"/>
+                <path d="M19 11C19 14.866 15.866 18 12 18C8.13401 18 5 14.866 5 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 18V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
+
             {/* Send button */}
             <button
               type="submit"
               disabled={isLoading || chatLocked || !input.trim()}
               className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+                'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
                 isLoading || chatLocked || !input.trim()
-                  ? 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)]'
-                  : 'bg-[var(--color-cta-primary)] text-white hover:opacity-90',
+                  ? 'bg-[#D5D5D5] text-[#999]'
+                  : 'bg-[#0A0A0A] text-white hover:opacity-90',
               )}
               aria-label="Send message"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m5 12 7-7 7 7" />
                 <path d="M12 19V5" />
               </svg>

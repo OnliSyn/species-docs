@@ -16,7 +16,7 @@ const MODE_TABS = {
     { key: 'ads', label: 'Ads' },
     { key: 'settings', label: 'Settings' },
   ],
-  learn: [
+  develop: [
     { key: 'blogs', label: 'Blogs' },
     { key: 'whitepapers', label: 'Whitepapers' },
   ],
@@ -31,7 +31,7 @@ function PanelContent({ mode, tab }: { mode: string; tab: string }) {
     if (tab === 'ads') return <AdsPanel />;
     if (tab === 'settings') return <SettingsPanel />;
   }
-  if (mode === 'learn') {
+  if (mode === 'develop') {
     if (tab === 'blogs') return <BlogsPanel />;
     if (tab === 'whitepapers') return <WhitepapersPanel />;
   }

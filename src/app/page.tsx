@@ -6,7 +6,6 @@ import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { OnliAiPanel } from '@/components/OnliAiPanel';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { RightPanel } from '@/components/RightPanel';
-import { SimulationDisclaimer } from '@/components/SimulationDisclaimer';
 import { MobileGate } from '@/components/MobileGate';
 import { CoverPage } from '@/components/CoverPage';
 
@@ -48,8 +47,6 @@ export default function HomePage() {
 
   return (
     <MobileGate>
-      <SimulationDisclaimer />
-
       {/* Dashboard — always rendered, cover overlays on top */}
       <DashboardLayout
         leftPanel={<OnliAiPanel />}
