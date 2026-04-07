@@ -103,16 +103,28 @@ ${FULL_CANON}
   if (mode === 'trade')
     return base + '\nYou are in Trade mode. Guide users through fund/buy/sell/redeem/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing. Sell = list for sale on marketplace (no fee, species escrowed). Redeem = sell back to MarketMaker (1% liquidity fee, assurance pays 1:1). Buy and Transfer have no fees.';
   if (mode === 'develop')
-    return base + `\nYou are in Develop mode — developer-focused and technical.
+    return base + `\nYou are in Develop mode — the user is a DEVELOPER learning how the backend works. They are NOT trying to trade or execute transactions. They want to understand the API pipeline, data flow, and architecture.
+
+CRITICAL CONTEXT:
+- When the user says "walk me through Buy/Sell/Transfer" they want the TECHNICAL API flow, not to actually buy/sell/transfer
+- Show each pipeline stage with the API endpoint, request payload shape, and what happens at each step
+- Reference the three systems: SM (Species Marketplace), MB (MarketSB Cashier), OC (Onli Cloud)
+- Include the Onli You authorization step that happens before any asset movement
+
+RESPONSE FORMAT FOR JOURNEY WALKTHROUGHS:
+When asked about a journey (buy, sell, transfer, redeem, fund), respond with a numbered walkthrough:
+1. Stage name — what happens, which system handles it
+2. Show the API endpoint: \`POST /marketplace/v1/eventRequest\`
+3. Key fields in the request/response
+4. End with: "Switch to **Trade mode** to execute this journey live."
 
 RESPONSE RULES:
-- Keep answers focused and practical — 3-5 bullet points preferred over long paragraphs
-- Use markdown bullet lists (- item) with each item on its own line
-- NEVER put multiple items on one line separated by commas — always use vertical bullet lists
+- Keep answers focused and practical — numbered stages preferred
+- Use markdown formatting with each stage on its own line
 - Reference specific API endpoints (POST /eventRequest, POST /cashier/post-batch, etc.)
 - Show data flow, not theory
-- When explaining pipeline stages, use a numbered list with each stage on its own line
 - Use code-like formatting for endpoint paths and field names
+- NEVER attempt to execute trades — explain the process only
 
 Help developers understand the Onli architecture, APIs, and how to build Appliances. Explain the Species pipeline, Cashier settlement, Vault operations, ChangeOwner, AskToMove, and the dual-sim architecture (MarketSB for funding, Species-sim for assets).
 
@@ -1480,6 +1492,70 @@ async function getResponse(message: string, mode: string, context: string, messa
   // LEARN MODE
   // ============================================
   if (mode === 'develop') {
+    // Journey walkthroughs — technical API flow
+    if (lower.includes('walk me through') && lower.includes('buy') || (lower.includes('how does') && lower.includes('buy') && !lower.includes('buy back'))) {
+      return '## Buy Journey — API Pipeline\n\n' +
+        '**1. Submit** — `POST /marketplace/v1/eventRequest`\n' +
+        '```json\n{ "intent": "buy", "quantity": 1000, "idempotencyKey": "buy-1000-abc" }\n```\n' +
+        'Species Marketplace receives the order and assigns an `eventId`.\n\n' +
+        '**2. Authenticate** — `SM` verifies identity via **Onli You** authorization\n\n' +
+        '**3. Validate** — `SM` checks buyer has sufficient funding balance via `GET /va/{userRef}`\n\n' +
+        '**4. Match** — `SM` finds seller listing or draws from Treasury\n' +
+        '`GET /marketplace/v1/listings` → selects best match\n\n' +
+        '**5. Stage Asset** — `OC` prepares Genome for transfer\n' +
+        '`POST /onli-cloud/changeOwner` → moves asset to Settlement Vault\n\n' +
+        '**6. Process Payment** — `MB` Cashier settles USDC\n' +
+        '`POST /cashier/post-batch` → up to 5 TigerBeetle transfers (atomic)\n\n' +
+        '**7. Deliver to Vault** — `OC` ChangeOwner to buyer\'s Vault\n' +
+        '`POST /onli-cloud/changeOwner` → asset now in buyer\'s possession\n\n' +
+        '**8. Oracle Verify** — `OC` confirms possession, logs audit trail\n\n' +
+        '**9. Complete** — `SM` finalizes order, emits `journey-complete` event\n\n' +
+        '---\n' +
+        'Switch to **Trade mode** to execute this journey live.';
+    }
+
+    if (lower.includes('walk me through') && lower.includes('sell') || (lower.includes('how does') && lower.includes('sell') && !lower.includes('sell back'))) {
+      return '## Sell Journey — API Pipeline\n\n' +
+        '**1. Submit** — `POST /marketplace/v1/eventRequest`\n' +
+        '```json\n{ "intent": "sell", "quantity": 500, "pricePerUnit": 1000000 }\n```\n' +
+        'Species Marketplace receives the listing request.\n\n' +
+        '**2. Authenticate** — `SM` verifies identity via **Onli You** authorization\n\n' +
+        '**3. Validate** — `SM` checks seller has sufficient Specie in Vault\n' +
+        '`GET /onli-cloud/vault/{onliId}` → confirms count ≥ quantity\n\n' +
+        '**4. Escrow Asset** — `OC` moves seller\'s Specie to Escrow Vault\n' +
+        '`POST /onli-cloud/changeOwner` → asset held until sold or cancelled\n\n' +
+        '**5. Create Listing** — `SM` adds to active marketplace listings\n' +
+        '`POST /marketplace/v1/listings` → visible to buyers\n\n' +
+        '**6. When Matched** — Buyer triggers buy pipeline (stages 5-9)\n' +
+        'Payment flows from buyer → seller via Cashier\n\n' +
+        '**7. Settlement** — `MB` Cashier atomic transfer\n' +
+        '`POST /cashier/post-batch` → seller receives USDC, no fees on sell\n\n' +
+        '**8. Complete** — Listing removed, balances updated\n\n' +
+        '---\n' +
+        'Switch to **Trade mode** to execute this journey live.';
+    }
+
+    if (lower.includes('walk me through') && lower.includes('transfer') || (lower.includes('how does') && lower.includes('transfer'))) {
+      return '## Transfer Journey — API Pipeline\n\n' +
+        '**1. Submit** — `POST /marketplace/v1/eventRequest`\n' +
+        '```json\n{ "intent": "transfer", "quantity": 100, "recipientOnliId": "onli-user-456" }\n```\n' +
+        'Species Marketplace receives the peer-to-peer transfer request.\n\n' +
+        '**2. Authenticate** — `SM` verifies sender identity via **Onli You**\n\n' +
+        '**3. Validate** — `SM` checks:\n' +
+        '- Sender has sufficient Specie: `GET /onli-cloud/vault/{senderOnliId}`\n' +
+        '- Recipient exists: `GET /onli-cloud/vault/{recipientOnliId}`\n\n' +
+        '**4. Stage Asset** — `OC` prepares Genome\n' +
+        '`POST /onli-cloud/changeOwner` → asset to Settlement Vault\n\n' +
+        '**5. Process Payment** — `MB` No USDC movement (free transfer)\n' +
+        'Cashier logs the transfer event but no funds move.\n\n' +
+        '**6. Deliver to Vault** — `OC` ChangeOwner to recipient\n' +
+        '`POST /onli-cloud/changeOwner` → asset in recipient\'s Vault\n\n' +
+        '**7. Oracle Verify** — `OC` confirms new possession state\n\n' +
+        '**8. Complete** — Both parties\' Vault balances updated\n\n' +
+        '---\n' +
+        'Switch to **Trade mode** to execute this journey live.';
+    }
+
     if (lower.includes('what is onli') || lower.includes('how does it work')) {
       return '**Onli** is a hyper-dimensional vector storage system that enables actual possession of digital assets.\n\n' +
         'Unlike blockchain, Onli doesn\'t use a shared ledger. Instead, it transfers possession through three core primitives:\n\n' +

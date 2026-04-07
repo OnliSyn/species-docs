@@ -112,10 +112,13 @@ export function ChatPanel() {
     },
     develop: {
       badge: 'DEVELOPER',
-      title: 'Develop',
-      subtitle: 'Explore the 9-stage pipeline that powers every Species transaction.',
-      actions: [],
-      pipeline: true,
+      title: 'Welcome to Species',
+      subtitle: 'Learn how the 9-stage pipeline works behind the scenes. Ask about any journey to see the full API flow.',
+      actions: [
+        { label: 'How does a Buy work?', seed: 'Walk me through the Buy journey' },
+        { label: 'How does a Sell work?', seed: 'Walk me through the Sell journey' },
+        { label: 'How does a Transfer work?', seed: 'Walk me through the Transfer journey' },
+      ],
     },
   };
 
@@ -153,21 +156,20 @@ export function ChatPanel() {
             <p className="text-sm text-[var(--color-text-secondary)] mb-8 leading-relaxed">
               {currentMode.subtitle}
             </p>
-            {'pipeline' in currentMode && currentMode.pipeline ? (
-              <PipelineWalkthrough onSwitchToTrade={() => setChatMode('trade')} />
-            ) : (
-              <div className="flex flex-wrap gap-2 justify-center">
-                {currentMode.actions.map((action) => (
-                  <button
-                    key={action.label}
-                    onClick={() => sendMessage({ text: action.seed })}
-                    className="px-4 py-2 rounded-[var(--radius-button)] bg-[var(--color-bg-card)] border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-sidebar)] transition-colors"
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {currentMode.actions.map((action) => (
+                <button
+                  key={action.label}
+                  onClick={() => {
+                    sendMessage({ text: action.seed });
+                    if (chatMode === 'develop') setRightPanelTab('canvas');
+                  }}
+                  className="px-4 py-2 rounded-[var(--radius-button)] bg-[var(--color-bg-card)] border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-sidebar)] transition-colors"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
             {chatMode === 'ask' && (
               <button
                 onClick={() => setRightPanelTab('canvas')}
