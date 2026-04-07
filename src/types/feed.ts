@@ -1,4 +1,4 @@
-export type FeedCardVariant = 'featured' | 'accent' | 'dark' | 'article';
+export type FeedCardVariant = 'featured' | 'accent' | 'dark' | 'article' | 'ad';
 
 export interface FeedCard {
   id: string;
@@ -14,4 +14,5 @@ export interface FeedCard {
     comments?: string;
   };
   actions?: { label: string; href?: string }[];
+  videoUrl?: string;
 }

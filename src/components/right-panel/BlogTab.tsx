@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -113,17 +113,104 @@ function ArticleView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// Trade mode: Marketplace news
+// ---------------------------------------------------------------------------
+const TRADE_POSTS: BlogPost[] = [
+  {
+    id: 'market-update',
+    category: 'MARKET UPDATE',
+    title: 'Species Marketplace: Real-Time Settlement with TigerBeetle',
+    excerpt: 'Every transaction settles in under 100ms using the TigerBeetle financial accounting engine. No batch processing. No delays.',
+    body: `The Species Marketplace uses TigerBeetle as its settlement engine, capable of processing up to 10 million transfers per second.\n\nEvery buy, sell, and transfer order flows through a 9-stage pipeline that tracks the asset from submission to Oracle verification. At each step, the system maintains full accountability.\n\nThe MarketSB cashier handles all USDC movements with integer arithmetic — no floating point, no rounding errors. Fees are calculated in base units and distributed atomically across up to 5 TigerBeetle transfers per transaction.`,
+    date: 'Apr 6, 2026',
+    readTime: '4 min read',
+    hero: true,
+  },
+  {
+    id: 'assurance-model',
+    category: 'ASSURANCE',
+    title: 'The 100% Buy Back Guarantee',
+    excerpt: 'Every Specie sold is backed by the assurance pool. Holders can always redeem at the guaranteed ratio.',
+    body: `The assurance model is designed so that every outstanding Specie is fully covered by the assurance balance.\n\nWhen you redeem, the MarketMaker pays 1:1 from the assurance pool, minus a 1% liquidity fee. This creates a floor of confidence that traditional digital asset markets cannot provide.\n\nThe coverage ratio is tracked in real-time and visible in the Assurance dashboard.`,
+    date: 'Apr 3, 2026',
+    readTime: '3 min read',
+  },
+  {
+    id: 'fee-structure',
+    category: 'TRADING',
+    title: 'Understanding Marketplace Fees',
+    excerpt: 'Buy and transfer are fee-free. Sell listings have no fee. Only redemption carries a 1% liquidity fee.',
+    body: `The fee structure is simple: Buy from the marketplace — no fee. Transfer to a contact — no fee. List for sale — no fee (your Specie is escrowed until sold).\n\nRedemption through the MarketMaker carries a 1% liquidity fee, which goes to the assurance pool to maintain full coverage.\n\nAll fees are calculated in integer base units (1 USDC = 1,000,000 units) to ensure precision.`,
+    date: 'Mar 30, 2026',
+    readTime: '3 min read',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Develop mode: Whitepapers
+// ---------------------------------------------------------------------------
+const DEVELOP_POSTS: BlogPost[] = [
+  {
+    id: 'wp-physics',
+    category: 'WHITEPAPER',
+    title: 'The Physics of Finance: Why Digital Assets Need Physical Properties',
+    excerpt: 'How Onli applies physical scarcity principles to digital containers, solving the fundamental copyability problem.',
+    body: `Digital data is copyable at near-zero cost. This property makes it excellent for communication but terrible for ownership.\n\nOnli solves this by enforcing singularity at the data level. A Genome cannot be duplicated — it can only exist in one Vault at a time, bound to one Gene.\n\nThis paper explores why every previous attempt to create digital scarcity has failed at the fundamental level, and how Onli's approach differs by working at the asset layer rather than the permission or ledger layer.`,
+    date: 'Mar 2026',
+    readTime: '18 min read',
+    hero: true,
+  },
+  {
+    id: 'wp-uqp',
+    category: 'WHITEPAPER',
+    title: 'The Uniqueness-Quantification Problem',
+    excerpt: 'The core problem Onli solves: making digital data behave as singular, ownable objects.',
+    body: `The Uniqueness-Quantification Problem states that digital data, being copyable by nature, cannot serve as the basis for ownership unless singularity is enforced at the structural level.\n\nBlockchains attempted to solve this with consensus-based ledgers, but a ledger entry is a claim about ownership — not ownership itself.\n\nOnli solves UQP by making the container itself singular. The Genome is a tensor-based structure that cannot be duplicated, only transferred.`,
+    date: 'Mar 2026',
+    readTime: '14 min read',
+  },
+  {
+    id: 'wp-genome',
+    category: 'WHITEPAPER',
+    title: 'Genome Architecture: Tensor-Based Digital Containers',
+    excerpt: 'Technical specification for the multi-dimensional data structures that underpin Onli assets.',
+    body: `A Genome is arranged using tensor-based structures — multi-dimensional data containers that generalize scalars, vectors, and matrices into higher dimensions.\n\nThis paper covers the mathematical foundations, the state evolution model, and the binding protocol between Genomes, Genes, and Vaults.`,
+    date: 'Feb 2026',
+    readTime: '22 min read',
+  },
+  {
+    id: 'wp-possession',
+    category: 'WHITEPAPER',
+    title: 'Actual Possession in Digital Systems',
+    excerpt: 'Defining what it means to truly possess a digital asset vs holding a custodial claim.',
+    body: `Actual possession means the asset resides in your Vault and is bound to your Gene. You hold it, control it, and can transfer or destroy it.\n\nCustodial possession means a third party holds the asset and gives you a ledger entry. Your rights depend on their honesty and solvency.\n\nThis paper formalizes the distinction and proves why actual possession is the only model compatible with true digital ownership.`,
+    date: 'Feb 2026',
+    readTime: '12 min read',
+  },
+];
+
+const MODE_POSTS: Record<string, BlogPost[]> = {
+  ask: BLOG_POSTS,
+  trade: TRADE_POSTS,
+  develop: DEVELOP_POSTS,
+};
+
+// ---------------------------------------------------------------------------
 // Blog roll
 // ---------------------------------------------------------------------------
-export function BlogTab() {
+export function BlogTab({ mode = 'ask' }: { mode?: string }) {
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+
+  // Reset article view when mode changes
+  useEffect(() => { setSelectedPost(null); }, [mode]);
 
   if (selectedPost) {
     return <ArticleView post={selectedPost} onBack={() => setSelectedPost(null)} />;
   }
 
-  const heroPost = BLOG_POSTS.find((p) => p.hero);
-  const articles = BLOG_POSTS.filter((p) => !p.hero);
+  const posts = MODE_POSTS[mode] || BLOG_POSTS;
+  const heroPost = posts.find((p) => p.hero);
+  const articles = posts.filter((p) => !p.hero);
 
   return (
     <div className="space-y-4 animate-slide-in-left">

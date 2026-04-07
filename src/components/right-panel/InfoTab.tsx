@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { FeedCard } from '@/types/feed';
 
 // ---------------------------------------------------------------------------
@@ -22,18 +24,20 @@ const INFO_CARDS: FeedCard[] = [
   {
     id: 'welcome-video',
     variant: 'dark',
-    category: 'Hot in March',
-    title: 'Welcome Video',
-    body: 'Bossa nova, house, uk garage, smooth vocals, airy vocals, jazz, funk',
-    meta: { author: 'By AlienPixels', followers: 'Follow', comments: '32k' },
+    category: 'FEATURED',
+    title: 'Onli Symplr',
+    body: 'Watch the introduction to Onli — what it is, how it works, and why it matters.',
+    meta: { author: 'Onli' },
+    videoUrl: 'https://vimeo.com/showcase/onli',
   },
   {
-    id: 'ai-article',
-    variant: 'article',
-    category: 'NEWS',
-    title: 'Advancing creativity with artificial intelligence',
-    body: 'Transform your ideas into stunning visuals with HorizonAI \u2014 the cutting-edge image generator designed specifically for imaginative thinkers.',
-    actions: [{ label: 'Watch launch video' }, { label: 'Explore' }],
+    id: 'onli-you-ad',
+    variant: 'ad',
+    category: 'SPONSOR',
+    title: 'Onli You',
+    body: 'Your identity. Your data. Your terms.',
+    image: '/images/onli-you-twins.jpg',
+    actions: [{ label: 'Visit onli.you', href: 'https://www.onli.you' }],
   },
 ];
 
@@ -64,7 +68,7 @@ function FeaturedCard({ card }: { card: FeedCard }) {
 
 function AccentCard({ card }: { card: FeedCard }) {
   return (
-    <div className="rounded-[var(--radius-card)] bg-[#D4F5A0] p-5">
+    <div className="rounded-[var(--radius-card)] bg-[#D4F5A0] p-5 py-[30px]">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1">
           <div className="w-14 h-14 rounded-full border-[3px] border-[var(--color-text-primary)] flex items-center justify-center">
@@ -83,29 +87,133 @@ function AccentCard({ card }: { card: FeedCard }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fullscreen video overlay
+// ---------------------------------------------------------------------------
+function VideoOverlay({ title, videoUrl, onClose }: { title: string; videoUrl: string; onClose: () => void }) {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [handleKeyDown]);
+
+  // Convert Vimeo URL to embeddable format
+  let embedUrl = videoUrl;
+  if (videoUrl.includes('vimeo.com/manage/videos/')) {
+    const id = videoUrl.match(/\/videos\/(\d+)/)?.[1];
+    embedUrl = id ? `https://player.vimeo.com/video/${id}` : videoUrl;
+  } else if (videoUrl.includes('vimeo.com/showcase')) {
+    embedUrl = videoUrl; // showcase URLs work in iframe
+  } else if (videoUrl.includes('vimeo.com/')) {
+    const id = videoUrl.match(/vimeo\.com\/(\d+)/)?.[1];
+    embedUrl = id ? `https://player.vimeo.com/video/${id}` : videoUrl;
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Video container */}
+      <div
+        className="w-[90vw] max-w-[960px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-white text-lg font-semibold mb-4">{title}</h2>
+        <div className="relative w-full rounded-2xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
+          <iframe
+            src={embedUrl}
+            className="absolute inset-0 w-full h-full"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dark card (video) — premium product-card style
+// ---------------------------------------------------------------------------
 function DarkCard({ card }: { card: FeedCard }) {
+  const [showVideo, setShowVideo] = useState(false);
+
   return (
-    <div className="rounded-[var(--radius-card)] bg-[#1A1A1A] p-5 text-white">
-      <div className="flex gap-4">
-        <div className="w-32 h-24 rounded-xl bg-gradient-to-br from-rose-400 to-pink-600 flex-shrink-0 flex items-end justify-center pb-2 relative overflow-hidden">
-          <div className="absolute inset-0 bg-black/20" />
-          <div className="relative flex items-center gap-3 text-white/80">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1l8 5-8 5V1z" /></svg>
-            <div className="w-16 h-1 rounded-full bg-white/30">
-              <div className="w-10 h-1 rounded-full bg-white" />
+    <>
+      <div
+        onClick={() => card.videoUrl && setShowVideo(true)}
+        className="rounded-[28px] bg-white p-[10px] shadow-[0_12px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06)] cursor-pointer group border border-[var(--color-border)]"
+      >
+        <div className="flex flex-col rounded-[22px] bg-white px-4 pt-4 pb-3">
+          {/* Title area */}
+          <div className="shrink-0 mb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-black/40">
+                {card.category}
+              </span>
+              {card.meta?.author && (
+                <span className="text-[9px] text-black/30">{card.meta.author}</span>
+              )}
+            </div>
+            <h3 className="text-[22px] leading-[0.95] font-normal tracking-[-0.04em] text-black/85">
+              {card.title}
+            </h3>
+            <p className="mt-1 text-[12px] leading-snug font-normal text-black/45">
+              {card.body}
+            </p>
+          </div>
+
+          {/* Video thumbnail area */}
+          <div className="relative overflow-hidden rounded-[18px] bg-[#1A1A1A] h-[160px]">
+            {/* Vimeo thumbnail or gradient fallback */}
+            {card.videoUrl && (() => {
+              const id = card.videoUrl!.match(/\/(\d+)/)?.[1];
+              return id ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`https://vumbnail.com/${id}.jpg`} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              ) : null;
+            })()}
+            <div className="absolute inset-0 bg-black/40" />
+
+            {/* Play button */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full bg-white shadow-[0_8px_22px_rgba(0,0,0,0.18)] flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 ml-0.5" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3" fill="#1A1A1A" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 text-[10px] text-white/60 mb-1">
-            <span className="text-orange-400">{card.category}</span>
-            {card.meta?.author && <span>{card.meta.author}</span>}
-          </div>
-          <h3 className="font-bold text-sm mb-1">{card.title}</h3>
-          <p className="text-[11px] text-white/50 leading-relaxed">{card.body}</p>
-        </div>
       </div>
-    </div>
+
+      {showVideo && card.videoUrl && (
+        <VideoOverlay
+          title={card.title}
+          videoUrl={card.videoUrl}
+          onClose={() => setShowVideo(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -135,17 +243,132 @@ function ArticleCard({ card }: { card: FeedCard }) {
   );
 }
 
+function AdCard({ card }: { card: FeedCard }) {
+  return (
+    <div className="relative rounded-[var(--radius-card)] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.10)]" style={{ height: '260px' }}>
+      {/* Background image */}
+      {card.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={card.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      )}
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1)_0%,rgba(0,0,0,0.25)_40%,rgba(0,0,0,0.65)_100%)]" />
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-end p-5">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/60 mb-1">
+          {card.category}
+        </span>
+        <h3 className="text-lg font-bold text-white leading-snug">{card.title}</h3>
+        {card.body && (
+          <p className="text-[11px] text-white/70 mt-1 leading-relaxed">{card.body}</p>
+        )}
+        {card.actions?.[0]?.href && (
+          <a
+            href={card.actions[0].href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex self-start px-4 py-2 rounded-full bg-white text-[11px] font-semibold text-[#0A0A0A] hover:bg-white/90 transition-colors shadow-sm"
+          >
+            {card.actions[0].label}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const CARD_RENDERERS: Record<string, React.ComponentType<{ card: FeedCard }>> = {
   featured: FeaturedCard,
   accent: AccentCard,
   dark: DarkCard,
   article: ArticleCard,
+  ad: AdCard,
 };
 
-export function InfoTab() {
+// ---------------------------------------------------------------------------
+// Trade mode: Marketplace info cards
+// ---------------------------------------------------------------------------
+const TRADE_CARDS: FeedCard[] = [
+  {
+    id: 'market-overview',
+    variant: 'featured',
+    category: 'MARKETPLACE',
+    title: 'Species Marketplace',
+    body: 'buy, sell, and trade Specie assets in a fully simulated 9-stage pipeline with real-time Oracle verification.',
+  },
+  {
+    id: 'market-stats',
+    variant: 'accent',
+    title: 'Live Market',
+    body: 'Track active listings, treasury reserves, and completed orders. All transactions settle through the MarketSB cashier.',
+  },
+  {
+    id: 'trade-video',
+    variant: 'dark',
+    category: 'FEATURED',
+    title: 'Species Trading',
+    body: 'Watch how the marketplace pipeline works — from order submission to settlement.',
+    meta: { author: 'Onli' },
+    videoUrl: 'https://vimeo.com/744624297',
+  },
+  {
+    id: 'market-journeys',
+    variant: 'article',
+    category: 'TRADING',
+    title: 'Five ways to interact with the marketplace',
+    body: 'Fund your account, Buy from listings, Sell to the market, Transfer to contacts, or Redeem through the MarketMaker.',
+    actions: [{ label: 'Start trading' }],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Develop mode: Developer concept cards
+// ---------------------------------------------------------------------------
+const DEVELOP_CARDS: FeedCard[] = [
+  {
+    id: 'dev-genomes',
+    variant: 'featured',
+    category: 'CORE CONCEPTS',
+    title: 'Genomes & Genes',
+    body: 'tensor-based containers (Genomes) bound to control credentials (Genes) that enforce singular ownership at the data level.',
+  },
+  {
+    id: 'dev-vaults',
+    variant: 'accent',
+    title: 'Vaults & Possession',
+    body: 'Secure holding environments where assets physically reside. Transfer means the asset leaves one Vault and appears in another — no copy remains.',
+  },
+  {
+    id: 'dev-onli-you-ad',
+    variant: 'ad',
+    category: 'SPONSOR',
+    title: 'Onli You',
+    body: 'Your identity. Your data. Your terms.',
+    image: '/images/onli-you-twins.jpg',
+    actions: [{ label: 'Visit onli.you', href: 'https://www.onli.you' }],
+  },
+  {
+    id: 'dev-video',
+    variant: 'dark',
+    category: 'FEATURED',
+    title: 'Onli Architecture',
+    body: 'Deep dive into Genomes, Vaults, and the possession model that powers Onli.',
+    meta: { author: 'Onli' },
+    videoUrl: 'https://vimeo.com/801385676',
+  },
+];
+
+const MODE_CARDS: Record<string, FeedCard[]> = {
+  ask: INFO_CARDS,
+  trade: TRADE_CARDS,
+  develop: DEVELOP_CARDS,
+};
+
+export function InfoTab({ mode = 'ask' }: { mode?: string }) {
+  const cards = MODE_CARDS[mode] || INFO_CARDS;
   return (
     <div className="space-y-4">
-      {INFO_CARDS.map((card) => {
+      {cards.map((card) => {
         const Renderer = CARD_RENDERERS[card.variant] || ArticleCard;
         return <Renderer key={card.id} card={card} />;
       })}

@@ -18,46 +18,34 @@ interface WalkthroughSection {
 
 const WALKTHROUGH: WalkthroughSection[] = [
   {
-    title: 'ONLI — Basic Questions',
+    title: 'Getting Started',
     items: [
+      { question: 'What is a Species?' },
       { question: 'What is Onli?' },
-      { question: 'Explain Onli like I\'m 16' },
-      { question: 'What problem does Onli solve?' },
       { question: 'What is the paradigm shift?' },
       { question: 'What is an asset?' },
-      { question: 'What makes something property?' },
-      { question: 'Why does ownership matter in an economy?' },
-      { question: 'What is a Species?' },
-      { question: 'How are Species used for learning Onli?' },
     ],
   },
   {
     title: 'How It Works',
     items: [
-      { question: 'How does Onli work?' },
-      { question: 'What is an asset in Onli?' },
       { question: 'What is a Genome?' },
       { question: 'What is a Gene?' },
       { question: 'What is a Vault?' },
+      { question: 'What is actual possession vs custodial?' },
+      { question: 'How are Species used for learning Onli?' },
     ],
   },
   {
-    title: 'Core Technology',
+    title: 'Go Deeper',
     items: [
       { question: 'Why isn\'t a blockchain enough?' },
-      { question: 'Why wouldn\'t a ledger work?' },
-      { question: 'What is actual possession vs custodial?' },
-      { question: 'Why is a ledger ownership by proxy?' },
       { question: 'Why is a key proof of access and not ownership?' },
-      { question: 'Why hasn\'t this problem been solved before?' },
-    ],
-  },
-  {
-    title: 'What You Can Build',
-    items: [
-      { question: 'What can you build with Onli?' },
       { question: 'What are Appliances?' },
-      { question: 'What is the private-data economy?' },
+      { question: 'What makes something property?' },
+      { question: 'Why does ownership matter in an economy?' },
+      { question: 'Why hasn\'t this problem been solved before?' },
+      { question: 'What can you build with Onli?' },
     ],
   },
 ];
@@ -84,24 +72,24 @@ function sendToChat(question: string) {
 function AskCanvas() {
   return (
     <div className="space-y-4">
-      <div className="mb-1">
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Understanding Onli</h3>
-        <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">
+      <div className="mb-2">
+        <h3 className="text-base font-bold text-[var(--color-text-primary)]">Understanding Species</h3>
+        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
           Tap a question to ask Synth
         </p>
       </div>
 
       {WALKTHROUGH.map((section) => (
         <div key={section.title}>
-          <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] mb-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] mb-2">
             {section.title}
           </p>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {section.items.map((item) => (
               <button
                 key={item.question}
                 onClick={() => sendToChat(item.question)}
-                className="w-full text-left rounded-lg bg-[var(--color-bg-card)] px-3 py-2 text-[11px] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-sidebar)] transition-colors"
+                className="w-full text-left rounded-xl bg-[var(--color-bg-card)] px-4 py-3 text-[14px] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-sidebar)] transition-colors"
               >
                 {item.question}
               </button>
@@ -392,32 +380,10 @@ function LearnCanvas() {
 // LEARN MODE — Trace + Whitepapers toggle
 // =============================================================================
 
-function LearnCanvasWithTrace() {
-  const [view, setView] = useState<'trace' | 'whitepapers'>('trace');
-
+function DevelopCanvas() {
   return (
     <div className="flex flex-col h-full">
-      {/* Sub-tab toggle */}
-      <div className="flex-shrink-0 flex gap-1 p-0.5 bg-[var(--color-bg-card)] rounded-lg mb-2">
-        {(['trace', 'whitepapers'] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`flex-1 px-2 py-1 text-[9px] font-semibold rounded-md transition-all ${
-              view === v
-                ? 'bg-white text-[var(--color-text-primary)] shadow-sm'
-                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-            }`}
-          >
-            {v === 'trace' ? 'Process Trace' : 'Whitepapers'}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {view === 'trace' ? <ProcessTraceCanvas /> : <LearnCanvas />}
-      </div>
+      <ProcessTraceCanvas />
     </div>
   );
 }
@@ -428,6 +394,6 @@ function LearnCanvasWithTrace() {
 
 export function CanvasTab({ mode }: { mode?: string }) {
   if (mode === 'trade') return <TradeCanvas />;
-  if (mode === 'develop') return <LearnCanvasWithTrace />;
+  if (mode === 'develop') return <DevelopCanvas />;
   return <AskCanvas />;
 }

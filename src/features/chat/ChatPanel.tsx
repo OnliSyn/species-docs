@@ -19,7 +19,7 @@ const MODE_LABELS: Record<ChatMode, string> = {
 };
 
 export function ChatPanel() {
-  const { chatMode, setChatMode, chatLocked } = useTabStore();
+  const { chatMode, setChatMode, chatLocked, setRightPanelTab } = useTabStore();
   const { messages, sendMessage, setMessages, status } = useOnliChat();
   useJourneyTracker(messages);
   const {
@@ -171,6 +171,14 @@ export function ChatPanel() {
                 </button>
               ))}
             </div>
+            {chatMode === 'ask' && (
+              <button
+                onClick={() => setRightPanelTab('canvas')}
+                className="mt-4 text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors underline underline-offset-2"
+              >
+                Don&apos;t know what to ask?
+              </button>
+            )}
           </div>
         ) : (
           /* Chat messages */
