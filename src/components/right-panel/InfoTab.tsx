@@ -28,7 +28,7 @@ const INFO_CARDS: FeedCard[] = [
     title: 'Onli Symplr',
     body: 'Watch the introduction to Onli — what it is, how it works, and why it matters.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/showcase/onli',
+    videoUrl: 'https://vimeo.com/795552637',
   },
   {
     id: 'onli-you-ad',

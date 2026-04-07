@@ -10,6 +10,7 @@ import { useSpeechToText } from './hooks/useSpeechToText';
 import { useJourneyTracker } from './hooks/useJourneyTracker';
 import { VoiceWave } from './components/VoiceWave';
 import { HelloGreeting } from './components/HelloGreeting';
+import { PipelineWalkthrough } from './components/PipelineWalkthrough';
 import type { UIMessage } from 'ai';
 
 const MODE_LABELS: Record<ChatMode, string> = {
@@ -112,13 +113,9 @@ export function ChatPanel() {
     develop: {
       badge: 'DEVELOPER',
       title: 'Develop',
-      subtitle: 'Technical deep dives into Onli architecture, the Species pipeline, and how to build Appliances.',
-      actions: [
-        { label: 'How does the pipeline work?', seed: 'How does the Species marketplace pipeline work?' },
-        { label: 'What is ChangeOwner?', seed: 'What is the ChangeOwner operation?' },
-        { label: 'Cashier settlement', seed: 'How does the cashier settle payments?' },
-        { label: 'Building Appliances', seed: 'How do I build an Appliance on Onli Cloud?' },
-      ],
+      subtitle: 'Explore the 9-stage pipeline that powers every Species transaction.',
+      actions: [],
+      pipeline: true,
     },
   };
 
@@ -156,17 +153,21 @@ export function ChatPanel() {
             <p className="text-sm text-[var(--color-text-secondary)] mb-8 leading-relaxed">
               {currentMode.subtitle}
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {currentMode.actions.map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() => sendMessage({ text: action.seed })}
-                  className="px-4 py-2 rounded-[var(--radius-button)] bg-[var(--color-bg-card)] border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-sidebar)] transition-colors"
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
+            {'pipeline' in currentMode && currentMode.pipeline ? (
+              <PipelineWalkthrough onSwitchToTrade={() => setChatMode('trade')} />
+            ) : (
+              <div className="flex flex-wrap gap-2 justify-center">
+                {currentMode.actions.map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => sendMessage({ text: action.seed })}
+                    className="px-4 py-2 rounded-[var(--radius-button)] bg-[var(--color-bg-card)] border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-sidebar)] transition-colors"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {chatMode === 'ask' && (
               <button
                 onClick={() => setRightPanelTab('canvas')}

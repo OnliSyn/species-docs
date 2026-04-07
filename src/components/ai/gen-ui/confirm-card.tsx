@@ -38,6 +38,11 @@ function ConfirmCardUI({ data }: GenUIProps<ConfirmData>) {
           {data.warning}
         </div>
       )}
+      {/* Onli You authorization indicator */}
+      <div className="mx-5 mb-3 px-3 py-2 rounded-lg bg-[#D4F5A0]/20 border border-[#D4F5A0]/40 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-[var(--color-accent-green)]" />
+        <span className="text-[10px] font-medium text-[var(--color-text-primary)]">Authorized via Onli You</span>
+      </div>
       <div className="border-t border-[var(--color-border)] px-5 py-3 bg-[var(--color-bg-card)]">
         <p className="text-[11px] text-[var(--color-text-secondary)]">
           Type <span className="font-semibold text-[var(--color-text-primary)]">confirm</span> to proceed or <span className="font-semibold text-[var(--color-text-primary)]">cancel</span> to abort.

@@ -111,6 +111,12 @@ function PipelineCardUI({ data }: GenUIProps<PipelineData>) {
         )}
       </div>
 
+      {/* Onli You authorization */}
+      <div className="mx-5 mb-2 px-3 py-2 rounded-lg bg-[#D4F5A0]/20 border border-[#D4F5A0]/40 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-[var(--color-accent-green)]" />
+        <span className="text-[10px] font-medium text-[var(--color-text-primary)]">Authorized via Onli You</span>
+      </div>
+
       {/* Pipeline stages */}
       <div className="px-5 pb-4">
         <div className="space-y-1">

@@ -48,7 +48,7 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
           ease: 'power4.out',
         });
 
-        tl.timeScale(3);
+        tl.timeScale(2.25);
       });
 
     return () => {
