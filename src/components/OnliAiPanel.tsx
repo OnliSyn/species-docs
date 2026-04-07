@@ -6,12 +6,9 @@ import { useTabStore, type ChatMode } from '@/stores/tab-store';
 import { GenUISlot } from './GenUISlot';
 import { useSystemChat } from '@/hooks/useSystemChat';
 const USERS = [
-  { name: 'Jordan', image: '/images/user-1.jpg', online: true },
-  { name: 'Sofia', image: '/images/user-2.jpg', online: true },
-  { name: 'Marcus', image: '/images/user-3.jpg', online: false },
-  { name: 'Priya', image: '/images/user-4.jpg', online: true },
-  { name: 'Daniel', image: '/images/user-5.jpg', online: false },
-  { name: 'Lena', image: '/images/user-6.jpg', online: true },
+  { name: 'Pepper Potts', image: '/images/user-2.jpg', online: true },
+  { name: 'Tony Stark', image: '/images/user-1.jpg', online: true },
+  { name: 'Happy Hogan', image: '/images/user-5.jpg', online: false },
 ];
 
 const MODES: { key: ChatMode; label: string }[] = [
