@@ -20,7 +20,7 @@ const MODE_LABELS: Record<ChatMode, string> = {
 };
 
 export function ChatPanel() {
-  const { chatMode, setChatMode, chatLocked, setRightPanelTab } = useTabStore();
+  const { chatMode, setChatMode, chatLocked, setRightPanelTab, setDevJourney } = useTabStore();
   const { messages, sendMessage, setMessages, status } = useOnliChat();
   useJourneyTracker(messages);
   const {
@@ -162,7 +162,15 @@ export function ChatPanel() {
                   key={action.label}
                   onClick={() => {
                     sendMessage({ text: action.seed });
-                    if (chatMode === 'develop') setRightPanelTab('canvas');
+                    if (chatMode === 'develop') {
+                      setRightPanelTab('canvas');
+                      // Map seed to devJourney for canvas sync
+                      const jMap: Record<string, 'buy' | 'sell' | 'transfer' | 'redeem' | 'fund'> = {
+                        'buy': 'buy', 'sell': 'sell', 'transfer': 'transfer', 'redeem': 'redeem', 'fund': 'fund',
+                      };
+                      const key = Object.keys(jMap).find(k => action.seed.toLowerCase().includes(k));
+                      if (key) setDevJourney(jMap[key]);
+                    }
                   }}
                   className="px-4 py-2 rounded-[var(--radius-button)] bg-[var(--color-bg-card)] border border-[var(--color-border)] text-sm hover:bg-[var(--color-bg-sidebar)] transition-colors"
                 >

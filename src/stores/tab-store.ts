@@ -6,6 +6,7 @@ type ChatMode = 'ask' | 'trade' | 'develop';
 type BalanceView = 'funding' | 'asset';
 type FundWizardStep = 1 | 2 | 3 | 4;
 type RightPanelTab = 'info' | 'canvas' | 'blog';
+type DevJourney = 'buy' | 'sell' | 'transfer' | 'redeem' | 'fund' | null;
 
 // Left panel sub-tabs per mode
 const DEFAULT_TAB: Record<ChatMode, string> = {
@@ -33,6 +34,9 @@ interface TabStore {
 
   chatLocked: boolean;
   setChatLocked: (locked: boolean) => void;
+
+  devJourney: DevJourney;
+  setDevJourney: (journey: DevJourney) => void;
 }
 
 export const useTabStore = create<TabStore>((set) => ({
@@ -59,6 +63,9 @@ export const useTabStore = create<TabStore>((set) => ({
 
   chatLocked: false,
   setChatLocked: (chatLocked) => set({ chatLocked }),
+
+  devJourney: null,
+  setDevJourney: (devJourney) => set({ devJourney }),
 }));
 
-export type { ChatMode, BalanceView, FundWizardStep, RightPanelTab };
+export type { ChatMode, BalanceView, FundWizardStep, RightPanelTab, DevJourney };

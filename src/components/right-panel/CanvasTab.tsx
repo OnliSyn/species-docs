@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTabStore } from '@/stores/tab-store';
 import { ProcessTraceCanvas } from './ProcessTraceCanvas';
 
 // =============================================================================
@@ -380,10 +381,106 @@ function LearnCanvas() {
 // LEARN MODE — Trace + Whitepapers toggle
 // =============================================================================
 
+// Map devJourney store value to CODE_EXAMPLES index
+const DEV_JOURNEY_MAP: Record<string, number> = {
+  buy: 0,
+  sell: 1,
+  redeem: 2,
+  transfer: 3,
+};
+
 function DevelopCanvas() {
+  const devJourney = useTabStore((s) => s.devJourney);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  // Sync with devJourney from chat
+  const targetIdx = devJourney ? (DEV_JOURNEY_MAP[devJourney] ?? 0) : null;
+  if (targetIdx !== null && targetIdx !== activeIdx) {
+    setActiveIdx(targetIdx);
+  }
+
+  const example = CODE_EXAMPLES[activeIdx];
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(example.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // If no journey selected yet, show prompt
+  if (!devJourney) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-4 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--color-bg-card)] flex items-center justify-center mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M16 18l2-2-2-2M8 18l-2-2 2-2M14 4l-4 16" />
+          </svg>
+        </div>
+        <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">API Reference</p>
+        <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+          Ask about a journey in chat to see the API calls here
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <ProcessTraceCanvas />
+      <div className="flex-shrink-0 mb-2">
+        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">API Reference</h3>
+        <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">
+          API calls for the {example.label.toLowerCase()} journey
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex-shrink-0 flex gap-1 p-0.5 bg-[var(--color-bg-card)] rounded-lg mb-2">
+        {CODE_EXAMPLES.map((ex, i) => (
+          <button
+            key={i}
+            onClick={() => { setActiveIdx(i); setCopied(false); }}
+            className={`flex-1 px-2 py-1 text-[9px] font-semibold rounded-md transition-all ${
+              i === activeIdx
+                ? 'bg-white text-[var(--color-text-primary)] shadow-sm'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            {ex.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Code block */}
+      <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden">
+        <div className="flex-1 bg-[#1A1A1A] p-4 text-[11px] leading-relaxed font-mono overflow-y-auto">
+          <pre className="text-white/80 whitespace-pre-wrap">
+            {example.code.split('\n').map((line, i) => {
+              const trimmed = line.trimStart();
+              const isComment = trimmed.startsWith('//');
+              const isEndpoint = /^(POST|GET|PATCH|DELETE)\s/.test(trimmed);
+              return (
+                <div key={`dev-${activeIdx}-${i}`} className={
+                  isComment ? 'text-[#6A9955]'
+                  : isEndpoint ? 'text-[#C586C0] font-semibold'
+                  : 'text-white/80'
+                }>
+                  {line || '\u00A0'}
+                </div>
+              );
+            })}
+          </pre>
+        </div>
+        <div className="flex-shrink-0 bg-white border border-[var(--color-border)] border-t-0 rounded-b-xl px-4 py-2 flex items-center justify-center">
+          <button
+            onClick={handleCopy}
+            className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors font-medium"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
