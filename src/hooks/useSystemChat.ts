@@ -17,7 +17,7 @@ const SYSTEM_PROMPTS: Record<string, string[]> = {
     'What is my current funding balance?',
     'What is my trading account balance?',
     'What are the current market statistics?',
-    'Show me my last 5 transactions',
+    'What is the assurance coverage?',
   ],
   develop: [
     'What is a Genome in the Onli system?',

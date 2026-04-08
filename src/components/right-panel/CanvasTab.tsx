@@ -215,80 +215,150 @@ POST /marketplace/v1/eventRequest
   },
 ];
 
-function TradeCanvas() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const example = CODE_EXAMPLES[activeIdx];
+interface OracleEntry {
+  type?: string;
+  amount?: number | string;
+  vaId?: string;
+  timestamp?: string;
+  status?: string;
+  [key: string]: unknown;
+}
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(example.code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
+function TradeCanvas() {
+  const [activeTab, setActiveTab] = useState<'funding' | 'asset'>('funding');
+  const [entries, setEntries] = useState<OracleEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    const url = activeTab === 'funding'
+      ? 'http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger'
+      : 'http://localhost:4012/oracle/ledger';
+
+    fetch(url)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        if (cancelled) return;
+        const arr = Array.isArray(data) ? data : (data.entries || data.ledger || []);
+        setEntries(arr.slice(0, 20));
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) { setEntries([]); setLoading(false); }
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+  // Poll for updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const url = activeTab === 'funding'
+        ? 'http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger'
+        : 'http://localhost:4012/oracle/ledger';
+      fetch(url)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          const arr = Array.isArray(data) ? data : (data.entries || data.ledger || []);
+          setEntries(arr.slice(0, 20));
+        })
+        .catch(() => {});
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Oracle info banner */}
-      <div className="flex-shrink-0 mb-3 flex items-center gap-2 rounded-lg bg-[var(--color-accent-green)]/10 border border-[var(--color-accent-green)]/20 px-3 py-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)] flex-shrink-0" />
-        <p className="text-[10px] text-[var(--color-text-secondary)] leading-snug">
-          Oracle ledger entries are recorded for every transaction
-        </p>
-      </div>
-
+      {/* Header */}
       <div className="flex-shrink-0 mb-2">
-        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Transaction Reference</h3>
+        <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Oracle Ledger</h3>
         <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">
-          How transactions flow through the system
+          Live transaction records from the Oracle API
         </p>
       </div>
 
       {/* Tabs */}
       <div className="flex-shrink-0 flex gap-1 p-0.5 bg-[var(--color-bg-card)] rounded-lg mb-2">
-        {CODE_EXAMPLES.map((ex, i) => (
+        {(['funding', 'asset'] as const).map((tab) => (
           <button
-            key={i}
-            onClick={() => { setActiveIdx(i); setCopied(false); }}
-            className={`flex-1 px-2 py-1 text-[9px] font-semibold rounded-md transition-all ${
-              i === activeIdx
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-2 py-1.5 text-[10px] font-semibold rounded-md transition-all capitalize ${
+              tab === activeTab
                 ? 'bg-white text-[var(--color-text-primary)] shadow-sm'
                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
-            {ex.label}
+            {tab}
           </button>
         ))}
       </div>
 
-      {/* Code block — fills remaining space */}
-      <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden">
-        <div className="flex-1 bg-[#1A1A1A] p-4 text-[11px] leading-relaxed font-mono overflow-y-auto">
-          <pre className="text-white/80 whitespace-pre-wrap">
-            {example.code.split('\n').map((line, i) => {
-              const trimmed = line.trimStart();
-              const isComment = trimmed.startsWith('//');
-              const isEndpoint = /^(POST|GET|PATCH|DELETE)\s/.test(trimmed);
-              return (
-                <div key={`${activeIdx}-${i}`} className={
-                  isComment ? 'text-[#6A9955]'
-                  : isEndpoint ? 'text-[#C586C0] font-semibold'
-                  : 'text-white/80'
-                }>
-                  {line || '\u00A0'}
+      {/* Live entries */}
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-white">
+        {loading ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-2.5 w-24 bg-[var(--color-border)] rounded mb-2" />
+                <div className="h-2 w-40 bg-[var(--color-border)] rounded" />
+              </div>
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="flex items-center justify-center h-full px-4 text-center">
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              No oracle entries yet. Execute a trade to see entries here.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--color-border)]">
+            {entries.map((entry, i) => (
+              <div key={i} className="px-4 py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-[var(--color-text-primary)]">
+                    {String(entry.type || entry.action || entry.eventType || `Entry ${i + 1}`)}
+                  </span>
+                  {entry.amount !== undefined && (
+                    <span className="text-[11px] font-mono text-[var(--color-text-primary)]">
+                      {typeof entry.amount === 'number'
+                        ? (entry.amount >= 1_000_000
+                          ? `$${(entry.amount / 1_000_000).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                          : entry.amount.toLocaleString())
+                        : String(entry.amount)
+                      }
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </pre>
-        </div>
-        <div className="flex-shrink-0 bg-white border border-[var(--color-border)] border-t-0 rounded-b-xl px-4 py-2 flex items-center justify-center">
-          <button
-            onClick={handleCopy}
-            className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors font-medium"
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
+                <div className="flex items-center gap-3 text-[9px] text-[var(--color-text-secondary)]">
+                  {entry.vaId && <span className="font-mono">{entry.vaId}</span>}
+                  {entry.status && (
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold ${
+                      entry.status === 'completed' || entry.status === 'verified'
+                        ? 'bg-[var(--color-accent-green)]/20 text-[var(--color-text-primary)]'
+                        : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {entry.status}
+                    </span>
+                  )}
+                  {entry.timestamp && (
+                    <span>{new Date(String(entry.timestamp)).toLocaleTimeString()}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Status bar */}
+      <div className="flex-shrink-0 mt-2 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)] animate-pulse" />
+        <span className="text-[9px] text-[var(--color-text-secondary)]">
+          Live — polling every 10s
+        </span>
       </div>
     </div>
   );
