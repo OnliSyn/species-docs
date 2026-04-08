@@ -18,6 +18,10 @@ const USERS_BY_NAME: Record<string, { ref: string; onliId: string; name: string 
   'tony stark': { ref: 'user-789', onliId: 'onli-user-789', name: 'Tony Stark' },
   'happy': { ref: 'user-012', onliId: 'onli-user-012', name: 'Happy Hogan' },
   'happy hogan': { ref: 'user-012', onliId: 'onli-user-012', name: 'Happy Hogan' },
+  'steve': { ref: 'user-555', onliId: 'onli-user-555', name: 'Steve Rogers' },
+  'steve rogers': { ref: 'user-555', onliId: 'onli-user-555', name: 'Steve Rogers' },
+  'natasha': { ref: 'user-666', onliId: 'onli-user-666', name: 'Natasha Romanoff' },
+  'natasha romanoff': { ref: 'user-666', onliId: 'onli-user-666', name: 'Natasha Romanoff' },
 };
 
 export { CURRENT_USER, USERS_BY_NAME };

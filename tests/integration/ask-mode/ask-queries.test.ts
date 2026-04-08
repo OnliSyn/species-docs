@@ -46,8 +46,8 @@ describe('ASK MODE — Read-only queries', () => {
     const listings = await getListings();
     expect(listings).not.toBeNull();
     expect(Array.isArray(listings)).toBe(true);
-    // Seed data has listings from Pepper and Tony
-    expect(listings!.length).toBeGreaterThan(0);
+    // Clean seed has no listings — fresh market
+    expect(listings!.length).toBe(0);
   });
 
   it('ASK-003 — Marketplace stats returns valid structure', async () => {

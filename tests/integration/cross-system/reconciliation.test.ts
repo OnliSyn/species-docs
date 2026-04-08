@@ -13,7 +13,7 @@ describe('REC — Reconciliation Tests', () => {
     await resetSims();
   });
 
-  it('REC-001 — After buy: USDC delta = -(qty * price), Specie delta = +qty', async () => {
+  it('REC-001 — After buy: USDC delta = -(qty * price + fee), Specie delta = +qty', async () => {
     await simulateDeposit('user-001', 5000);
     const before = await getBalanceSnapshot();
 
@@ -23,8 +23,8 @@ describe('REC — Reconciliation Tests', () => {
     const usdcDelta = after.usdcPosted - before.usdcPosted;
     const specieDelta = after.specieCount - before.specieCount;
 
-    // Base units: 100 * $1.00 = 100,000,000
-    expect(usdcDelta).toBe(-(100 * 1_000_000));
+    // Clean seed: treasury buy — $1.00 + $0.05 issuance = $1.05/Specie
+    expect(usdcDelta).toBe(-(100 * 1_050_000));
     expect(specieDelta).toBe(100);
   });
 

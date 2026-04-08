@@ -41,10 +41,12 @@ function addOracleEntry(state: SimState, entry: OracleEntry) {
 // User account IDs
 // ---------------------------------------------------------------------------
 export const USERS = {
-  alex:   { ref: 'user-001', name: 'Alex Morgan',  onliId: 'onli-user-001' },
-  pepper: { ref: 'user-456', name: 'Pepper Potts',  onliId: 'onli-user-456' },
-  tony:   { ref: 'user-789', name: 'Tony Stark',    onliId: 'onli-user-789' },
-  happy:  { ref: 'user-012', name: 'Happy Hogan',   onliId: 'onli-user-012' },
+  alex:    { ref: 'user-001', name: 'Alex Morgan',       onliId: 'onli-user-001' },
+  pepper:  { ref: 'user-456', name: 'Pepper Potts',      onliId: 'onli-user-456' },
+  tony:    { ref: 'user-789', name: 'Tony Stark',        onliId: 'onli-user-789' },
+  happy:   { ref: 'user-012', name: 'Happy Hogan',       onliId: 'onli-user-012' },
+  steve:   { ref: 'user-555', name: 'Steve Rogers',      onliId: 'onli-user-555' },
+  natasha: { ref: 'user-666', name: 'Natasha Romanoff',  onliId: 'onli-user-666' },
 } as const;
 
 export function vaIds(userRef: string) {
@@ -253,47 +255,9 @@ function secondaryMarketPurchase(
 
 export function runStartupSequence(state: SimState): void {
   console.log('[SEED] Running startup sequence...');
-
-  // 1. Pepper Potts: fund $5M, issue 2M species
-  fund(state, USERS.pepper.ref, 5_000_000n * USDC, {
-    entryId: 'fo-fund-pepper-init',
-    timestamp: '2026-04-01T08:55:00.000Z',
-  });
-  issueFromTreasury(state, USERS.pepper.ref, 2_000_000n, {
-    entryId: 'fo-issue-pepper',
-    timestamp: '2026-04-01T09:00:00.000Z',
-  });
-  console.log('[SEED] Pepper Potts: funded $5M, issued 2M species');
-
-  // 2. Tony Stark: fund $100M, issue 90M species
-  fund(state, USERS.tony.ref, 100_000_000n * USDC, {
-    entryId: 'fo-fund-tony-init',
-    timestamp: '2026-04-01T09:55:00.000Z',
-  });
-  issueFromTreasury(state, USERS.tony.ref, 90_000_000n, {
-    entryId: 'fo-issue-tony',
-    timestamp: '2026-04-01T10:00:00.000Z',
-  });
-  console.log('[SEED] Tony Stark: funded $100M, issued 90M species');
-
-  // 3. Happy Hogan: fund $100K, then secondary buy 20K species @ $1 from Pepper (matches species-sim seed)
-  fund(state, USERS.happy.ref, 100_000n * USDC, {
-    entryId: 'fo-fund-happy-init',
-    timestamp: '2026-04-02T10:55:00.000Z',
-  });
-  secondaryMarketPurchase(
-    state,
-    USERS.happy.ref,
-    USERS.pepper.ref,
-    20_000n,
-    USDC,
-    { entryId: 'seed-buy-happy', timestamp: '2026-04-02T11:00:00.000Z' },
-  );
-  console.log('[SEED] Happy Hogan: funded $100K, bought 20K species from Pepper (secondary)');
-
-  // 4. Alex Morgan: starts fresh with $0
-  console.log('[SEED] Alex Morgan: fresh account (no balance)');
-
+  // Clean seed — all users start at $0. Treasury backs 1B Specie.
+  // No deposits, no trades, no history.
+  console.log('[SEED] Clean seed: all users at $0, no transactions');
   console.log('[SEED] Startup sequence complete');
 }
 

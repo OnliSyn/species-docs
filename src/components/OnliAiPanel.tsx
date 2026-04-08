@@ -9,6 +9,8 @@ const USERS = [
   { name: 'Pepper Potts', image: '/images/user-2.jpg', online: true },
   { name: 'Tony Stark', image: '/images/user-1.jpg', online: true },
   { name: 'Happy Hogan', image: '/images/user-5.jpg', online: false },
+  { name: 'Steve Rogers', image: '/images/user-3.jpg', online: true },
+  { name: 'Natasha Romanoff', image: '/images/user-4.jpg', online: true },
 ];
 
 const MODES: { key: ChatMode; label: string }[] = [

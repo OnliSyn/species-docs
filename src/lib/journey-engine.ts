@@ -926,13 +926,17 @@ export function transferStart(quantity?: number): string {
       `Your contacts:\n` +
       `- **Pepper Potts** (onli-user-456)\n` +
       `- **Tony Stark** (onli-user-789)\n` +
-      `- **Happy Hogan** (onli-user-012)`;
+      `- **Happy Hogan** (onli-user-012)\n` +
+      `- **Steve Rogers** (onli-user-555)\n` +
+      `- **Natasha Romanoff** (onli-user-666)`;
   }
   return `Who and how many Specie would you like to transfer?\n\n` +
     `Your contacts:\n` +
     `- **Pepper Potts** (onli-user-456)\n` +
     `- **Tony Stark** (onli-user-789)\n` +
-    `- **Happy Hogan** (onli-user-012)\n\n` +
+    `- **Happy Hogan** (onli-user-012)\n` +
+    `- **Steve Rogers** (onli-user-555)\n` +
+    `- **Natasha Romanoff** (onli-user-666)\n\n` +
     `Tell me the recipient and quantity (e.g. "Pepper Potts 100").`;
 }
 
@@ -948,10 +952,14 @@ export async function transferConfirm(quantity: number, recipient: string): Prom
     'tony stark': { name: 'Tony Stark', id: 'onli-user-789' },
     'happy': { name: 'Happy Hogan', id: 'onli-user-012' },
     'happy hogan': { name: 'Happy Hogan', id: 'onli-user-012' },
+    'steve': { name: 'Steve Rogers', id: 'onli-user-555' },
+    'steve rogers': { name: 'Steve Rogers', id: 'onli-user-555' },
+    'natasha': { name: 'Natasha Romanoff', id: 'onli-user-666' },
+    'natasha romanoff': { name: 'Natasha Romanoff', id: 'onli-user-666' },
   };
   const contact = contacts[recipient.toLowerCase()];
   if (!contact) {
-    return `**Unknown recipient: "${recipient}".**\n\nYour contacts:\n- **Pepper Potts** (onli-user-456)\n- **Tony Stark** (onli-user-789)\n- **Happy Hogan** (onli-user-012)\n\nPlease enter a valid contact name.`;
+    return `**Unknown recipient: "${recipient}".**\n\nYour contacts:\n- **Pepper Potts** (onli-user-456)\n- **Tony Stark** (onli-user-789)\n- **Happy Hogan** (onli-user-012)\n- **Steve Rogers** (onli-user-555)\n- **Natasha Romanoff** (onli-user-666)\n\nPlease enter a valid contact name.`;
   }
 
   return {
@@ -978,6 +986,8 @@ export async function transferExecute(quantity: number, recipient?: string): Pro
     'pepper': 'onli-user-456', 'pepper potts': 'onli-user-456',
     'tony': 'onli-user-789', 'tony stark': 'onli-user-789',
     'happy': 'onli-user-012', 'happy hogan': 'onli-user-012',
+    'steve': 'onli-user-555', 'steve rogers': 'onli-user-555',
+    'natasha': 'onli-user-666', 'natasha romanoff': 'onli-user-666',
   };
   const recipientOnliId = contacts[(recipient || '').toLowerCase()] || 'onli-user-456';
 

@@ -12,7 +12,7 @@ describe('TRD-BUY — Buy Journey', () => {
   beforeEach(async () => {
     await waitForHealth();
     await resetSims();
-    // Precondition: fund account with $10,000 (converted to base units by helper)
+    // Precondition: fund account with $10,000
     await simulateDeposit('user-001', 10_000);
   });
 
@@ -25,14 +25,17 @@ describe('TRD-BUY — Buy Journey', () => {
 
     const after = await getBalanceSnapshot();
 
-    // Buy 100 Specie at $1.00 = $100 = 100,000,000 base units
+    // Clean seed: all buys from treasury (no marketplace listings)
+    // Treasury buy: $1.00/Specie + $0.05 issuance fee = $1.05/Specie
+    // 100 Specie × $1.05 = $105 = 105,000,000 base units
+    const costPerSpecie = 1_000_000 + 50_000; // $1.00 + $0.05 issuance
     assertBalanceDelta(before, after, {
-      usdcPosted: -(quantity * 1_000_000),
+      usdcPosted: -(quantity * costPerSpecie),
       specieCount: quantity,
     });
   });
 
-  it('TRD-BUY-004 — No buy fee charged (buy is free)', async () => {
+  it('TRD-BUY-004 — Treasury buy includes issuance fee of $0.05/Specie', async () => {
     const before = await getBalanceSnapshot();
     const quantity = 1000;
 
@@ -41,7 +44,7 @@ describe('TRD-BUY — Buy Journey', () => {
     const after = await getBalanceSnapshot();
     const usdcDelta = before.usdcPosted - after.usdcPosted;
 
-    // USDC delta = exactly quantity * $1.00 in base units, no extra fees
-    expect(usdcDelta).toBe(quantity * 1_000_000);
+    // 1000 × ($1.00 + $0.05) = $1,050 = 1,050,000,000 base units
+    expect(usdcDelta).toBe(quantity * 1_050_000);
   });
 });
