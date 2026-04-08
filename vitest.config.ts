@@ -13,5 +13,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     testTimeout: 15_000,
     hookTimeout: 30_000,
+    // Run test files sequentially — sims are shared mutable state
+    fileParallelism: false,
   },
 });
