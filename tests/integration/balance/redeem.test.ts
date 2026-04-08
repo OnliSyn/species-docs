@@ -27,26 +27,26 @@ describe('TRD-RED — Redeem Journey', () => {
 
     const after = await getBalanceSnapshot();
 
-    // Redeem 100 Specie at $1.00 = $100 gross
+    // Redeem 100 Specie at $1.00 = $100 gross = 100,000,000 base units
     // 1% liquidity fee = $1.00 = 1,000,000 base units
     // Net payout = $99.00 = 99,000,000 base units
-    const gross = quantity * 1_000_000;
-    const fee = Math.floor(gross * 0.01);
-    const net = gross - fee;
+    const grossBase = quantity * 1_000_000;
+    const feeBase = Math.floor(grossBase * 0.01);
+    const netBase = grossBase - feeBase;
 
     assertBalanceDelta(before, after, {
       specieCount: -quantity,
-      usdcPosted: net,
+      usdcPosted: netBase,
     });
   });
 
-  it('TRD-RED-003 — Fee math exact: 1% of gross, integer arithmetic', async () => {
+  it('TRD-RED-003 — Fee math exact: 1% of gross, integer arithmetic', () => {
     const quantity = 1000;
-    const gross = quantity * 1_000_000; // $1000 in base units
-    const expectedFee = Math.floor(gross * 0.01); // $10 = 10,000,000
+    const grossBase = quantity * 1_000_000; // $1000 = 1,000,000,000 base units
+    const feeBase = Math.floor(grossBase * 0.01); // $10 = 10,000,000
+    const netBase = grossBase - feeBase; // $990 = 990,000,000
 
-    // Verify fee calculation is exact integer, no floating point drift
-    expect(expectedFee).toBe(10_000_000);
-    expect(gross - expectedFee).toBe(990_000_000);
+    expect(feeBase).toBe(10_000_000);
+    expect(netBase).toBe(990_000_000);
   });
 });

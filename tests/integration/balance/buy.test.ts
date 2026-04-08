@@ -12,7 +12,7 @@ describe('TRD-BUY — Buy Journey', () => {
   beforeEach(async () => {
     await waitForHealth();
     await resetSims();
-    // Precondition: fund account with $10,000
+    // Precondition: fund account with $10,000 (converted to base units by helper)
     await simulateDeposit('user-001', 10_000);
   });
 
@@ -25,10 +25,10 @@ describe('TRD-BUY — Buy Journey', () => {
 
     const after = await getBalanceSnapshot();
 
-    // Buy 100 Specie at $1.00 each = $100 USDC = 100,000,000 base units
+    // Buy 100 Specie at $1.00 = $100 = 100,000,000 base units
     assertBalanceDelta(before, after, {
-      usdcPosted: -(quantity * 1_000_000), // -$100 in base units
-      specieCount: quantity, // +100 Specie
+      usdcPosted: -(quantity * 1_000_000),
+      specieCount: quantity,
     });
   });
 
@@ -36,12 +36,12 @@ describe('TRD-BUY — Buy Journey', () => {
     const before = await getBalanceSnapshot();
     const quantity = 1000;
 
-    const result = await buyExecute(quantity);
+    await buyExecute(quantity);
 
     const after = await getBalanceSnapshot();
     const usdcDelta = before.usdcPosted - after.usdcPosted;
 
-    // USDC delta should be exactly quantity * price, no extra fees
+    // USDC delta = exactly quantity * $1.00 in base units, no extra fees
     expect(usdcDelta).toBe(quantity * 1_000_000);
   });
 });

@@ -75,8 +75,10 @@ export async function getBalanceSnapshot(
   let usdcPending = 0;
   if (vaRes?.ok) {
     const va = await vaRes.json();
-    usdcPosted = va.posted ?? va.posted_balance ?? 0;
-    usdcPending = va.pending ?? va.pending_balance ?? 0;
+    // Balance is nested: va.balance.posted (in display USDC units, not base units)
+    const bal = va.balance ?? va;
+    usdcPosted = bal.posted ?? bal.posted_balance ?? 0;
+    usdcPending = bal.pending ?? bal.pending_balance ?? 0;
   }
 
   // Fetch vault balance
@@ -143,16 +145,21 @@ export function expectNoMutation(before: BalanceSnapshot, after: BalanceSnapshot
   });
 }
 
-/** Simulate a USDC deposit via MarketSB */
+/** Simulate a USDC deposit via MarketSB.
+ *  Amount is in DISPLAY units ($1 = 1). Internally converted to base units.
+ *  The sim stores balances in base units (1 USDC = 1,000,000).
+ */
 export async function simulateDeposit(
   userRef = 'user-001',
   amountUSDC: number,
 ): Promise<{ ok: boolean }> {
   const vaId = `va-funding-${userRef}`;
+  // Convert display USDC to base units for the sim
+  const baseUnits = amountUSDC * 1_000_000;
   const res = await fetch(`${MARKETSB}/sim/simulate-deposit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vaId, amount: amountUSDC }),
+    body: JSON.stringify({ vaId, amount: baseUnits }),
   });
   return { ok: res.ok };
 }

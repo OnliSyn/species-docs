@@ -3,7 +3,6 @@ import {
   resetSims,
   getBalanceSnapshot,
   assertBalanceDelta,
-  expectNoMutation,
   adjustVault,
   waitForHealth,
 } from '../../helpers/sim-control';
@@ -26,7 +25,7 @@ describe('TRD-XFER — Transfer Journey', () => {
     const after = await getBalanceSnapshot();
 
     assertBalanceDelta(before, after, {
-      specieCount: -quantity, // sender loses 50
+      specieCount: -quantity,
       usdcPosted: 0, // no USDC movement on transfer
     });
   });

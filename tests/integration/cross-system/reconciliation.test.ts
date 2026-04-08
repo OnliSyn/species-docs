@@ -23,7 +23,7 @@ describe('REC — Reconciliation Tests', () => {
     const usdcDelta = after.usdcPosted - before.usdcPosted;
     const specieDelta = after.specieCount - before.specieCount;
 
-    // Exact reconciliation
+    // Base units: 100 * $1.00 = 100,000,000
     expect(usdcDelta).toBe(-(100 * 1_000_000));
     expect(specieDelta).toBe(100);
   });

@@ -15,18 +15,17 @@ describe('TRD-FUND — Fund Journey (Deposit USDC)', () => {
 
   it('TRD-FUND-001 — Deposit increases USDC posted by exact amount', async () => {
     const before = await getBalanceSnapshot();
-    const depositAmount = 10_000; // $10,000 USDC
+    const depositUSDC = 10_000; // $10,000
 
-    const result = await simulateDeposit('user-001', depositAmount);
+    const result = await simulateDeposit('user-001', depositUSDC);
     expect(result.ok).toBe(true);
 
     const after = await getBalanceSnapshot();
 
-    // USDC should increase by deposit amount in base units
-    // 1 USDC = 1,000,000 base units
+    // Base units: $10,000 = 10,000,000,000
     assertBalanceDelta(before, after, {
-      usdcPosted: depositAmount * 1_000_000,
-      specieCount: 0, // No specie change on deposit
+      usdcPosted: depositUSDC * 1_000_000,
+      specieCount: 0,
     });
   });
 

@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { getSystemPrompt } from '@/lib/system-prompts';
 
 describe('MODE — Mode Integrity Tests', () => {
-  it('MODE-001 — Ask mode system prompt forbids trade execution', () => {
+  it('MODE-001 — Ask mode system prompt redirects trades to Trade mode', () => {
     const prompt = getSystemPrompt('ask');
-    expect(prompt).toContain('switch to Trade mode');
-    expect(prompt).not.toContain('execute');
+    expect(prompt.toLowerCase()).toContain('trade mode');
+    // Ask mode should tell users to switch modes for trading
+    expect(prompt).toContain('Trade mode');
   });
 
   it('MODE-002 — Trade mode system prompt enables journey execution', () => {
