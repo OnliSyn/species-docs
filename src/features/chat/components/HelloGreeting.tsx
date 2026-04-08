@@ -46,7 +46,11 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
     };
   }, []);
 
-  const handleClick = () => {
+  const dismissing = useRef(false);
+
+  const handleDismiss = () => {
+    if (dismissing.current) return;
+    dismissing.current = true;
     const container = containerRef.current;
     if (!container) { onComplete(); return; }
     gsap.to(container, {
@@ -57,11 +61,17 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
     });
   };
 
+  // Global click — clicking anywhere on the page dismisses the animation
+  useEffect(() => {
+    const handler = () => handleDismiss();
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  });
+
   return (
     <div
       ref={containerRef}
       className="flex flex-col items-center justify-center h-full cursor-pointer"
-      onClick={handleClick}
     >
       <div ref={svgContainerRef} className="w-[360px]" />
       {animDone && (
