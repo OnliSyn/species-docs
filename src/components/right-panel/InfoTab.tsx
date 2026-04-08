@@ -300,7 +300,7 @@ const TRADE_CARDS: FeedCard[] = [
     id: 'market-overview',
     variant: 'featured',
     category: 'MARKETPLACE',
-    title: 'Species Marketplace',
+    title: 'Your Brand the Onli Way',
     body: 'Species, Species Market, and Species Trust deliver an asset solution in a box\u2014fast, final, and free from the friction of traditional banking rails.',
   },
   {
