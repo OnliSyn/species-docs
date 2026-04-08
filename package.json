@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint .",
     "dev:sims": "node scripts/dev-sims.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
     "mcp:marketsb": "npm run start --prefix packages/marketsb-mcp",
     "mcp:species": "npm run start --prefix packages/species-mcp"
   },
@@ -50,6 +54,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.3"
   }
 }
