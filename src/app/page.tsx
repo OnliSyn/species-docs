@@ -43,7 +43,7 @@ export default function HomePage() {
       {/* Dashboard — always rendered, cover overlays on top */}
       <DashboardLayout
         leftPanel={<OnliAiPanel />}
-        centerPanel={<ChatPanel />}
+        centerPanel={<ChatPanel coverDismissed={!showCover} />}
         rightPanel={<RightPanel />}
       />
 

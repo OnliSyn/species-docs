@@ -19,7 +19,7 @@ const MODE_LABELS: Record<ChatMode, string> = {
   develop: 'Develop',
 };
 
-export function ChatPanel() {
+export function ChatPanel({ coverDismissed = true }: { coverDismissed?: boolean }) {
   const { chatMode, setChatMode, chatLocked, setRightPanelTab, setDevJourney } = useTabStore();
   const { messages, sendMessage, setMessages, status } = useOnliChat();
   useJourneyTracker(messages);
@@ -141,7 +141,7 @@ export function ChatPanel() {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-6 pb-24">
         {messages.length === 0 ? (
-          showHello && chatMode === 'ask' ? (
+          showHello && coverDismissed && chatMode === 'ask' ? (
             <HelloGreeting onComplete={handleHelloComplete} />
           ) :
           /* Welcome state — mode-specific */
