@@ -173,7 +173,7 @@ export async function adjustVault(
   const res = await fetch(`${SPECIES}/sim/vault-adjust`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ onliId, delta, reason }),
+    body: JSON.stringify({ vaultId: onliId, delta, reason }),
   });
   return { ok: res.ok };
 }
