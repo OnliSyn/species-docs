@@ -1,0 +1,36 @@
+#!/bin/bash
+export PATH="/opt/homebrew/opt/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+echo "🧪 Running test suite before push..."
+
+# Build check
+echo "📦 Build check..."
+npx next build > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "❌ BUILD FAILED — push blocked"
+  exit 1
+fi
+echo "✅ Build passed"
+
+# Check if sims are running
+MARKETSB_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4001/health 2>/dev/null)
+SPECIES_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4012/health 2>/dev/null)
+
+if [ "$MARKETSB_OK" = "200" ] && [ "$SPECIES_OK" = "200" ]; then
+  echo "🔄 Running full test suite (sims running)..."
+  npm run test 2>&1
+  if [ $? -ne 0 ]; then
+    echo "❌ TESTS FAILED — push blocked"
+    exit 1
+  fi
+  echo "✅ All tests passed"
+else
+  echo "⚠️  Sims not running — running unit tests only"
+  npx vitest run tests/integration/mode-safety 2>&1
+  if [ $? -ne 0 ]; then
+    echo "❌ UNIT TESTS FAILED — push blocked"
+    exit 1
+  fi
+  echo "✅ Unit tests passed (integration tests skipped — start sims for full coverage)"
+fi
+
+echo "🚀 Push approved"

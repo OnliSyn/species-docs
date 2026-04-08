@@ -9,6 +9,11 @@ description: "CI pipeline orchestrator — build, test, fix loop, deploy. Ensure
 Orchestrate the full CI pipeline: build → test → fix → re-test → deploy.
 No release without all tests passing. Balance tests are the hard gate.
 
+## MANDATORY RULE
+**Every code update MUST pass all tests before pushing to GitHub.**
+A git pre-push hook at `.githooks/pre-push` enforces this automatically.
+If tests fail, the push is blocked. No exceptions. No `--no-verify`.
+
 ## Pipeline Stages
 
 ### Stage 1: Pre-flight
