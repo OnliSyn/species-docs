@@ -877,12 +877,29 @@ export async function redeemExecute(quantity: number): Promise<JourneyResponse> 
   });
   console.log(`[REDEEM] cashier result: ok=${redeemResult.ok}`);
 
-  if (redeemResult.ok) {
-    await Promise.all([
-      adjustVault(CURRENT_USER.onliId, -quantity, 'redeem'),
-      adjustVault('treasury', quantity, 'redeem-return'),
-    ]);
+  if (!redeemResult.ok) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `REDEEM ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId,
+        batchId: null,
+        stages: [
+          { label: 'Submitted', system: 'SM', status: 'done' },
+          { label: 'Validated', system: 'SM', status: 'done' },
+          { label: 'Assurance payout failed', system: 'MB', status: 'done' },
+        ],
+      },
+      followUp: `**Redemption failed.** The Assurance Account has insufficient funds to cover this redemption. This can happen if no Species have been purchased from treasury yet (assurance is funded by purchase proceeds).`,
+    };
   }
+
+  await Promise.all([
+    adjustVault(CURRENT_USER.onliId, -quantity, 'redeem'),
+    adjustVault('treasury', quantity, 'redeem-return'),
+  ]);
 
   const state = await getLiveState();
 

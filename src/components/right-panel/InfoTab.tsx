@@ -306,8 +306,8 @@ const TRADE_CARDS: FeedCard[] = [
   {
     id: 'market-stats',
     variant: 'accent',
-    title: 'Live Market',
-    body: 'Track active listings, treasury reserves, and completed orders. All transactions settle through the MarketSB cashier.',
+    title: 'Live Infrastructure',
+    body: 'Species Market is connected to live infrastructure running on Onli Cloud. V0.4. Species Trust to USDC Circle Sandbox.',
   },
   {
     id: 'trade-video',
@@ -319,12 +319,13 @@ const TRADE_CARDS: FeedCard[] = [
     videoUrl: 'https://vimeo.com/771885641',
   },
   {
-    id: 'market-journeys',
-    variant: 'article',
-    category: 'TRADING',
-    title: 'Five ways to interact with the marketplace',
-    body: 'Fund your account, Buy from listings, Sell to the market, Transfer to contacts, or Redeem through the MarketMaker.',
-    actions: [{ label: 'Start trading' }],
+    id: 'species-suite-ad',
+    variant: 'ad',
+    category: 'SPECIES',
+    title: 'Species Suite',
+    body: 'The complete asset infrastructure\u2014Species Market, Species Trust, and Onli Cloud.',
+    image: '/images/species-suite.jpg',
+    actions: [{ label: 'Learn more', href: 'https://species.market' }],
   },
 ];
 
