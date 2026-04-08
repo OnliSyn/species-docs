@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { gsap } from '@/lib/gsap-config';
 
 interface HelloGreetingProps {
@@ -10,11 +10,11 @@ interface HelloGreetingProps {
 export function HelloGreeting({ onComplete }: HelloGreetingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
+  const [animDone, setAnimDone] = useState(false);
 
   useEffect(() => {
-    const container = containerRef.current;
     const svgContainer = svgContainerRef.current;
-    if (!container || !svgContainer) return;
+    if (!svgContainer) return;
 
     fetch('/images/hello-text.svg')
       .then((res) => res.text())
@@ -24,23 +24,12 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
         if (!svg) return;
 
         const ellipses = svg.querySelectorAll('ellipse');
-
-        // Initial state: all ellipses hidden, no scale
         gsap.set(ellipses, { autoAlpha: 0 });
 
         const tl = gsap.timeline({
-          onComplete: () => {
-            gsap.to(container, {
-              opacity: 0,
-              duration: 0.6,
-              delay: 0.5,
-              ease: 'power2.in',
-              onComplete,
-            });
-          },
+          onComplete: () => setAnimDone(true),
         });
 
-        // Reveal ellipses with stagger only — no zoom
         tl.to(ellipses, {
           autoAlpha: 1,
           duration: 1,
@@ -48,20 +37,38 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
           ease: 'power4.out',
         });
 
-        tl.timeScale(2.25);
+        // 25% faster than the original 3 → 3.75
+        tl.timeScale(3.75);
       });
 
     return () => {
-      gsap.killTweensOf(container);
+      gsap.killTweensOf(svgContainer);
     };
-  }, [onComplete]);
+  }, []);
+
+  const handleClick = () => {
+    const container = containerRef.current;
+    if (!container) { onComplete(); return; }
+    gsap.to(container, {
+      opacity: 0,
+      duration: 0.4,
+      ease: 'power2.in',
+      onComplete,
+    });
+  };
 
   return (
     <div
       ref={containerRef}
-      className="flex items-center justify-center h-full"
+      className="flex flex-col items-center justify-center h-full cursor-pointer"
+      onClick={handleClick}
     >
       <div ref={svgContainerRef} className="w-[360px]" />
+      {animDone && (
+        <p className="mt-6 text-[13px] text-[var(--color-text-secondary)] animate-fade-in">
+          Tap to continue
+        </p>
+      )}
     </div>
   );
 }
