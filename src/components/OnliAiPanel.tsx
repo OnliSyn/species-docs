@@ -91,7 +91,7 @@ export function OnliAiPanel() {
       {/* Users gallery — pinned bottom, ask mode only */}
       {chatMode === 'ask' && <div className="flex-shrink-0 border-t border-[var(--color-border)]">
         <p className="px-4 pt-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)]">
-          People
+          Your Contacts
         </p>
         <div className="flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide">
           {USERS.map((user) => (
