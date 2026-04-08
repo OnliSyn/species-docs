@@ -767,7 +767,7 @@ export async function issueExecute(quantity: number): Promise<JourneyResponse> {
 
 export async function sellStart(): Promise<string> {
   const state = await getLiveState();
-  return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nYour species will be held in escrow until a buyer purchases them. No fees.`;
+  return `How many Specie would you like to list for sale?\n\nYou currently hold **${state.specieCount.toLocaleString()} Specie** in your Vault.\n\nYour species will be held in Settlement Vault until a buyer purchases them. No fees.`;
 }
 
 export async function sellConfirm(quantity: number): Promise<JourneyResponse | string> {
@@ -789,7 +789,7 @@ export async function sellConfirm(quantity: number): Promise<JourneyResponse | s
         { label: 'Listing Price', value: `$${fmt(listingValue)} ($1.00/Specie)` },
         { label: 'Fees', value: 'None' },
       ],
-      warning: 'Species will be moved to escrow until sold.',
+      warning: 'Species will be moved to Settlement Vault until sold.',
     },
     followUp: 'Type **confirm** to proceed or **cancel** to abort.',
   };
@@ -816,13 +816,13 @@ export async function sellExecute(quantity: number): Promise<JourneyResponse> {
       stages: [
         { label: 'Submitted', system: 'SM', status: 'done' },
         { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Species escrowed', system: 'OC', status: 'done' },
+        { label: 'Species Settlement Vaulted', system: 'OC', status: 'done' },
         { label: 'Listing active', system: 'SM', status: 'done' },
       ],
       receipt: { quantity, cost: `$${fmt(quantity * 1.00)}`, fees: 'None', total: '$0.00' },
       balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
-    followUp: `Listing created! ${quantity.toLocaleString()} SPECIES listed for sale at $1.00/Specie. Species held in escrow until sold.`,
+    followUp: `Listing created! ${quantity.toLocaleString()} SPECIES listed for sale at $1.00/Specie. Species held in Settlement Vault until sold.`,
   };
 }
 

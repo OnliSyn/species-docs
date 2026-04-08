@@ -51,9 +51,7 @@ export const USERS = {
 
 export function vaIds(userRef: string) {
   return {
-    funding:   `va-funding-${userRef}`,
-    species:   `va-species-${userRef}`,
-    assurance: `va-assurance-${userRef}`,
+    funding: `va-funding-${userRef}`,
   };
 }
 
@@ -63,23 +61,19 @@ export function vaIds(userRef: string) {
 export function seedBase(): SimState {
   const state = createEmptyState();
 
-  // ── System accounts ──
-  state.virtualAccounts.set('treasury-100', makeVA('treasury-100', 'system', 'system', 100, 0n));
-  state.virtualAccounts.set('settlement-200', makeVA('settlement-200', 'system', 'system', 200, 0n));
-  state.virtualAccounts.set('operating-300', makeVA('operating-300', 'system', 'system', 300, 0n));
-  state.virtualAccounts.set('pending-deposit-400', makeVA('pending-deposit-400', 'system', 'system', 400, 0n));
-  state.virtualAccounts.set('pending-withdrawal-450', makeVA('pending-withdrawal-450', 'system', 'system', 450, 0n));
-  // Global assurance account (tracks total issuance proceeds) — tbCode 125 avoids collision with per-user assurance (520, 550, …)
+  // ── System accounts (USDC only — MarketSB handles cash) ──
+  state.virtualAccounts.set('treasury-100', makeVA('treasury-100', 'system', 'pool', 100, 0n));
+  state.virtualAccounts.set('operating-300', makeVA('operating-300', 'system', 'fees', 300, 0n));
+  state.virtualAccounts.set('pending-deposit-400', makeVA('pending-deposit-400', 'system', 'incoming', 400, 0n));
+  state.virtualAccounts.set('pending-withdrawal-450', makeVA('pending-withdrawal-450', 'system', 'outgoing', 450, 0n));
   state.virtualAccounts.set('assurance-global', makeVA('assurance-global', 'system', 'assurance', 125, 0n));
 
-  // ── User accounts (all start at 0) ──
+  // ── User funding accounts (USDC only, all start at $0) ──
   let tbCode = 500;
   for (const user of Object.values(USERS)) {
     const ids = vaIds(user.ref);
     state.virtualAccounts.set(ids.funding, makeVA(ids.funding, user.ref, 'funding', tbCode, 0n));
-    state.virtualAccounts.set(ids.species, makeVA(ids.species, user.ref, 'species', tbCode + 10, 0n));
-    state.virtualAccounts.set(ids.assurance, makeVA(ids.assurance, user.ref, 'assurance', tbCode + 20, 0n));
-    tbCode += 30;
+    tbCode += 10;
   }
 
   state.systemWallets = {

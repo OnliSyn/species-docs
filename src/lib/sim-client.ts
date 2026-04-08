@@ -104,7 +104,8 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
     let totalAssurance = 0;
     for (const [vaId, va] of Object.entries(msbState.virtualAccounts || {})) {
       const posted = Number((va as Record<string, unknown>).posted ?? 0);
-      if (vaId === 'assurance-global' || vaId.startsWith('va-assurance-')) {
+      // Single global assurance account only
+      if (vaId === 'assurance-global') {
         totalAssurance += posted;
       }
     }

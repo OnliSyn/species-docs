@@ -139,7 +139,9 @@ export function createCashierRouter(state: SimState): Router {
       }
 
       const buyerSpeciesVaId = buyerVaId.replace('funding', 'species');
-      const assuranceVaId = buyerVaId.replace('funding', 'assurance');
+      // Route assurance proceeds to GLOBAL assurance VA (not per-user)
+      // This ensures cashierRedeem (which reads acc-sub-assurance → assurance-global) can pay
+      const assuranceVaId = 'assurance-global';
       const creditTreasury = sellerVaId || 'treasury-100';
 
       const run = (): string | null => {
