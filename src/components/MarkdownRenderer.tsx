@@ -9,6 +9,21 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+  // Pre-process: fix common LLM formatting issues
+  const cleaned = content
+    // Fix pattern: "•\nText" → "- Text" (bullet on its own line, text on next)
+    .replace(/[•·●]\s*\n\s*(.+)/g, '- $1')
+    // Fix pattern: "• Text" on same line
+    .replace(/^[•·●]\s+/gm, '- ')
+    // Ensure blank line before lists (Markdown requires it)
+    .replace(/([^\n])\n(- )/g, '$1\n\n$2')
+    // Ensure blank line before headings
+    .replace(/([^\n])\n(#{1,3} )/g, '$1\n\n$2')
+    // Ensure blank line before bold headings like **Title**
+    .replace(/([^\n])\n(\*\*[A-Z])/g, '$1\n\n$2')
+    // Convert numbered items without proper spacing
+    .replace(/([^\n])\n(\d+\. )/g, '$1\n\n$2');
+
   return (
     <div className={className}>
     <ReactMarkdown
@@ -44,7 +59,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
         tr: ({ children }) => <tr className="hover:bg-[var(--color-bg-card)]/50">{children}</tr>,
       }}
     >
-      {content}
+      {cleaned}
     </ReactMarkdown>
     </div>
   );
