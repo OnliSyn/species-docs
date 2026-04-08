@@ -28,7 +28,7 @@ const INFO_CARDS: FeedCard[] = [
     title: 'Onli Symplr',
     body: 'Watch the introduction to Onli — what it is, how it works, and why it matters.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/795552637',
+    videoUrl: 'https://vimeo.com/744624297',
   },
   {
     id: 'onli-you-ad',
@@ -112,8 +112,15 @@ function VideoOverlay({ title, videoUrl, onClose }: { title: string; videoUrl: s
   } else if (videoUrl.includes('vimeo.com/showcase')) {
     embedUrl = videoUrl; // showcase URLs work in iframe
   } else if (videoUrl.includes('vimeo.com/')) {
-    const id = videoUrl.match(/vimeo\.com\/(\d+)/)?.[1];
-    embedUrl = id ? `https://player.vimeo.com/video/${id}` : videoUrl;
+    // Handle both public (vimeo.com/ID) and private (vimeo.com/ID/HASH) URLs
+    const match = videoUrl.match(/vimeo\.com\/(\d+)(?:\/([a-f0-9]+))?/);
+    if (match) {
+      const id = match[1];
+      const hash = match[2];
+      embedUrl = hash
+        ? `https://player.vimeo.com/video/${id}?h=${hash}`
+        : `https://player.vimeo.com/video/${id}`;
+    }
   }
 
   return createPortal(
@@ -309,7 +316,7 @@ const TRADE_CARDS: FeedCard[] = [
     title: 'Species Trading',
     body: 'Watch how the marketplace pipeline works — from order submission to settlement.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/744624297',
+    videoUrl: 'https://vimeo.com/771885641',
   },
   {
     id: 'market-journeys',
@@ -354,7 +361,7 @@ const DEVELOP_CARDS: FeedCard[] = [
     title: 'Onli Architecture',
     body: 'Deep dive into Genomes, Vaults, and the possession model that powers Onli.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/801385676',
+    videoUrl: 'https://vimeo.com/771885641',
   },
 ];
 
