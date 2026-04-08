@@ -301,7 +301,7 @@ const TRADE_CARDS: FeedCard[] = [
     variant: 'featured',
     category: 'MARKETPLACE',
     title: 'Species Marketplace',
-    body: 'buy, sell, and trade Specie assets in a fully simulated 9-stage pipeline with real-time Oracle verification.',
+    body: 'Species, Species Market, and Species Trust deliver an asset solution in a box\u2014fast, final, and free from the friction of traditional banking rails.',
   },
   {
     id: 'market-stats',
