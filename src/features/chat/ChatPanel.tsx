@@ -267,6 +267,15 @@ export function ChatPanel() {
                 </div>
               </div>
             ))}
+            {isLoading && messages.length > 0 && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-[var(--radius-card)] bg-[var(--color-bg-card)] px-4 py-3 animate-pulse">
+                  <div className="h-3 w-48 bg-[var(--color-border)] rounded mb-2" />
+                  <div className="h-3 w-36 bg-[var(--color-border)] rounded mb-2" />
+                  <div className="h-3 w-24 bg-[var(--color-border)] rounded" />
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}

@@ -306,6 +306,12 @@ export function createControlRouter(
       return;
     }
 
+    // Prevent negative balance
+    if (delta < 0 && user.count + delta < 0) {
+      res.status(400).json({ error: 'Insufficient species', available: user.count, requested: Math.abs(delta) });
+      return;
+    }
+
     user.count += delta;
     user.history.push({
       type: delta > 0 ? 'credit' : 'debit',

@@ -31,9 +31,19 @@ function isJourneyActive(messages: UIMessage[]): boolean {
   return false;
 }
 
+const JOURNEY_KEYWORDS: { keyword: string; journey: 'buy' | 'sell' | 'transfer' | 'redeem' | 'fund' }[] = [
+  { keyword: 'buy', journey: 'buy' },
+  { keyword: 'sell', journey: 'sell' },
+  { keyword: 'transfer', journey: 'transfer' },
+  { keyword: 'redeem', journey: 'redeem' },
+  { keyword: 'fund', journey: 'fund' },
+];
+
 export function useJourneyTracker(messages: UIMessage[]) {
   const setChatLocked = useTabStore((s) => s.setChatLocked);
   const chatLocked = useTabStore((s) => s.chatLocked);
+  const chatMode = useTabStore((s) => s.chatMode);
+  const setDevJourney = useTabStore((s) => s.setDevJourney);
 
   useEffect(() => {
     isJourneyActive(messages);
@@ -57,6 +67,27 @@ export function useJourneyTracker(messages: UIMessage[]) {
     // Lock only if processing is happening AND completion hasn't arrived yet
     setChatLocked(hasProcessing && !hasCompletion);
   }, [messages, setChatLocked]);
+
+  // In develop mode, scan last assistant message for journey keywords → update canvas
+  useEffect(() => {
+    if (chatMode !== 'develop' || messages.length === 0) return;
+
+    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+    if (!lastAssistant) return;
+
+    const text = lastAssistant.parts
+      ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map(p => p.text)
+      .join(' ')
+      .toLowerCase() || '';
+
+    for (const { keyword, journey } of JOURNEY_KEYWORDS) {
+      if (text.includes(keyword)) {
+        setDevJourney(journey);
+        return;
+      }
+    }
+  }, [messages, chatMode, setDevJourney]);
 
   return { chatLocked };
 }

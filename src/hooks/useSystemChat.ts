@@ -59,6 +59,7 @@ export function useSystemChat(): UseSystemChatReturn {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const failCountRef = useRef(0);
 
   const fetchCards = useCallback(async (mode: string) => {
     // Cancel any in-flight request
@@ -101,9 +102,18 @@ export function useSystemChat(): UseSystemChatReturn {
       }));
 
       setCards(newCards);
+      failCountRef.current = 0; // reset on success
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
         console.error('[useSystemChat] fetch failed:', err);
+        failCountRef.current += 1;
+
+        // After 5 consecutive failures, stop polling
+        if (failCountRef.current >= 5 && intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          console.warn('[useSystemChat] Stopped polling after 5 consecutive failures');
+        }
       }
     } finally {
       setIsLoading(false);
@@ -113,18 +123,36 @@ export function useSystemChat(): UseSystemChatReturn {
   // Fetch on mount + mode switch
   useEffect(() => {
     setDismissedIds(new Set()); // clear dismissals on mode switch
+    failCountRef.current = 0; // reset fail count on mode switch
     fetchCards(chatMode);
 
-    // Polling
+    // Polling with exponential backoff
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchCards(chatMode), POLL_INTERVAL);
+
+    const startPolling = () => {
+      const delay = Math.min(
+        POLL_INTERVAL * Math.pow(2, failCountRef.current),
+        60_000,
+      );
+      intervalRef.current = setTimeout(() => {
+        fetchCards(chatMode).then(() => {
+          if (failCountRef.current < 5) {
+            startPolling();
+          }
+        });
+      }, delay) as unknown as ReturnType<typeof setInterval>;
+    };
+    startPolling();
 
     // Listen for journey-complete events (fired from chat after mutations)
     const handleRefresh = () => fetchCards(chatMode);
     window.addEventListener('synth:balance-changed', handleRefresh);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current as unknown as ReturnType<typeof setTimeout>);
+        intervalRef.current = null;
+      }
       abortRef.current?.abort();
       window.removeEventListener('synth:balance-changed', handleRefresh);
     };

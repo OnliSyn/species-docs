@@ -297,6 +297,20 @@ export function detectJourneyState(messages: Message[]): JourneyState {
       }
       return { phase: 'start', journey: 'transfer' };
     }
+    // "send" + "species/specie" → treat as transfer, not sendout
+    if (lastUserLower.includes('send') && (lastUserLower.includes('species') || lastUserLower.includes('specie')) && !lastUserLower.includes('usdc') && !lastUserLower.includes('withdraw')) {
+      const xferSendMatch = lastUserText.match(/send\s+(\d[\d,]*)\s+(?:species?\s+)?to\s+(.+)/i);
+      if (xferSendMatch) {
+        const qty = parseInt(xferSendMatch[1].replace(/,/g, ''));
+        const recipient = xferSendMatch[2].trim();
+        if (recipient.length > 0) {
+          return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+        }
+      }
+      return inlineQty > 0
+        ? { phase: 'transfer_need_recipient', journey: 'transfer', quantity: inlineQty } as JourneyState
+        : { phase: 'start', journey: 'transfer' };
+    }
     if (lastUserLower.includes('sendout') || lastUserLower.includes('withdraw')) {
       return inlineAmt > 0
         ? { phase: 'confirm', journey: 'sendout', amount: inlineAmt }
@@ -518,8 +532,11 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
 
   console.log(`[BUY] qty=${quantity} fromMarket=${fromMarket} fromTreasury=${fromTreasury}`);
 
+  let marketOk = false;
+  let treasuryOk = false;
+
   if (fromMarket > 0) {
-    await postCashierBatch({
+    const cashierResult = await postCashierBatch({
       eventId: `${eventId}-mkt`,
       matchId: `match-${eventId}-mkt`,
       intent: 'buy',
@@ -528,11 +545,14 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
       unitPrice: USDC,
       fees: { issuance: false, liquidity: false },
     });
-    await buyFromMarket(CURRENT_USER.onliId, fromMarket);
+    if (cashierResult.ok) {
+      await buyFromMarket(CURRENT_USER.onliId, fromMarket);
+      marketOk = true;
+    }
   }
 
   if (fromTreasury > 0) {
-    await postCashierBatch({
+    const cashierResult = await postCashierBatch({
       eventId: `${eventId}-trs`,
       matchId: `match-${eventId}-trs`,
       intent: 'buy',
@@ -541,7 +561,66 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
       unitPrice: USDC,
       fees: { issuance: true, liquidity: false },
     });
-    await buyFromTreasury(CURRENT_USER.onliId, fromTreasury);
+    if (cashierResult.ok) {
+      await buyFromTreasury(CURRENT_USER.onliId, fromTreasury);
+      treasuryOk = true;
+    }
+  }
+
+  // If ALL cashier calls failed, return error
+  if ((fromMarket > 0 && !marketOk) && (fromTreasury > 0 && !treasuryOk)) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId,
+        batchId,
+        stages: [
+          { label: 'Submitted', system: 'SM', status: 'done' },
+          { label: 'Payment processing', system: 'MB', status: 'failed' },
+        ],
+        error: 'Payment failed — no funds were debited and no Species were delivered.',
+      },
+      followUp: 'Payment failed. Please check your Funding Account balance and try again.',
+    };
+  }
+  if (fromMarket > 0 && !marketOk && fromTreasury === 0) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId,
+        batchId,
+        stages: [
+          { label: 'Submitted', system: 'SM', status: 'done' },
+          { label: 'Payment processing', system: 'MB', status: 'failed' },
+        ],
+        error: 'Payment failed — no funds were debited and no Species were delivered.',
+      },
+      followUp: 'Payment failed. Please check your Funding Account balance and try again.',
+    };
+  }
+  if (fromTreasury > 0 && !treasuryOk && fromMarket === 0) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId,
+        batchId,
+        stages: [
+          { label: 'Submitted', system: 'SM', status: 'done' },
+          { label: 'Payment processing', system: 'MB', status: 'failed' },
+        ],
+        error: 'Payment failed — no funds were debited and no Species were delivered.',
+      },
+      followUp: 'Payment failed. Please check your Funding Account balance and try again.',
+    };
   }
 
   const issuanceFee = fromTreasury * 0.05;
@@ -902,10 +981,27 @@ export async function transferExecute(quantity: number, recipient?: string): Pro
   };
   const recipientOnliId = contacts[(recipient || '').toLowerCase()] || 'onli-user-456';
 
-  await Promise.all([
-    adjustVault(CURRENT_USER.onliId, -quantity, `transfer-to-${recipientOnliId}`),
-    adjustVault(recipientOnliId, quantity, `transfer-from-${CURRENT_USER.onliId}`),
-  ]);
+  // Debit sender first — if it fails (insufficient balance), do not credit recipient
+  const debitOk = await adjustVault(CURRENT_USER.onliId, -quantity, `transfer-to-${recipientOnliId}`);
+  if (!debitOk) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `TRANSFER ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId,
+        batchId: null,
+        stages: [
+          { label: 'Submitted', system: 'SM', status: 'done' },
+          { label: 'Validated', system: 'SM', status: 'failed' },
+        ],
+        error: 'Insufficient Species in your Vault to complete this transfer.',
+      },
+      followUp: `Transfer failed — you don't have enough Species in your Vault.`,
+    };
+  }
+  await adjustVault(recipientOnliId, quantity, `transfer-from-${CURRENT_USER.onliId}`);
 
   const state = await getLiveState();
   const newSpecies = state.specieCount;

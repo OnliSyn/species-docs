@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTabStore } from '@/stores/tab-store';
 import { ProcessTraceCanvas } from './ProcessTraceCanvas';
 
@@ -403,10 +403,11 @@ function DevelopCanvas() {
   const [copied, setCopied] = useState(false);
 
   // Sync with devJourney from chat
-  const targetIdx = devJourney ? (DEV_JOURNEY_MAP[devJourney] ?? 0) : null;
-  if (targetIdx !== null && targetIdx !== activeIdx) {
-    setActiveIdx(targetIdx);
-  }
+  useEffect(() => {
+    if (devJourney && DEV_JOURNEY_MAP[devJourney] !== undefined) {
+      setActiveIdx(DEV_JOURNEY_MAP[devJourney]);
+    }
+  }, [devJourney]);
 
   const example = CODE_EXAMPLES[activeIdx];
 
