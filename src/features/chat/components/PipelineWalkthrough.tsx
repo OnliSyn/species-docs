@@ -9,7 +9,7 @@ const PIPELINE_STAGES = [
   { label: 'Validate', system: 'SM', desc: 'Check order params, pricing, and availability' },
   { label: 'Match', system: 'SM', desc: 'Find seller listing or draw from Treasury' },
   { label: 'Stage Asset', system: 'OC', desc: 'Onli Cloud prepares Genome for transfer' },
-  { label: 'Process Payment', system: 'MB', desc: 'MarketSB Cashier settles USDC via TigerBeetle' },
+  { label: 'Process Payment', system: 'MB', desc: 'MarketSB Cashier settles USDC atomically' },
   { label: 'Deliver to Vault', system: 'OC', desc: 'ChangeOwner moves asset to buyer\'s Vault' },
   { label: 'Oracle Verify', system: 'OC', desc: 'Oracle confirms possession and logs audit trail' },
   { label: 'Complete', system: 'SM', desc: 'Order finalized, balances updated' },

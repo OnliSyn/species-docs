@@ -4,7 +4,7 @@ This guide explains how to connect Onli Synth to live MarketSB and Species Marke
 
 ## Prerequisites
 
-- MarketSB API running (TigerBeetle-backed USDC payment engine)
+- MarketSB API running (USDC payment engine)
 - Species Marketplace API running (9-stage pipeline + Onli Cloud)
 - Valid `ANTHROPIC_API_KEY` for real AI chat (optional — mock works without it)
 

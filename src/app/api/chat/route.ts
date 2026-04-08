@@ -1505,7 +1505,7 @@ async function getResponse(message: string, mode: string, context: string, messa
         '**5. Stage Asset** — `OC` prepares Genome for transfer\n' +
         '`POST /onli-cloud/changeOwner` → moves asset to Settlement Vault\n\n' +
         '**6. Process Payment** — `MB` Cashier settles USDC\n' +
-        '`POST /cashier/post-batch` → up to 5 TigerBeetle transfers (atomic)\n\n' +
+        '`POST /cashier/post-batch` → up to 5 atomic transfers\n\n' +
         '**7. Deliver to Vault** — `OC` ChangeOwner to buyer\'s Vault\n' +
         '`POST /onli-cloud/changeOwner` → asset now in buyer\'s possession\n\n' +
         '**8. Oracle Verify** — `OC` confirms possession, logs audit trail\n\n' +
@@ -1580,7 +1580,7 @@ async function getResponse(message: string, mode: string, context: string, messa
         '4. **Classifier** \u2014 Routes by intent (buy/sell/transfer)\n' +
         '5. **Matching** \u2014 Finds counterparty (Treasury or peer)\n' +
         '6. **Asset Pre-staging** \u2014 ChangeOwner to Settlement Vault\n' +
-        '7. **Cashier (MarketSB)** \u2014 TigerBeetle atomic settlement\n' +
+        '7. **Cashier (MarketSB)** \u2014 atomic settlement\n' +
         '8. **Asset Delivery** \u2014 ChangeOwner to buyer\'s Vault\n' +
         '9. **FloorManager** \u2014 Oracle verify, compose receipt\n\n' +
         'The key insight: assets are **pre-staged** before money moves, so if staging fails, no funds are charged.';
@@ -1588,7 +1588,7 @@ async function getResponse(message: string, mode: string, context: string, messa
 
     if (lower.includes('assurance') || lower.includes('backing')) {
       return 'The **100% Assurance Model** guarantees that every Specie in circulation is fully backed by USDC:\n\n' +
-        '- When Specie is **issued** (bought), the purchase proceeds flow to the **Assurance Account** (TigerBeetle VA, code 500, subtype: assurance)\n' +
+        '- When Specie is **issued** (bought), the purchase proceeds flow to the **Assurance Account** (VA code 500, subtype: assurance)\n' +
         '- **Coverage %** = Assurance Balance \u00f7 Total Outstanding \u00d7 100\n' +
         '- Target is always **\u2265 100%** \u2014 every dollar of Specie value is backed\n\n' +
         'Coverage thresholds:\n- \u2265 50%: **Healthy** (green)\n- 25-50%: **Warning** (amber)\n- < 25%: **Critical** (red)\n\n' +

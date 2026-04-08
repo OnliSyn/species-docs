@@ -11,7 +11,7 @@ const BLOG_POSTS = [
   {
     id: '2',
     title: 'The Cashier Model: How MarketSB Settles Transactions',
-    excerpt: 'A deep dive into how TigerBeetle-powered double-entry accounting ensures atomic settlements.',
+    excerpt: 'A deep dive into how atomic double-entry accounting ensures atomic settlements.',
     date: 'Mar 15, 2026',
     readTime: '12 min',
   },

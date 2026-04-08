@@ -41,7 +41,7 @@ Important rules:
   if (mode === 'trade')
     return base + '\nYou are in Trade mode. Guide users through buy/sell/transfer journeys step by step. Ask for the amount, show fee breakdowns, and confirm before executing.';
   if (mode === 'learn')
-    return base + '\nYou are in Learn mode. Explain Onli concepts: Genomes, Genes, Vaults, the Species marketplace pipeline, TigerBeetle settlement, and the assurance model. Be educational and thorough.';
+    return base + '\nYou are in Learn mode. Explain Onli concepts: Genomes, Genes, Vaults, the Species marketplace pipeline, atomic settlement, and the assurance model. Be educational and thorough.';
   return base;
 }
 
@@ -687,7 +687,7 @@ function buyExecute(quantity) {
     `✅ Validated — SM\n` +
     `✅ Matched (Treasury) — SM\n` +
     `✅ Asset staged (Settlement Vault) — OC\n` +
-    `✅ Payment processed (TigerBeetle batch) — MB\n` +
+    `✅ Payment processed (atomic batch) — MB\n` +
     `✅ Delivered to your Vault — OC\n` +
     `✅ Oracle verified — SM\n` +
     `✅ **Complete!**\n\n` +
@@ -737,7 +737,7 @@ function sellExecute(quantity) {
     `✅ Validated — SM\n` +
     `✅ Matched (Treasury) — SM\n` +
     `✅ Asset staged (Settlement Vault) — OC\n` +
-    `✅ Payment processed (TigerBeetle batch) — MB\n` +
+    `✅ Payment processed (atomic batch) — MB\n` +
     `✅ Delivered to Treasury Vault — OC\n` +
     `✅ Oracle verified — SM\n` +
     `✅ **Complete!**\n\n` +
@@ -932,7 +932,7 @@ function getResponse(message, mode, context, messages) {
         '4. **Classifier** — Routes by intent (buy/sell/transfer)\n' +
         '5. **Matching** — Finds counterparty (Treasury or peer)\n' +
         '6. **Asset Pre-staging** — ChangeOwner to Settlement Vault\n' +
-        '7. **Cashier (MarketSB)** — TigerBeetle atomic settlement\n' +
+        '7. **Cashier (MarketSB)** — atomic settlement\n' +
         '8. **Asset Delivery** — ChangeOwner to buyer\'s Vault\n' +
         '9. **FloorManager** — Oracle verify, compose receipt\n\n' +
         'The key insight: assets are **pre-staged** before money moves, so if staging fails, no funds are charged.';
@@ -940,7 +940,7 @@ function getResponse(message, mode, context, messages) {
 
     if (lower.includes('assurance') || lower.includes('backing')) {
       return 'The **100% Assurance Model** guarantees that every Specie in circulation is fully backed by USDC:\n\n' +
-        '- When Specie is **issued** (bought), the purchase proceeds flow to the **Assurance Account** (TigerBeetle VA, code 500, subtype: assurance)\n' +
+        '- When Specie is **issued** (bought), the purchase proceeds flow to the **Assurance Account** (VA code 500, subtype: assurance)\n' +
         '- **Coverage %** = Assurance Balance ÷ Total Outstanding × 100\n' +
         '- Target is always **≥ 100%** — every dollar of Specie value is backed\n\n' +
         'Coverage thresholds:\n- ≥ 50%: **Healthy** (green)\n- 25-50%: **Warning** (amber)\n- < 25%: **Critical** (red)\n\n' +

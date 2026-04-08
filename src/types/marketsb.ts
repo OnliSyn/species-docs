@@ -1,4 +1,4 @@
-/** TigerBeetle account codes */
+/** MarketSB account codes */
 export const AccountCode = {
   TreasuryReserve: 100,
   SettlementReserve: 200,
@@ -12,7 +12,7 @@ export type AccountCode = (typeof AccountCode)[keyof typeof AccountCode];
 
 export type VirtualAccountSubtype = 'funding' | 'species' | 'assurance';
 
-export interface TigerBeetleBalanceDTO {
+export interface BalanceDTO {
   account_id: string;
   account_code: AccountCode;
   subtype?: VirtualAccountSubtype;
@@ -30,7 +30,7 @@ export interface VirtualAccount {
   subtype: VirtualAccountSubtype;
   deposit_address?: string;
   status: 'active' | 'suspended' | 'closed';
-  balance: TigerBeetleBalanceDTO;
+  balance: BalanceDTO;
   created_at: string;
   updated_at: string;
 }
