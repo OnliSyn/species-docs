@@ -7,8 +7,8 @@ import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
 type CoverageData = { balance: number; outstanding: number; coverage: number; _ui: string };
 
 function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
-  const assuranceDollars = data.balance / 1_000_000;
-  const circulationCount = data.outstanding / 1_000_000;
+  const assuranceDollars = data.balance / 1_000_000; // base units → USDC
+  const circulationCount = data.outstanding; // already in Specie count (from species-sim vaults)
   const ratio = circulationCount > 0 ? assuranceDollars / circulationCount : 0;
   const pct = data.coverage;
   const color = pct >= 50 ? 'var(--color-accent-green)' : pct >= 25 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
