@@ -145,6 +145,7 @@ const TRADE_POSTS: BlogPost[] = [
     date: 'Apr 6, 2026',
     readTime: '4 min read',
     hero: true,
+    image: '/images/blog-abstract-4.jpg',
   },
   {
     id: 'assurance-model',
@@ -154,6 +155,7 @@ const TRADE_POSTS: BlogPost[] = [
     body: `The assurance model is designed so that every outstanding Specie is fully covered by the assurance balance.\n\nWhen you redeem, the MarketMaker pays 1:1 from the assurance pool, minus a 1% liquidity fee. This creates a floor of confidence that traditional digital asset markets cannot provide.\n\nThe coverage ratio is tracked in real-time and visible in the Assurance dashboard.`,
     date: 'Apr 3, 2026',
     readTime: '3 min read',
+    image: '/images/blog-abstract-2.jpg',
   },
   {
     id: 'fee-structure',
@@ -163,6 +165,7 @@ const TRADE_POSTS: BlogPost[] = [
     body: `The fee structure is simple: Buy from the marketplace — no fee. Transfer to a contact — no fee. List for sale — no fee (your Specie is escrowed until sold).\n\nRedemption through the MarketMaker carries a 1% liquidity fee, which goes to the assurance pool to maintain full coverage.\n\nAll fees are calculated in integer base units (1 USDC = 1,000,000 units) to ensure precision.`,
     date: 'Mar 30, 2026',
     readTime: '3 min read',
+    image: '/images/blog-abstract-5.jpg',
   },
 ];
 
@@ -179,6 +182,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     date: 'Mar 2026',
     readTime: '18 min read',
     hero: true,
+    image: '/images/blog-abstract-3.jpg',
   },
   {
     id: 'wp-uqp',
@@ -188,6 +192,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     body: `The Uniqueness-Quantification Problem states that digital data, being copyable by nature, cannot serve as the basis for ownership unless singularity is enforced at the structural level.\n\nBlockchains attempted to solve this with consensus-based ledgers, but a ledger entry is a claim about ownership — not ownership itself.\n\nOnli solves UQP by making the container itself singular. The Genome is a tensor-based structure that cannot be duplicated, only transferred.`,
     date: 'Mar 2026',
     readTime: '14 min read',
+    image: '/images/blog-abstract-1.jpg',
   },
   {
     id: 'wp-genome',
@@ -197,6 +202,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     body: `A Genome is arranged using tensor-based structures — multi-dimensional data containers that generalize scalars, vectors, and matrices into higher dimensions.\n\nThis paper covers the mathematical foundations, the state evolution model, and the binding protocol between Genomes, Genes, and Vaults.`,
     date: 'Feb 2026',
     readTime: '22 min read',
+    image: '/images/blog-abstract-5.jpg',
   },
   {
     id: 'wp-possession',
@@ -206,6 +212,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     body: `Actual possession means the asset resides in your Vault and is bound to your Gene. You hold it, control it, and can transfer or destroy it.\n\nCustodial possession means a third party holds the asset and gives you a ledger entry. Your rights depend on their honesty and solvency.\n\nThis paper formalizes the distinction and proves why actual possession is the only model compatible with true digital ownership.`,
     date: 'Feb 2026',
     readTime: '12 min read',
+    image: '/images/blog-abstract-2.jpg',
   },
 ];
 

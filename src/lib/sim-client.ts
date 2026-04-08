@@ -92,28 +92,41 @@ export async function getSpeciesVABalance(userRef = CURRENT_USER.ref): Promise<V
 
 export async function getAssuranceBalance(): Promise<{ balance: number; outstanding: number; coverage: number } | null> {
   try {
-    // Fetch full state to sum ALL assurance sources + species VAs
-    const stateRes = await simFetch(`${MARKETSB}/sim/state`);
-    if (!stateRes.ok) return null;
-    const state = await stateRes.json();
+    // Balance: from MarketSB assurance accounts
+    const msbStateRes = await simFetch(`${MARKETSB}/sim/state`);
+    if (!msbStateRes.ok) return null;
+    const msbState = await msbStateRes.json();
 
     let totalAssurance = 0;
-    let outstanding = 0;
-
-    for (const [vaId, va] of Object.entries(state.virtualAccounts || {})) {
+    for (const [vaId, va] of Object.entries(msbState.virtualAccounts || {})) {
       const posted = Number((va as Record<string, unknown>).posted ?? 0);
-      // Sum all assurance VAs: assurance-global + per-user (va-assurance-*)
       if (vaId === 'assurance-global' || vaId.startsWith('va-assurance-')) {
         totalAssurance += posted;
       }
-      // Outstanding = total species VA value
-      if (vaId.startsWith('va-species-')) {
-        outstanding += posted;
-      }
     }
 
-    const coverage = outstanding > 0 ? Math.round((totalAssurance / outstanding) * 100) : 100;
-    return { balance: totalAssurance, outstanding, coverage };
+    // Circulation: from Species sim — total Specie held by all users (not treasury)
+    let circulation = 0;
+    try {
+      const specStateRes = await simFetch(`${SPECIES}/sim/state`);
+      if (specStateRes.ok) {
+        const specState = await specStateRes.json();
+        const users = specState.vaults?.users;
+        if (users) {
+          // users is a Map serialized as object or array of entries
+          if (users instanceof Object) {
+            for (const [uid, vault] of Object.entries(users)) {
+              if (uid !== 'treasury') {
+                circulation += Number((vault as Record<string, unknown>).count ?? 0);
+              }
+            }
+          }
+        }
+      }
+    } catch { /* species sim unavailable — use 0 */ }
+
+    const coverage = circulation > 0 ? Math.round((totalAssurance / circulation) * 100) : 100;
+    return { balance: totalAssurance, outstanding: circulation, coverage };
   } catch {
     return null;
   }
