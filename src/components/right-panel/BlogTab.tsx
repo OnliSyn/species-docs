@@ -15,6 +15,7 @@ interface BlogPost {
   date: string;
   readTime: string;
   hero?: boolean;
+  image?: string;
 }
 
 const BLOG_POSTS: BlogPost[] = [
@@ -23,46 +24,51 @@ const BLOG_POSTS: BlogPost[] = [
     category: 'DEEP DIVE',
     title: 'Why Possession Beats Permission: The Ownership Paradigm Shift',
     excerpt: 'Traditional digital systems provide access. Onli provides possession. Understanding this distinction is the key to understanding why digital ownership has been impossible until now.',
-    body: `Traditional digital systems are built around access. You log in, you get permission, you see your balance. But you never actually hold anything.\n\nOnli changes this. In Onli, ownership is based on possession. The asset resides in your Vault, bound to your Gene. You hold it. You control it. You can transfer it or destroy it.\n\nThis is not a minor distinction. It is the difference between holding a baseball card in your hand and having a line item in someone else's spreadsheet that says you own one.\n\nA ledger can describe ownership claims, but it cannot create singular digital reality. That is why Onli replaces ledgers with possession.\n\nThe three assertions that underpin any economic system — existence, allocation, and rights — all require an owner. Without an owner, allocation cannot be established, rights cannot be exercised, and obligations cannot be assigned.\n\nOnli enforces these assertions at the data level, making true digital ownership possible for the first time.`,
+    body: `Traditional digital systems are built around access. You log in, you get permission, you see your balance. But you never actually hold anything.\n\nOnli changes this. In Onli, ownership is based on possession. The asset resides in your Vault, bound to your Gene. You hold it. You control it. You can transfer it or destroy it.\n\nThis is not a minor distinction. It is the difference between holding a baseball card in your hand and having a line item in someone else's spreadsheet that says you own one.\n\nA ledger can describe ownership claims, but it cannot create singular digital reality. That is why Onli replaces ledgers with possession.\n\nThe three assertions that underpin any economic system — existence, allocation, and rights — all require an owner. Without an owner, allocation cannot be established, rights cannot be exercised, and obligations cannot be assigned.\n\nOnli enforces these assertions at the data level, making true digital ownership possible for the first time.\n\nConsider what happens when you send money today. Your bank decreases a number in its database and the receiving bank increases a number in theirs. Nothing physical moves. What you call ownership is really just a shared agreement between institutions to honor a ledger entry. If either institution fails, disputes the record, or freezes your account, your claim evaporates.\n\nOnli eliminates this dependency on institutional goodwill. The asset is in your Vault. Period. No intermediary can revoke what they never held.`,
     date: 'Apr 4, 2026',
     readTime: '8 min read',
     hero: true,
+    image: '/images/blog-abstract-1.jpg',
   },
   {
     id: 'genome-architecture',
     category: 'TECHNICAL',
     title: 'Inside the Genome: Tensor-Based Container Architecture',
     excerpt: 'A deep look at how Onli uses multi-dimensional data structures to create singular, evolving digital objects.',
-    body: `A Genome is the underlying hyper-dimensional container structure that makes an asset possible in Onli. It should not be confused with the asset itself — the asset is what you talk about philosophically and commercially; the Genome is the technical substrate beneath it.\n\nGenomes are arranged using tensor-based structures. A tensor is a multi-dimensional data structure that generalizes scalars, vectors, and matrices into higher dimensions. Onli uses tensors because they support the structural model required for singular digital containers better than flat file metaphors.\n\nThe tensor model allows Onli to represent assets as structured multi-dimensional containers rather than flat files, preserve internal state and relationships in a richer way, and support evolutionary transfer logic rather than ordinary duplication logic.\n\nWhen an asset moves in Onli, the asset leaves one Vault and appears in another. The transfer is direct. The system does not rely on copying the asset and then updating a ledger to reflect a new owner. This is fundamentally different from how blockchains or traditional databases handle ownership.`,
+    body: `A Genome is the underlying hyper-dimensional container structure that makes an asset possible in Onli. It should not be confused with the asset itself — the asset is what you talk about philosophically and commercially; the Genome is the technical substrate beneath it.\n\nGenomes are arranged using tensor-based structures. A tensor is a multi-dimensional data structure that generalizes scalars, vectors, and matrices into higher dimensions. Onli uses tensors because they support the structural model required for singular digital containers better than flat file metaphors.\n\nThe tensor model allows Onli to represent assets as structured multi-dimensional containers rather than flat files, preserve internal state and relationships in a richer way, and support evolutionary transfer logic rather than ordinary duplication logic.\n\nWhen an asset moves in Onli, the asset leaves one Vault and appears in another. The transfer is direct. The system does not rely on copying the asset and then updating a ledger to reflect a new owner. This is fundamentally different from how blockchains or traditional databases handle ownership.\n\nThe tensor approach also enables Genomes to carry their own history forward as they evolve. Every state transition — issuance, transfer, modification — is embedded within the container structure itself, creating a self-describing object that does not rely on an external ledger for provenance.`,
     date: 'Apr 2, 2026',
     readTime: '12 min read',
+    image: '/images/blog-abstract-2.jpg',
   },
   {
     id: 'species-pipeline',
     category: 'PRODUCT',
     title: 'The 9-Stage Pipeline: How Species Marketplace Settles in Under 100ms',
     excerpt: 'From submission to oracle verification, every stage of the pipeline is designed for speed and assurance.',
-    body: `The Species Marketplace pipeline processes every transaction through nine distinct stages: Submit, Authenticate, Validate, Match, Stage Asset, Process Payment, Deliver to Vault, Oracle Verify, and Complete.\n\nEach stage is tracked in real-time. The pipeline is designed so that at every step, the system maintains full accountability of where the asset is, who controls it, and what state it is in.\n\nSettlement happens in under 100 milliseconds using an atomic double-entry settlement engine designed for instant finality.\n\nThe assurance model backs every transaction. The Buy Back Guarantee ensures that holders can always redeem at the guaranteed ratio, providing a floor of confidence that traditional digital asset systems cannot match.`,
+    body: `The Species Marketplace pipeline processes every transaction through nine distinct stages: Submit, Authenticate, Validate, Match, Stage Asset, Process Payment, Deliver to Vault, Oracle Verify, and Complete.\n\nEach stage is tracked in real-time. The pipeline is designed so that at every step, the system maintains full accountability of where the asset is, who controls it, and what state it is in.\n\nSettlement happens in under 100 milliseconds using an atomic double-entry settlement engine designed for instant finality.\n\nThe assurance model backs every transaction. The Buy Back Guarantee ensures that holders can always redeem at the guaranteed ratio, providing a floor of confidence that traditional digital asset systems cannot match.\n\nThe Oracle layer is central to this confidence. After every transaction completes, an immutable ledger entry is written to the Oracle. This entry records the exact state of the asset before and after settlement — who held it, where it moved, and what payments were made. This creates an auditable trail that neither party can dispute.\n\nUnlike traditional clearinghouses that reconcile at end-of-day, the Species pipeline reconciles at the moment of transaction. There is no settlement window and no counterparty risk during processing.`,
     date: 'Mar 28, 2026',
     readTime: '6 min read',
+    image: '/images/blog-abstract-3.jpg',
   },
   {
     id: 'private-data',
     category: 'VISION',
     title: 'The Private-Data Economy: Data as an Owned Asset',
     excerpt: 'A model where data is held and exchanged as an owned asset rather than extracted and warehoused as platform inventory.',
-    body: `In the current data economy, companies collect data, store copies of it, monetize access to it, and turn the user into the product.\n\nThe private-data economy envisioned by Onli is different. Data can exist as an owned asset. The owner controls access and use. Transfer and disclosure can be direct and intentional. Value can be created without relying on permanent third-party custody of copied data.\n\nThis is possible because Onli solves the Uniqueness-Quantification Problem: digital data is normally copyable at near-zero cost, which makes ordinary digital information excellent for communication but terrible for singular ownership.\n\nBy making the asset itself singular at the data level, Onli enables a model where data is held and exchanged as an owned asset rather than extracted and warehoused as a platform resource.`,
+    body: `In the current data economy, companies collect data, store copies of it, monetize access to it, and turn the user into the product.\n\nThe private-data economy envisioned by Onli is different. Data can exist as an owned asset. The owner controls access and use. Transfer and disclosure can be direct and intentional. Value can be created without relying on permanent third-party custody of copied data.\n\nThis is possible because Onli solves the Uniqueness-Quantification Problem: digital data is normally copyable at near-zero cost, which makes ordinary digital information excellent for communication but terrible for singular ownership.\n\nBy making the asset itself singular at the data level, Onli enables a model where data is held and exchanged as an owned asset rather than extracted and warehoused as a platform resource.\n\nThe implications extend far beyond personal privacy. Industries built on data licensing, content distribution, and credential verification can operate with direct asset exchange instead of access-permission models. A medical record, a diploma, a creative work — each can exist as a singular owned object that the holder controls and can selectively disclose without surrendering custody.`,
     date: 'Mar 22, 2026',
     readTime: '5 min read',
+    image: '/images/blog-abstract-4.jpg',
   },
   {
     id: 'appliance-dev',
     category: 'DEVELOPER',
     title: 'Building Your First Appliance on Onli Cloud',
     excerpt: 'Step-by-step guide to creating applications that orchestrate asset interactions without taking possession.',
-    body: `Appliances are applications built on Onli Cloud APIs. They are the interface layer that developers create to make the system usable in real-world workflows.\n\nAppliances can connect users to services, orchestrate transactions, enforce business logic, and request issuance, transfer, verification, or settlement actions. But Appliances do not possess the asset and cannot unilaterally move it.\n\nOnly the Owner, through the appropriate control path, can authorize movement of an owned asset. This is a fundamental design principle.\n\nTo get started, you need an Onli Cloud API key and a basic understanding of the asset lifecycle: issuance, transfer, and verification. The SDK provides typed clients for all operations, and the Species Marketplace API handles the full 9-stage pipeline for buy, sell, and transfer orders.`,
+    body: `Appliances are applications built on Onli Cloud APIs. They are the interface layer that developers create to make the system usable in real-world workflows.\n\nAppliances can connect users to services, orchestrate transactions, enforce business logic, and request issuance, transfer, verification, or settlement actions. But Appliances do not possess the asset and cannot unilaterally move it.\n\nOnly the Owner, through the appropriate control path, can authorize movement of an owned asset. This is a fundamental design principle.\n\nTo get started, you need an Onli Cloud API key and a basic understanding of the asset lifecycle: issuance, transfer, and verification. The SDK provides typed clients for all operations, and the Species Marketplace API handles the full 9-stage pipeline for buy, sell, and transfer orders.\n\nThe separation between orchestration and possession is what makes Appliances fundamentally different from traditional applications. A conventional app stores your data in its database and gives you a view of it. An Appliance facilitates actions on assets that you hold in your own Vault. If the Appliance shuts down, your assets remain exactly where they are — in your possession.\n\nThis architecture means developers can build powerful services without assuming the liability and trust burden of holding user assets.`,
     date: 'Mar 18, 2026',
     readTime: '10 min read',
+    image: '/images/blog-abstract-5.jpg',
   },
 ];
 
@@ -84,8 +90,22 @@ function ArticleView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
       </button>
 
       {/* Article header */}
-      <div className="rounded-t-[var(--radius-card)] h-28 bg-gradient-to-br from-[var(--color-accent-green)]/30 to-[var(--color-accent-green)]/10 flex items-end p-4">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] bg-white/80 px-2 py-0.5 rounded">
+      <div
+        className="relative rounded-t-[var(--radius-card)] h-28 flex items-end p-4"
+        style={post.image ? {
+          backgroundImage: `url(${post.image})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : undefined}
+      >
+        {post.image && <div className="absolute inset-0 rounded-t-[var(--radius-card)] bg-black/30" />}
+        {!post.image && <div className="absolute inset-0 rounded-t-[var(--radius-card)] bg-gradient-to-br from-[var(--color-accent-green)]/30 to-[var(--color-accent-green)]/10" />}
+        <span className={cn(
+          "relative text-[9px] font-semibold uppercase tracking-[0.15em] px-2 py-0.5 rounded",
+          post.image
+            ? "text-white bg-black/30 backdrop-blur-sm"
+            : "text-[var(--color-text-secondary)] bg-white/80"
+        )}>
           {post.category}
         </span>
       </div>
@@ -102,7 +122,7 @@ function ArticleView({ post, onBack }: { post: BlogPost; onBack: () => void }) {
 
         <div className="mt-4 space-y-3">
           {post.body.split('\n\n').map((paragraph, i) => (
-            <p key={i} className="text-[12px] text-[var(--color-text-primary)] leading-relaxed">
+            <p key={i} className="text-[14px] text-[var(--color-text-primary)] leading-relaxed">
               {paragraph}
             </p>
           ))}
@@ -220,8 +240,22 @@ export function BlogTab({ mode = 'ask' }: { mode?: string }) {
           onClick={() => setSelectedPost(heroPost)}
           className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow"
         >
-          <div className="h-36 bg-gradient-to-br from-[var(--color-accent-green)]/30 to-[var(--color-accent-green)]/10 flex items-end p-5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] bg-white/80 px-2 py-1 rounded">
+          <div
+            className="relative h-36 flex items-end p-5"
+            style={heroPost.image ? {
+              backgroundImage: `url(${heroPost.image})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            } : undefined}
+          >
+            {heroPost.image && <div className="absolute inset-0 bg-black/30" />}
+            {!heroPost.image && <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent-green)]/30 to-[var(--color-accent-green)]/10" />}
+            <span className={cn(
+              "relative text-[10px] font-semibold uppercase tracking-[0.15em] px-2 py-1 rounded",
+              heroPost.image
+                ? "text-white bg-black/30 backdrop-blur-sm"
+                : "text-[var(--color-text-secondary)] bg-white/80"
+            )}>
               {heroPost.category}
             </span>
           </div>
@@ -229,7 +263,7 @@ export function BlogTab({ mode = 'ask' }: { mode?: string }) {
             <h3 className="text-base font-bold text-[var(--color-text-primary)] leading-snug">
               {heroPost.title}
             </h3>
-            <p className="text-xs text-[var(--color-text-secondary)] mt-2 leading-relaxed">
+            <p className="text-sm text-[var(--color-text-secondary)] mt-2 leading-relaxed">
               {heroPost.excerpt}
             </p>
             <div className="flex items-center gap-3 mt-3 text-[10px] text-[var(--color-text-secondary)]">
@@ -248,20 +282,32 @@ export function BlogTab({ mode = 'ask' }: { mode?: string }) {
             onClick={() => setSelectedPost(post)}
             className="rounded-[var(--radius-button)] p-4 hover:bg-[var(--color-bg-card)] transition-colors cursor-pointer"
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)]">
-                {post.category}
-              </span>
-              <span className="text-[9px] text-[var(--color-text-secondary)]">
-                {post.readTime}
-              </span>
+            <div className="flex gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--color-text-secondary)]">
+                    {post.category}
+                  </span>
+                  <span className="text-[9px] text-[var(--color-text-secondary)]">
+                    {post.readTime}
+                  </span>
+                </div>
+                <h4 className="text-base font-semibold text-[var(--color-text-primary)] leading-snug">
+                  {post.title}
+                </h4>
+                <p className="text-[13px] text-[var(--color-text-secondary)] mt-1 leading-relaxed line-clamp-2">
+                  {post.excerpt}
+                </p>
+              </div>
+              {post.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={post.image}
+                  alt=""
+                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0 mt-1"
+                />
+              )}
             </div>
-            <h4 className="text-sm font-semibold text-[var(--color-text-primary)] leading-snug">
-              {post.title}
-            </h4>
-            <p className="text-[11px] text-[var(--color-text-secondary)] mt-1 leading-relaxed line-clamp-2">
-              {post.excerpt}
-            </p>
           </div>
         ))}
       </div>

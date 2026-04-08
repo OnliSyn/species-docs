@@ -229,6 +229,14 @@ function TradeCanvas() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Oracle info banner */}
+      <div className="flex-shrink-0 mb-3 flex items-center gap-2 rounded-lg bg-[var(--color-accent-green)]/10 border border-[var(--color-accent-green)]/20 px-3 py-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-green)] flex-shrink-0" />
+        <p className="text-[10px] text-[var(--color-text-secondary)] leading-snug">
+          Oracle ledger entries are recorded for every transaction
+        </p>
+      </div>
+
       <div className="flex-shrink-0 mb-2">
         <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Transaction Reference</h3>
         <p className="text-[10px] text-[var(--color-text-secondary)] mt-0.5">

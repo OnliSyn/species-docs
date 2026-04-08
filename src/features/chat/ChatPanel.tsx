@@ -139,7 +139,7 @@ export function ChatPanel() {
         </div>
       )}
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 pb-24">
         {messages.length === 0 ? (
           showHello && chatMode === 'ask' ? (
             <HelloGreeting onComplete={handleHelloComplete} />

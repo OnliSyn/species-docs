@@ -303,6 +303,13 @@ const TRADE_CARDS: FeedCard[] = [
     body: 'Track active listings, treasury reserves, and completed orders. All transactions settle through the MarketSB cashier.',
   },
   {
+    id: 'assurance-account',
+    variant: 'featured',
+    category: 'ASSURANCE',
+    title: 'Buy Back Guarantee',
+    body: 'Every Specie is backed 1:1 by USDC in the Assurance Account. The MarketMaker guarantees redemption at $1.00 minus 1% liquidity fee.',
+  },
+  {
     id: 'trade-video',
     variant: 'dark',
     category: 'FEATURED',
