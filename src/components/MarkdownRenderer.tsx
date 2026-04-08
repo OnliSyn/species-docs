@@ -10,19 +10,27 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
   // Pre-process: fix common LLM formatting issues
-  const cleaned = content
-    // Fix pattern: "•\nText" → "- Text" (bullet on its own line, text on next)
-    .replace(/[•·●]\s*\n\s*(.+)/g, '- $1')
-    // Fix pattern: "• Text" on same line
-    .replace(/^[•·●]\s+/gm, '- ')
-    // Ensure blank line before lists (Markdown requires it)
-    .replace(/([^\n])\n(- )/g, '$1\n\n$2')
-    // Ensure blank line before headings
-    .replace(/([^\n])\n(#{1,3} )/g, '$1\n\n$2')
-    // Ensure blank line before bold headings like **Title**
-    .replace(/([^\n])\n(\*\*[A-Z])/g, '$1\n\n$2')
-    // Convert numbered items without proper spacing
-    .replace(/([^\n])\n(\d+\. )/g, '$1\n\n$2');
+  let cleaned = content;
+
+  // Step 1: Normalize line endings
+  cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Step 2: Fix bullet patterns — multiple passes to catch all variants
+  // Pattern: "•\n" or "• \n" followed by text on next line
+  cleaned = cleaned.replace(/[•·●]\s*\n\s*/g, '- ');
+  // Pattern: "•" at start of line followed by text on same line
+  cleaned = cleaned.replace(/^[•·●]\s*/gm, '- ');
+  // Pattern: lone "•" on a line (orphaned bullet)
+  cleaned = cleaned.replace(/^\s*[•·●]\s*$/gm, '');
+
+  // Step 3: Ensure blank lines before Markdown block elements
+  cleaned = cleaned.replace(/([^\n])\n(- )/g, '$1\n\n$2');
+  cleaned = cleaned.replace(/([^\n])\n(#{1,3} )/g, '$1\n\n$2');
+  cleaned = cleaned.replace(/([^\n])\n(\*\*[A-Z])/g, '$1\n\n$2');
+  cleaned = cleaned.replace(/([^\n])\n(\d+\. )/g, '$1\n\n$2');
+
+  // Step 4: Clean up excessive blank lines
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
   return (
     <div className={className}>
