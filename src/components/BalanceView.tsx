@@ -6,15 +6,15 @@ import { formatUsdcDisplay, formatSpecieCount } from '@/lib/amount';
 
 interface BalanceViewProps {
   fundingBalance: bigint;
-  assetBalance: bigint;
   specieCount: number;
-  isReconciled: boolean;
 }
 
-export function BalanceView({ fundingBalance, assetBalance, specieCount, isReconciled }: BalanceViewProps) {
+export function BalanceView({ fundingBalance, specieCount }: BalanceViewProps) {
   const { balanceView, setBalanceView } = useTabStore();
   const isFunding = balanceView === 'funding';
 
+  // Species value derived from vault count: 1 Specie = $1 = 1_000_000 base units
+  const assetBalance = BigInt(specieCount) * 1_000_000n;
   const displayBalance = isFunding ? fundingBalance : assetBalance;
   const formatted = formatUsdcDisplay(displayBalance);
   // Split "$12,450.00" into "$12,450" and ".00"
@@ -72,12 +72,7 @@ export function BalanceView({ fundingBalance, assetBalance, specieCount, isRecon
           </>
         )}
 
-        {/* Reconciliation warning */}
-        {!isFunding && !isReconciled && (
-          <div className="mt-3 px-3 py-1.5 rounded-[var(--radius-input)] bg-[var(--color-accent-amber)]/20 text-xs text-[var(--color-text-primary)]">
-            {'\u26A0'} Balance discrepancy detected
-          </div>
-        )}
+        {/* No reconciliation warning needed — vault is the single source of truth */}
       </div>
     </div>
   );

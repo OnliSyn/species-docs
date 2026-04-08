@@ -11,7 +11,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    testTimeout: 15_000,
+    testTimeout: 30_000,
     hookTimeout: 30_000,
     // Run test files sequentially — sims are shared mutable state
     fileParallelism: false,

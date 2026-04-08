@@ -141,7 +141,7 @@ POST /api/v1/cashier/post-batch
 //    buyer → operating (issuance fee)
 //    buyer → operating (liquidity fee)
 //    treasury → assurance (backing)
-//    treasury → buyer species VA (credit)`,
+//    treasury → buyer vault (species-sim delivery)`,
   },
   {
     label: 'List',

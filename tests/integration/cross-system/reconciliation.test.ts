@@ -23,8 +23,8 @@ describe('REC — Reconciliation Tests', () => {
     const usdcDelta = after.usdcPosted - before.usdcPosted;
     const specieDelta = after.specieCount - before.specieCount;
 
-    // Clean seed: treasury buy — $1.00 + $0.05 issuance = $1.05/Specie
-    expect(usdcDelta).toBe(-(100 * 1_050_000));
+    // Clean seed: treasury buy — $1.00 + $0.05 issuance + $0.01 liquidity = $1.06/Specie
+    expect(usdcDelta).toBe(-(100 * 1_060_000));
     expect(specieDelta).toBe(100);
   });
 

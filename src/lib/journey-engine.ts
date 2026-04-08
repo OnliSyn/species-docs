@@ -7,7 +7,6 @@ import * as crypto from 'crypto';
 import {
   getUserState,
   getFundingBalance,
-  getSpeciesVABalance,
   getVaultBalance,
   getAssuranceBalance,
   getOracleLedger,
@@ -28,6 +27,136 @@ import {
   CURRENT_USER,
   type UserState,
 } from '@/lib/sim-client';
+
+// ---------------------------------------------------------------------------
+// Species-sim pipeline helper — single entry point for buy/sell/transfer/redeem
+// ---------------------------------------------------------------------------
+const SPECIES_SIM = process.env.SPECIES_URL || 'http://localhost:4012';
+
+interface PipelineResult {
+  ok: boolean;
+  eventId: string;
+  status: string;
+  stages: { stage: string; timestamp: string; data?: Record<string, unknown> }[];
+  receipt?: Record<string, unknown>;
+  error?: string;
+}
+
+async function submitPipeline(payload: {
+  intent: 'buy' | 'sell' | 'transfer' | 'redeem';
+  quantity: number;
+  paymentSource?: { vaId: string };
+  recipient?: { onliId: string };
+  listingConfig?: { autoAuthorize: boolean };
+}): Promise<PipelineResult> {
+  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
+  const idempotencyKey = `${payload.intent}-${eventId}`;
+
+  // 1. Submit to species-sim pipeline
+  try {
+    const res = await fetch(`${SPECIES_SIM}/marketplace/v1/eventRequest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId,
+        intent: payload.intent,
+        quantity: payload.quantity,
+        paymentSource: payload.paymentSource,
+        recipient: payload.recipient,
+        listingConfig: payload.listingConfig,
+        idempotencyKey,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+      return { ok: false, eventId, status: 'failed', stages: [], error: err.error || 'Submit failed' };
+    }
+  } catch (err) {
+    return { ok: false, eventId, status: 'failed', stages: [], error: 'Species-sim unreachable' };
+  }
+
+  // 2. Poll for pipeline completion
+  let status = 'pending';
+  let stages: { stage: string; timestamp: string; data?: Record<string, unknown> }[] = [];
+  let receipt: Record<string, unknown> | undefined;
+  let lastError: string | undefined;
+  let autoApproved = false;
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const statusRes = await fetch(`${SPECIES_SIM}/marketplace/v1/events/${eventId}/status`);
+      if (statusRes.ok) {
+        const data = await statusRes.json();
+        status = data.status;
+        stages = data.completedStages || [];
+        lastError = data.error;
+
+        // Auto-approve AskToMove for transfers in simulated environment
+        if (!autoApproved && stages.some((s: { stage: string }) => s.stage === 'ask_to_move.pending')) {
+          autoApproved = true;
+          try {
+            await fetch(`${SPECIES_SIM}/sim/approve/${eventId}`, { method: 'POST' });
+          } catch {
+            // Approval endpoint may not be available; pipeline will timeout
+          }
+        }
+
+        if (status === 'completed' || status === 'failed') break;
+      }
+    } catch {
+      // Retry on network error
+    }
+  }
+
+  // 3. If completed, fetch receipt
+  if (status === 'completed') {
+    try {
+      const receiptRes = await fetch(`${SPECIES_SIM}/marketplace/v1/events/${eventId}/receipt`);
+      if (receiptRes.ok) {
+        receipt = await receiptRes.json();
+      }
+    } catch {
+      // Receipt fetch optional
+    }
+  }
+
+  return {
+    ok: status === 'completed',
+    eventId,
+    status,
+    stages,
+    receipt,
+    error: lastError,
+  };
+}
+
+/** Map pipeline completedStages to PipelineCard stage objects */
+function mapPipelineStages(
+  stages: { stage: string; timestamp: string }[],
+  failed: boolean,
+): { label: string; system: string; status: string }[] {
+  const STAGE_LABELS: Record<string, { label: string; system: string }> = {
+    'request.submitted': { label: 'Submitted', system: 'SM' },
+    'request.authenticated': { label: 'Authenticated', system: 'SM' },
+    'order.validated': { label: 'Validated', system: 'SM' },
+    'order.classified': { label: 'Classified', system: 'SM' },
+    'order.matched': { label: 'Matched', system: 'SM' },
+    'asset.staged': { label: 'Asset staged', system: 'OC' },
+    'ask_to_move.pending': { label: 'AskToMove pending', system: 'OC' },
+    'ask_to_move.approved': { label: 'AskToMove approved', system: 'OC' },
+    'payment.confirmed': { label: 'Payment processed', system: 'MB' },
+    'ownership.changed': { label: 'Delivered to Vault', system: 'OC' },
+    'order.completed': { label: 'Complete', system: 'SM' },
+    'order.failed': { label: 'Failed', system: 'SM' },
+  };
+
+  return stages.map(s => {
+    const info = STAGE_LABELS[s.stage] || { label: s.stage, system: '??' };
+    const isFailed = s.stage === 'order.failed';
+    return { label: info.label, system: info.system, status: isFailed ? 'failed' : 'done' };
+  });
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -517,120 +646,36 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
 }
 
 export async function buyExecute(quantity: number): Promise<JourneyResponse> {
-  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
-  const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
-  const USDC = 1_000_000;
+  const result = await submitPipeline({
+    intent: 'buy',
+    quantity,
+    paymentSource: { vaId: `va-funding-${CURRENT_USER.ref}` },
+  });
 
-  const listings = await getListings();
-  let availableOnMarket = 0;
-  if (listings) {
-    availableOnMarket = listings.reduce((sum: number, l: any) => sum + (l.remainingQuantity || 0), 0);
-  }
-
-  const fromMarket = Math.min(quantity, availableOnMarket);
-  const fromTreasury = quantity - fromMarket;
-
-  console.log(`[BUY] qty=${quantity} fromMarket=${fromMarket} fromTreasury=${fromTreasury}`);
-
-  let marketOk = false;
-  let treasuryOk = false;
-
-  if (fromMarket > 0) {
-    const cashierResult = await postCashierBatch({
-      eventId: `${eventId}-mkt`,
-      matchId: `match-${eventId}-mkt`,
-      intent: 'buy',
-      quantity: fromMarket,
-      buyerVaId: `va-funding-${CURRENT_USER.ref}`,
-      unitPrice: USDC,
-      fees: { issuance: false, liquidity: false },
-    });
-    if (cashierResult.ok) {
-      await buyFromMarket(CURRENT_USER.onliId, fromMarket);
-      marketOk = true;
-    }
-  }
-
-  if (fromTreasury > 0) {
-    const cashierResult = await postCashierBatch({
-      eventId: `${eventId}-trs`,
-      matchId: `match-${eventId}-trs`,
-      intent: 'buy',
-      quantity: fromTreasury,
-      buyerVaId: `va-funding-${CURRENT_USER.ref}`,
-      unitPrice: USDC,
-      fees: { issuance: true, liquidity: false },
-    });
-    if (cashierResult.ok) {
-      await buyFromTreasury(CURRENT_USER.onliId, fromTreasury);
-      treasuryOk = true;
-    }
-  }
-
-  // If ALL cashier calls failed, return error
-  if ((fromMarket > 0 && !marketOk) && (fromTreasury > 0 && !treasuryOk)) {
+  if (!result.ok) {
     return {
       type: 'tool',
       toolName: 'journey_execute',
       data: {
         _ui: 'PipelineCard',
         title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
-        eventId,
-        batchId,
-        stages: [
-          { label: 'Submitted', system: 'SM', status: 'done' },
-          { label: 'Payment processing', system: 'MB', status: 'failed' },
-        ],
-        error: 'Payment failed — no funds were debited and no Species were delivered.',
-      },
-      followUp: 'Payment failed. Please check your Funding Account balance and try again.',
-    };
-  }
-  if (fromMarket > 0 && !marketOk && fromTreasury === 0) {
-    return {
-      type: 'tool',
-      toolName: 'journey_execute',
-      data: {
-        _ui: 'PipelineCard',
-        title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
-        eventId,
-        batchId,
-        stages: [
-          { label: 'Submitted', system: 'SM', status: 'done' },
-          { label: 'Payment processing', system: 'MB', status: 'failed' },
-        ],
-        error: 'Payment failed — no funds were debited and no Species were delivered.',
-      },
-      followUp: 'Payment failed. Please check your Funding Account balance and try again.',
-    };
-  }
-  if (fromTreasury > 0 && !treasuryOk && fromMarket === 0) {
-    return {
-      type: 'tool',
-      toolName: 'journey_execute',
-      data: {
-        _ui: 'PipelineCard',
-        title: `BUY ${quantity.toLocaleString()} SPECIES — FAILED`,
-        eventId,
-        batchId,
-        stages: [
-          { label: 'Submitted', system: 'SM', status: 'done' },
-          { label: 'Payment processing', system: 'MB', status: 'failed' },
-        ],
-        error: 'Payment failed — no funds were debited and no Species were delivered.',
+        eventId: result.eventId,
+        batchId: null,
+        stages: mapPipelineStages(result.stages, true),
+        error: result.error || 'Pipeline failed — no funds were debited and no Species were delivered.',
       },
       followUp: 'Payment failed. Please check your Funding Account balance and try again.',
     };
   }
 
-  const issuanceFee = fromTreasury * 0.05;
+  const receipt = result.receipt || {};
+  const totalCost = Number(receipt.totalCost || 0);
+  const fees = (receipt.fees as any) || { issuance: 0, liquidity: 0, listing: 0 };
+  const issuanceFee = Number(fees.issuance || 0) / 1_000_000;
   const cost = quantity * 1.00;
   const total = cost + issuanceFee;
-  const fees = issuanceFee;
 
   const state = await getLiveState();
-  const newFunding = state.fundingBalance;
-  const newSpecies = state.specieCount;
 
   return {
     type: 'tool',
@@ -638,21 +683,11 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
     data: {
       _ui: 'PipelineCard',
       title: `BUY ${quantity.toLocaleString()} SPECIES`,
-      eventId,
-      batchId,
-      stages: [
-        { label: 'Submitted', system: 'SM', status: 'done' },
-        { label: 'Authenticated', system: 'SM', status: 'done' },
-        { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Matched', system: 'SM', status: 'done' },
-        { label: 'Asset staged', system: 'OC', status: 'done' },
-        { label: 'Payment processed', system: 'MB', status: 'done' },
-        { label: 'Delivered to Vault', system: 'OC', status: 'done' },
-        { label: 'Oracle verified', system: 'SM', status: 'done' },
-        { label: 'Complete', system: 'SM', status: 'done' },
-      ],
-      receipt: { quantity, cost: `$${fmt(cost)}`, fees: `$${fmt(fees)}`, total: `$${fmt(total)}`, assurance: `$${fmt(cost)}` },
-      balances: { funding: `$${fmt(newFunding)}`, species: `${newSpecies.toLocaleString()} SPECIES` },
+      eventId: result.eventId,
+      batchId: receipt.tbBatchId || null,
+      stages: mapPipelineStages(result.stages, false),
+      receipt: { quantity, cost: `$${fmt(cost)}`, fees: `$${fmt(issuanceFee)}`, total: `$${fmt(total)}`, assurance: `$${fmt(cost)}` },
+      balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
     followUp: `Order complete! You bought ${quantity.toLocaleString()} SPECIES for $${fmt(total)}.`,
   };
@@ -796,12 +831,28 @@ export async function sellConfirm(quantity: number): Promise<JourneyResponse | s
 }
 
 export async function sellExecute(quantity: number): Promise<JourneyResponse> {
-  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
-
-  await createSpeciesListing({
-    sellerOnliId: CURRENT_USER.onliId,
+  const result = await submitPipeline({
+    intent: 'sell',
     quantity,
+    paymentSource: { vaId: `va-funding-${CURRENT_USER.ref}` },
+    listingConfig: { autoAuthorize: true },
   });
+
+  if (!result.ok) {
+    return {
+      type: 'tool',
+      toolName: 'journey_execute',
+      data: {
+        _ui: 'PipelineCard',
+        title: `LIST ${quantity.toLocaleString()} SPECIES — FAILED`,
+        eventId: result.eventId,
+        batchId: null,
+        stages: mapPipelineStages(result.stages, true),
+        error: result.error || 'Listing failed — no Species were moved.',
+      },
+      followUp: 'Listing failed. Please check your Vault balance and try again.',
+    };
+  }
 
   const state = await getLiveState();
 
@@ -811,14 +862,9 @@ export async function sellExecute(quantity: number): Promise<JourneyResponse> {
     data: {
       _ui: 'PipelineCard',
       title: `LIST ${quantity.toLocaleString()} SPECIES`,
-      eventId,
-      batchId: null,
-      stages: [
-        { label: 'Submitted', system: 'SM', status: 'done' },
-        { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Species Settlement Vaulted', system: 'OC', status: 'done' },
-        { label: 'Listing active', system: 'SM', status: 'done' },
-      ],
+      eventId: result.eventId,
+      batchId: result.receipt?.tbBatchId || null,
+      stages: mapPipelineStages(result.stages, false),
       receipt: { quantity, cost: `$${fmt(quantity * 1.00)}`, fees: 'None', total: '$0.00' },
       balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
@@ -864,42 +910,31 @@ export async function redeemConfirm(quantity: number): Promise<JourneyResponse |
 }
 
 export async function redeemExecute(quantity: number): Promise<JourneyResponse> {
-  const gross = quantity * 1.00;
-  const liquidityFee = gross * 0.01;
-  const net = gross - liquidityFee;
-  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
-
-  const redeemResult = await cashierRedeem({
-    sellerRef: CURRENT_USER.ref,
-    redeemAmount: gross.toFixed(2),
-    metadata: { quantity, eventId },
-    idempotencyKey: `redeem-${eventId}`,
+  const result = await submitPipeline({
+    intent: 'redeem',
+    quantity,
+    paymentSource: { vaId: `va-funding-${CURRENT_USER.ref}` },
   });
-  console.log(`[REDEEM] cashier result: ok=${redeemResult.ok}`);
 
-  if (!redeemResult.ok) {
+  if (!result.ok) {
     return {
       type: 'tool',
       toolName: 'journey_execute',
       data: {
         _ui: 'PipelineCard',
         title: `REDEEM ${quantity.toLocaleString()} SPECIES — FAILED`,
-        eventId,
+        eventId: result.eventId,
         batchId: null,
-        stages: [
-          { label: 'Submitted', system: 'SM', status: 'done' },
-          { label: 'Validated', system: 'SM', status: 'done' },
-          { label: 'Assurance payout failed', system: 'MB', status: 'done' },
-        ],
+        stages: mapPipelineStages(result.stages, true),
+        error: result.error || 'Redemption failed.',
       },
       followUp: `**Redemption failed.** The Assurance Account has insufficient funds to cover this redemption. This can happen if no Species have been purchased from treasury yet (assurance is funded by purchase proceeds).`,
     };
   }
 
-  await Promise.all([
-    adjustVault(CURRENT_USER.onliId, -quantity, 'redeem'),
-    adjustVault('treasury', quantity, 'redeem-return'),
-  ]);
+  const gross = quantity * 1.00;
+  const liquidityFee = gross * 0.01;
+  const net = gross - liquidityFee;
 
   const state = await getLiveState();
 
@@ -909,17 +944,9 @@ export async function redeemExecute(quantity: number): Promise<JourneyResponse> 
     data: {
       _ui: 'PipelineCard',
       title: `REDEEM ${quantity.toLocaleString()} SPECIES`,
-      eventId,
-      batchId: null,
-      stages: [
-        { label: 'Submitted', system: 'SM', status: 'done' },
-        { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Liquidity fee charged', system: 'MB', status: 'done' },
-        { label: 'Assurance payout', system: 'MB', status: 'done' },
-        { label: 'Species returned to MarketMaker', system: 'OC', status: 'done' },
-        { label: 'Oracle verified', system: 'SM', status: 'done' },
-        { label: 'Complete', system: 'SM', status: 'done' },
-      ],
+      eventId: result.eventId,
+      batchId: result.receipt?.tbBatchId || null,
+      stages: mapPipelineStages(result.stages, false),
       receipt: {
         quantity,
         cost: `$${fmt(gross)}`,
@@ -997,8 +1024,6 @@ export async function transferConfirm(quantity: number, recipient: string): Prom
 }
 
 export async function transferExecute(quantity: number, recipient?: string): Promise<JourneyResponse> {
-  const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
-
   const contacts: Record<string, string> = {
     'pepper': 'onli-user-456', 'pepper potts': 'onli-user-456',
     'tony': 'onli-user-789', 'tony stark': 'onli-user-789',
@@ -1008,30 +1033,30 @@ export async function transferExecute(quantity: number, recipient?: string): Pro
   };
   const recipientOnliId = contacts[(recipient || '').toLowerCase()] || 'onli-user-456';
 
-  // Debit sender first — if it fails (insufficient balance), do not credit recipient
-  const debitOk = await adjustVault(CURRENT_USER.onliId, -quantity, `transfer-to-${recipientOnliId}`);
-  if (!debitOk) {
+  const result = await submitPipeline({
+    intent: 'transfer',
+    quantity,
+    paymentSource: { vaId: `va-funding-${CURRENT_USER.ref}` },
+    recipient: { onliId: recipientOnliId },
+  });
+
+  if (!result.ok) {
     return {
       type: 'tool',
       toolName: 'journey_execute',
       data: {
         _ui: 'PipelineCard',
         title: `TRANSFER ${quantity.toLocaleString()} SPECIES — FAILED`,
-        eventId,
+        eventId: result.eventId,
         batchId: null,
-        stages: [
-          { label: 'Submitted', system: 'SM', status: 'done' },
-          { label: 'Validated', system: 'SM', status: 'failed' },
-        ],
-        error: 'Insufficient Species in your Vault to complete this transfer.',
+        stages: mapPipelineStages(result.stages, true),
+        error: result.error || 'Insufficient Species in your Vault to complete this transfer.',
       },
       followUp: `Transfer failed — you don't have enough Species in your Vault.`,
     };
   }
-  await adjustVault(recipientOnliId, quantity, `transfer-from-${CURRENT_USER.onliId}`);
 
   const state = await getLiveState();
-  const newSpecies = state.specieCount;
 
   return {
     type: 'tool',
@@ -1039,20 +1064,11 @@ export async function transferExecute(quantity: number, recipient?: string): Pro
     data: {
       _ui: 'PipelineCard',
       title: `TRANSFER ${quantity.toLocaleString()} SPECIES`,
-      eventId,
+      eventId: result.eventId,
       batchId: null,
-      stages: [
-        { label: 'Submitted', system: 'SM', status: 'done' },
-        { label: 'Authenticated', system: 'SM', status: 'done' },
-        { label: 'Validated', system: 'SM', status: 'done' },
-        { label: 'Matched (Peer)', system: 'SM', status: 'done' },
-        { label: 'Asset staged', system: 'OC', status: 'done' },
-        { label: 'Delivered to recipient Vault', system: 'OC', status: 'done' },
-        { label: 'Oracle verified', system: 'SM', status: 'done' },
-        { label: 'Complete', system: 'SM', status: 'done' },
-      ],
+      stages: mapPipelineStages(result.stages, false),
       receipt: { quantity, fees: 'None' },
-      balances: { species: `${newSpecies.toLocaleString()} SPECIES` },
+      balances: { species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
     followUp: `Transfer complete! ${quantity.toLocaleString()} SPECIES sent.`,
   };

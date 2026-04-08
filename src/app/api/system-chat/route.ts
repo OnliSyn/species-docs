@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getFundingBalance,
-  getSpeciesVABalance,
   getVaultBalance,
   getAssuranceBalance,
   getOracleLedger,
@@ -49,28 +48,21 @@ async function matchPromptToTool(prompt: string): Promise<SystemToolResult | nul
     };
   }
 
-  // Trading account balance (dark variant)
+  // Trading account balance (dark variant) — species tracked in vault, not VA
   if (lower.includes('trading') && lower.includes('balance')) {
-    const [specVA, vault] = await Promise.all([
-      getSpeciesVABalance(),
-      getVaultBalance(),
-    ]);
-    const posted = specVA?.posted ?? 0;
+    const vault = await getVaultBalance();
     const count = vault?.count ?? 0;
     return {
       toolName: 'get_trading_balance',
       data: {
         _ui: 'BalanceCard',
-        label: 'Trading Account',
-        vaId: specVA?.vaId || `va-species-${CURRENT_USER.ref}`,
-        subtype: 'trading',
-        balance: { posted, pending: specVA?.pending ?? 0, available: posted },
-        currency: 'USDC',
-        status: specVA?.status || 'active',
+        label: 'Species Vault',
+        vaultId: vault?.vaultId || `vault-${CURRENT_USER.onliId}`,
+        subtype: 'species',
         specieCount: count,
         variant: 'dark',
       },
-      commentary: `Your trading account holds ${count.toLocaleString()} SPECIES.`,
+      commentary: `Your vault holds ${count.toLocaleString()} Specie.`,
     };
   }
 

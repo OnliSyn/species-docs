@@ -138,7 +138,6 @@ export function createCashierRouter(state: SimState): Router {
         return;
       }
 
-      const buyerSpeciesVaId = buyerVaId.replace('funding', 'species');
       // Route assurance proceeds to GLOBAL assurance VA (not per-user)
       // This ensures cashierRedeem (which reads acc-sub-assurance → assurance-global) can pay
       const assuranceVaId = 'assurance-global';
@@ -187,27 +186,6 @@ export function createCashierRouter(state: SimState): Router {
           if (err) return err;
         }
 
-        const species = state.virtualAccounts.get(buyerSpeciesVaId);
-        if (treasury && species) {
-          const tb = treasury.posted;
-          err = apply('treasury-100', buyerSpeciesVaId, assetCost);
-          if (err) return err;
-          writeOracleEntry(state, 'treasury-100', 'batch_treasury_to_species', assetCost, tb, treasury.posted, tbBatchId, now);
-          writeOracleEntry(
-            state,
-            buyerSpeciesVaId,
-            'batch_species_credit',
-            assetCost,
-            species.posted - assetCost,
-            species.posted,
-            tbBatchId,
-            now,
-          );
-        } else {
-          err = apply('treasury-100', buyerSpeciesVaId, assetCost);
-          if (err) return err;
-        }
-
         transfers.push({ type: 'asset_cost', debit: buyerVaId, credit: creditTreasury, amount: assetCost });
         if (issuanceFee > 0n) {
           transfers.push({ type: 'issuance_fee', debit: buyerVaId, credit: 'operating-300', amount: issuanceFee });
@@ -216,7 +194,6 @@ export function createCashierRouter(state: SimState): Router {
           transfers.push({ type: 'liquidity_fee', debit: buyerVaId, credit: 'operating-300', amount: liquidityFee });
         }
         transfers.push({ type: 'assurance_posting', debit: 'treasury-100', credit: assuranceVaId, amount: assetCost });
-        transfers.push({ type: 'species_credit', debit: 'treasury-100', credit: buyerSpeciesVaId, amount: assetCost });
 
         const refBase = `${tbBatchId}-buy`;
         oracleRefs.push(`${refBase}-a`, `${refBase}-b`, `${refBase}-c`);
@@ -244,8 +221,6 @@ export function createCashierRouter(state: SimState): Router {
       }
 
       const effectiveSellerVaId = sellerVaId || 'treasury-100';
-      const sellerSpeciesVaId = effectiveSellerVaId.replace('funding', 'species');
-      const buyerSpeciesVaId = buyerVaId.replace('funding', 'species');
 
       const run = (): string | null => {
         let err: string | null;
@@ -285,38 +260,10 @@ export function createCashierRouter(state: SimState): Router {
           );
         }
 
-        const ss = state.virtualAccounts.get(sellerSpeciesVaId);
-        const bs = state.virtualAccounts.get(buyerSpeciesVaId);
-        if (ss && bs) {
-          const ssb = ss.posted;
-          err = apply(sellerSpeciesVaId, buyerSpeciesVaId, assetCost);
-          if (err) return err;
-          writeOracleEntry(state, sellerSpeciesVaId, 'species_migration_debit', assetCost, ssb, ss.posted, tbBatchId, now);
-          writeOracleEntry(
-            state,
-            buyerSpeciesVaId,
-            'species_migration_credit',
-            assetCost,
-            bs.posted - assetCost,
-            bs.posted,
-            tbBatchId,
-            now,
-          );
-        } else {
-          err = apply(sellerSpeciesVaId, buyerSpeciesVaId, assetCost);
-          if (err) return err;
-        }
-
         transfers.push({ type: 'asset_cost', debit: buyerVaId, credit: effectiveSellerVaId, amount: assetCost });
         if (liquidityFee > 0n) {
           transfers.push({ type: 'liquidity_fee', debit: buyerVaId, credit: 'operating-300', amount: liquidityFee });
         }
-        transfers.push({
-          type: 'species_migration',
-          debit: sellerSpeciesVaId,
-          credit: buyerSpeciesVaId,
-          amount: assetCost,
-        });
 
         const refBase = `${tbBatchId}-sell`;
         oracleRefs.push(`${refBase}-a`, `${refBase}-b`);

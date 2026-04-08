@@ -20,7 +20,8 @@
       "WebFetch(domain:codepen.io)",
       "WebSearch",
       "WebFetch(domain:cdpn.io)",
-      "WebFetch(domain:vimeo.com)"
+      "WebFetch(domain:vimeo.com)",
+      "WebFetch(domain:www.onli.support)"
     ],
     "defaultMode": "bypassPermissions"
   }

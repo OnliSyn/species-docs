@@ -37,8 +37,8 @@ export function createMarketplaceRouter(
       return;
     }
 
-    if (!['buy', 'sell', 'transfer'].includes(intent)) {
-      res.status(400).json({ error: 'Invalid intent. Must be buy, sell, or transfer' });
+    if (!['buy', 'sell', 'transfer', 'redeem'].includes(intent)) {
+      res.status(400).json({ error: 'Invalid intent. Must be buy, sell, transfer, or redeem' });
       return;
     }
 

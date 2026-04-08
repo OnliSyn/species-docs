@@ -517,7 +517,9 @@ export async function runSellPipeline(
     emitStage(emit, order, 'asset.staged', { result: 'staged_in_settlement' });
   }
 
-  // Stage 7: payment.confirmed — Cashier call for sell
+  // Stage 7: payment.confirmed — Sell/List is escrow-only (no USDC settlement)
+  // USDC settlement happens later when a buyer matches this listing.
+  // For now, just record the listing as payment-confirmed with zero cost.
   await delay(state.stageDelays.paymentConfirmed);
   if (state.errorInjections.get('payment.confirmed')) {
     state.errorInjections.delete('payment.confirmed');
@@ -528,54 +530,12 @@ export async function runSellPipeline(
     return;
   }
 
-  // Call MarketSB Cashier for sell settlement. Fatal on failure.
-  try {
-    const cashierPayload = {
-      eventId: order.eventId,
-      matchId: order.matches[0].matchId,
-      intent: 'sell',
-      quantity: order.quantity,
-      buyerVaId: MARKETSB_TREASURY_VA_ID,
-      sellerVaId: order.paymentSource?.vaId ?? 'va-funding-user-001',
-      unitPrice: UNIT_PRICE,
-      fees: { issuance: false, liquidity: false, listing: false }, // No fees on P2P sell — fees are handled by list/redeem journeys
-    };
-
-    const response = await fetch(`${config.marketsbUrl}/cashier/post-batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cashierPayload),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.error(`[species-sim] Cashier rejected sell: ${response.status} ${errText}`);
-      // Rollback: return escrowed species to seller, remove listing
-      changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
-      state.listings.delete(listingId);
-      failOrder(emit, order, 'payment.confirmed', `cashier_rejected: ${response.status}`);
-      return;
-    }
-
-    const batchResult = await response.json();
-    order.tbBatchId = batchTbBatchId(batchResult) ?? `tb-batch-${order.eventId}`;
-    order.oracleRefs = {
-      fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
-      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
-    };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'unknown';
-    console.error(`[species-sim] Cashier unreachable for sell: ${msg}`);
-    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
-    state.listings.delete(listingId);
-    failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
-    return;
-  }
-
-  // Read fees from cashier response (MarketSB is the fee authority)
-  const orderAmount = BigInt(order.quantity) * BigInt(UNIT_PRICE);
-  order.totalCost = Number(orderAmount);
+  order.tbBatchId = `tb-list-${order.eventId}`;
+  order.totalCost = 0;
   order.fees = { issuance: 0, liquidity: 0, listing: 0 };
+  order.oracleRefs = {
+    assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
+  };
 
   emitStage(emit, order, 'payment.confirmed', {
     tbBatchId: order.tbBatchId,
@@ -615,6 +575,141 @@ export async function runSellPipeline(
   });
 }
 
+// ── Redeem Pipeline ───────────────────────────────────────────────────────
+
+export async function runRedeemPipeline(
+  state: SpeciesSimState,
+  config: SpeciesSimConfig,
+  order: OrderState,
+  emit: WsEmitter,
+): Promise<void> {
+  order.status = 'processing';
+
+  // Stage 2: request.authenticated
+  await delay(state.stageDelays.authenticated);
+  if (state.errorInjections.get('request.authenticated')) {
+    state.errorInjections.delete('request.authenticated');
+    failOrder(emit, order, 'request.authenticated', 'authentication_failed');
+    return;
+  }
+  emitStage(emit, order, 'request.authenticated', { authResult: 'passed' });
+
+  // Stage 3: order.validated — check vault balance
+  await delay(state.stageDelays.validated);
+  if (state.errorInjections.get('order.validated')) {
+    state.errorInjections.delete('order.validated');
+    failOrder(emit, order, 'order.validated', 'validation_failed');
+    return;
+  }
+
+  const sellerOnliId = vaIdToOnliId(order.paymentSource?.vaId);
+  ensureUserVault(state, sellerOnliId);
+  const sellerCount = getVaultCount(state, sellerOnliId);
+  if (sellerCount < order.quantity) {
+    failOrder(emit, order, 'order.validated', `insufficient_specie: has ${sellerCount}, needs ${order.quantity}`);
+    return;
+  }
+  emitStage(emit, order, 'order.validated', { validationResult: 'passed' });
+
+  // Stage 4: order.classified
+  await delay(state.stageDelays.classified);
+  emitStage(emit, order, 'order.classified', { intent: 'redeem' });
+
+  // Stage 5: asset.staged — move species to settlement
+  await delay(state.stageDelays.assetStaged);
+  if (state.errorInjections.get('asset.staged')) {
+    state.errorInjections.delete('asset.staged');
+    failOrder(emit, order, 'asset.staged', 'staging_failed');
+    return;
+  }
+
+  const stageResult = changeOwner(state, sellerOnliId, 'settlement', order.quantity, order.eventId);
+  if (!stageResult.success) {
+    failOrder(emit, order, 'asset.staged', stageResult.error ?? 'staging_failed');
+    return;
+  }
+  emitStage(emit, order, 'asset.staged', { result: 'settlement_vaulted' });
+
+  // Stage 6: payment.confirmed — call MarketSB cashier redeem
+  await delay(state.stageDelays.paymentConfirmed);
+  if (state.errorInjections.get('payment.confirmed')) {
+    state.errorInjections.delete('payment.confirmed');
+    // Roll back: settlement → seller
+    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+    failOrder(emit, order, 'payment.confirmed', 'payment_failed');
+    return;
+  }
+
+  const gross = order.quantity * 1.00;
+  const sellerVaId = order.paymentSource?.vaId ?? 'va-funding-user-001';
+  const sellerRef = sellerVaId.replace('va-funding-', '');
+  const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:4001';
+
+  try {
+    const response = await fetch(`${MARKETSB}/api/v1/transactions/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sellerAccountId: `acc-user-funding-${sellerRef}`,
+        liquidityFeeSubAccountId: 'acc-sub-liquidity-fee',
+        assuranceSubAccountId: 'acc-sub-assurance',
+        redeemAmount: gross.toFixed(2),
+        currency: 'USD',
+        metadata: { quantity: order.quantity, eventId: order.eventId },
+        idempotencyKey: order.idempotencyKey,
+      }),
+    });
+    if (!response.ok) {
+      // Roll back: settlement → seller
+      changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+      failOrder(emit, order, 'payment.confirmed', 'cashier_redeem_failed');
+      return;
+    }
+    const batchResult = await response.json();
+    order.tbBatchId = batchTbBatchId(batchResult) ?? `tb-batch-${order.eventId}`;
+    order.oracleRefs = {
+      fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
+      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'unknown';
+    console.error(`[species-sim] Cashier unreachable for redeem: ${msg}`);
+    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+    failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
+    return;
+  }
+
+  const liquidityFee = gross * 0.01;
+  const net = gross - liquidityFee;
+  order.totalCost = Math.round(net * 1_000_000);
+  order.fees = { issuance: 0, liquidity: Math.round(liquidityFee * 1_000_000), listing: 0 };
+
+  emitStage(emit, order, 'payment.confirmed', {
+    tbBatchId: order.tbBatchId,
+    totalCost: order.totalCost,
+    fees: order.fees,
+  });
+
+  // Stage 7: ownership.changed — Settlement → Treasury (species returned)
+  await delay(state.stageDelays.ownershipChanged);
+  const deliverResult = changeOwner(state, 'settlement', 'treasury', order.quantity, order.eventId);
+  if (!deliverResult.success) {
+    failOrder(emit, order, 'ownership.changed', deliverResult.error ?? 'return_to_treasury_failed');
+    return;
+  }
+  emitStage(emit, order, 'ownership.changed', {
+    newOwner: 'treasury',
+    count: order.quantity,
+  });
+
+  // Stage 8: order.completed
+  await delay(state.stageDelays.completed);
+  order.status = 'completed';
+  emitStage(emit, order, 'order.completed', {
+    receipt: buildReceipt(order),
+  });
+}
+
 // ── Pipeline Dispatcher ────────────────────────────────────────────────────
 
 export function startPipeline(
@@ -629,7 +724,9 @@ export function startPipeline(
       ? runBuyPipeline
       : order.intent === 'transfer'
         ? runTransferPipeline
-        : runSellPipeline;
+        : order.intent === 'redeem'
+          ? runRedeemPipeline
+          : runSellPipeline;
 
   runner(state, config, order, emit).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : 'unknown pipeline error';

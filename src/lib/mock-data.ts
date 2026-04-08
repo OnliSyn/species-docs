@@ -14,7 +14,9 @@ import type {
 
 export const MOCK_USER_ID = 'user_001';
 export const MOCK_FUNDING_VA_ID = 'va_funding_001';
-export const MOCK_SPECIES_VA_ID = 'va_species_001';
+// Species VA no longer exists in MarketSB — species are tracked in vaults (species-sim).
+// This legacy ID is kept only for backward-compatible mock oracle events / transfers.
+const MOCK_SPECIES_VA_ID = 'va_species_001';
 export const MOCK_ASSURANCE_VA_ID = 'va_assurance_001';
 
 // === Virtual Accounts ===
@@ -38,24 +40,6 @@ export const MOCK_VIRTUAL_ACCOUNTS: VirtualAccount[] = [
     },
     created_at: '2026-01-15T10:00:00Z',
     updated_at: '2026-04-03T14:30:00Z',
-  },
-  {
-    id: MOCK_SPECIES_VA_ID,
-    owner_ref: MOCK_USER_ID,
-    display_name: 'Species Holdings',
-    subtype: 'species',
-    status: 'active',
-    balance: {
-      account_id: MOCK_SPECIES_VA_ID,
-      account_code: 500,
-      subtype: 'species',
-      posted_balance: '8500000000',
-      pending_balance: '0',
-      posted_debits: '0',
-      posted_credits: '8500000000',
-    },
-    created_at: '2026-01-15T10:00:00Z',
-    updated_at: '2026-04-03T15:00:00Z',
   },
   {
     id: MOCK_ASSURANCE_VA_ID,

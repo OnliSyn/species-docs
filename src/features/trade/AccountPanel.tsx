@@ -6,7 +6,7 @@ import { ContactList } from '@/components/ContactList';
 import { FundWizard } from './FundWizard';
 import { CirculationCard } from './CirculationCard';
 import { useVirtualAccounts, useAssetBalance } from '@/hooks/use-virtual-accounts';
-import { MOCK_USER_ID, MOCK_SPECIES_VA_ID } from '@/lib/mock-data';
+import { MOCK_USER_ID } from '@/lib/mock-data';
 
 const MOCK_CONTACTS = [
   { id: '1', name: 'Pepper Potts', address: '0x1234...5678abcd', online: true },
@@ -30,17 +30,15 @@ export function AccountPanel() {
     ? BigInt(assuranceVA.balance.posted_balance)
     : 0n;
 
-  const { financialBalance: assetBalance, possessionCount: specieCount, isReconciled } =
-    useAssetBalance(MOCK_SPECIES_VA_ID, MOCK_USER_ID);
+  const { possessionCount: specieCount } =
+    useAssetBalance(MOCK_USER_ID);
 
   return (
     <div className="space-y-4">
       <FundWizard />
       <BalanceView
         fundingBalance={fundingBalance}
-        assetBalance={assetBalance}
         specieCount={specieCount}
-        isReconciled={isReconciled}
       />
       <CirculationCard totalCirculation={TOTAL_CIRCULATION} />
       <AssuranceCard

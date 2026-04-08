@@ -138,24 +138,16 @@ export function useVaultBalance(userId: string | null) {
   });
 }
 
-// === Dual-System Cross-Reference ===
+// === Asset Balance (from species-sim vault only — no species VA in MarketSB) ===
 
-export function useAssetBalance(speciesVaId: string | null, userId: string | null) {
-  const speciesVA = useVirtualAccount(speciesVaId);
+export function useAssetBalance(userId: string | null) {
   const vault = useVaultBalance(userId);
 
-  const financialBalance = speciesVA.data?.balance?.posted_balance
-    ? BigInt(speciesVA.data.balance.posted_balance)
-    : 0n;
   const possessionCount = vault.data?.specie_count ?? 0;
-  const expectedFinancial = BigInt(possessionCount) * 1_000_000n;
-  const isReconciled = financialBalance === expectedFinancial;
 
   return {
-    financialBalance,
     possessionCount,
-    isReconciled,
-    isLoading: speciesVA.isLoading || vault.isLoading,
-    error: speciesVA.error || vault.error,
+    isLoading: vault.isLoading,
+    error: vault.error,
   };
 }

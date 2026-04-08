@@ -74,26 +74,6 @@ export async function getFundingBalance(userRef = CURRENT_USER.ref): Promise<VAB
   }
 }
 
-export async function getSpeciesVABalance(userRef = CURRENT_USER.ref): Promise<VABalance | null> {
-  try {
-    const res = await simFetch(`${MARKETSB}/api/v1/virtual-accounts/va-species-${userRef}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const bal = data.balance || {};
-    return {
-      vaId: data.vaId,
-      posted: Number(bal.posted ?? data.posted ?? 0),
-      pending: Number(bal.pending ?? data.pending ?? 0),
-      available: Number(bal.available ?? bal.posted ?? 0),
-      currency: data.currency || 'USDC',
-      status: data.status || 'active',
-      subtype: data.subtype || 'species',
-    };
-  } catch {
-    return null;
-  }
-}
-
 export async function getAssuranceBalance(): Promise<{ balance: number; outstanding: number; coverage: number } | null> {
   try {
     // Balance: from MarketSB assurance accounts

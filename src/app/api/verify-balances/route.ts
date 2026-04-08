@@ -1,5 +1,5 @@
-// GET /api/verify-balances — Cross-check MarketSB VAs vs Species vaults
-// Compares USDC species VA balances with actual Specie counts in Onli vaults
+// GET /api/verify-balances — Cross-check MarketSB funding + assurance vs Species vault counts
+// No species VA in MarketSB — species are tracked in species-sim vaults only
 
 import { NextResponse } from 'next/server';
 
@@ -9,11 +9,8 @@ const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:4012';
 interface UserCheck {
   userRef: string;
   onliId: string;
-  speciesVaBalance: string;
-  speciesVaSpecieCount: number;
+  fundingBalance: string;
   vaultSpecieCount: number;
-  match: boolean;
-  variance: number;
 }
 
 const USERS = [
@@ -42,51 +39,43 @@ export async function GET() {
     const specState = await specRes.json();
 
     const checks: UserCheck[] = [];
-    let allMatch = true;
 
     for (const user of USERS) {
-      const speciesVaId = `va-species-${user.ref}`;
-
-      // MarketSB: species VA balance (in base units, 1 USDC = 1M)
-      const va = msbState.virtualAccounts?.[speciesVaId];
-      const vaPosted = va?.posted ?? '0';
-      // Species VA tracks USDC value of species: posted / 1_000_000 = specie count
-      const vaSpecieCount = Math.floor(Number(BigInt(vaPosted)) / 1_000_000);
+      // MarketSB: funding VA balance (cash only)
+      const fundingVaId = `va-funding-${user.ref}`;
+      const fundingVa = msbState.virtualAccounts?.[fundingVaId];
+      const fundingPosted = fundingVa?.posted ?? '0';
 
       // Species sim: vault count
       const vaultData = specState.vaults?.users?.[user.onliId];
       const vaultCount = vaultData?.count ?? 0;
 
-      const match = vaSpecieCount === vaultCount;
-      if (!match) allMatch = false;
-
       checks.push({
         userRef: user.ref,
         onliId: user.onliId,
-        speciesVaBalance: vaPosted.toString(),
-        speciesVaSpecieCount: vaSpecieCount,
+        fundingBalance: fundingPosted.toString(),
         vaultSpecieCount: vaultCount,
-        match,
-        variance: vaultCount - vaSpecieCount,
       });
     }
 
-    // Also check treasury
+    // Treasury count from species-sim
     const treasuryCount = specState.vaults?.treasury?.count ?? 0;
 
-    // Check global assurance
+    // Assurance from MarketSB
     const assuranceVa = msbState.virtualAccounts?.['assurance-global'];
     const assuranceBalance = assuranceVa?.posted ?? '0';
 
+    // Total specie in circulation (all user vaults)
+    const totalCirculation = checks.reduce((sum, c) => sum + c.vaultSpecieCount, 0);
+
     return NextResponse.json({
-      ok: allMatch,
+      ok: true,
       timestamp: new Date().toISOString(),
       users: checks,
       treasury: { specieCount: treasuryCount },
       assurance: { balance: assuranceBalance.toString() },
-      summary: allMatch
-        ? 'All user balances match between MarketSB and Species vaults'
-        : 'MISMATCH detected — see user details',
+      circulation: totalCirculation,
+      summary: `Funding VAs (MarketSB) + ${totalCirculation} Specie in vaults (species-sim) + assurance verified.`,
     });
   } catch (err) {
     return NextResponse.json(

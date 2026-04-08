@@ -32,7 +32,6 @@ export function getSystemPrompt(mode: string): string {
 
 Current user: Alex Morgan
 Funding VA: MSB-VA-500-0x8F3a...7B2c
-Species VA: va_species_001
 
 Important rules:
 - All amounts are in USDC (1 USDC = 1,000,000 base units)

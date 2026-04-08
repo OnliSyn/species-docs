@@ -43,7 +43,7 @@ export interface MatchResult {
 
 export interface OrderState {
   eventId: string;
-  intent: 'buy' | 'sell' | 'transfer';
+  intent: 'buy' | 'sell' | 'transfer' | 'redeem';
   quantity: number;
   status: 'accepted' | 'processing' | 'completed' | 'failed' | 'cancelled';
   currentStage: string;

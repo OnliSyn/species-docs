@@ -11,7 +11,6 @@ import { z } from 'zod/v4';
 import * as crypto from 'crypto';
 import {
   getFundingBalance,
-  getSpeciesVABalance,
   getVaultBalance,
   getAssuranceBalance,
   getOracleLedger,
@@ -270,22 +269,16 @@ async function getToolResult(message: string, mode: string): Promise<ToolResult 
   }
 
   if (lower.includes('species balance') || lower.includes('asset balance') || lower.includes('specie count')) {
-    const [specVA, vault] = await Promise.all([
-      getSpeciesVABalance(),
-      getVaultBalance(),
-    ]);
+    const vault = await getVaultBalance();
     const vaultCount = vault?.count ?? 0;
     return {
       toolName: 'get_asset_balance',
       data: {
         _ui: 'BalanceCard',
-        label: 'Species Account',
-        vaId: specVA?.vaId || 'va-species-user-001',
+        label: 'Species Vault',
+        vaultId: vault?.vaultId || `vault-${CURRENT_USER.onliId}`,
         subtype: 'species',
-        balance: { posted: specVA?.posted ?? 0, pending: specVA?.pending ?? 0, available: specVA?.posted ?? 0 },
-        currency: 'USDC',
-        status: specVA?.status || 'active',
-        vaultCount,
+        specieCount: vaultCount,
       },
       commentary: `Your Vault holds ${vaultCount.toLocaleString()} Specie.`,
     };
@@ -767,24 +760,16 @@ function buildTools() {
 
   const get_asset_balance = tool({
     description:
-      'Get the user\'s Species VA balance (Specie count in Onli Vault). Returns Specie quantity and vault info.',
+      'Get the user\'s Specie count from their Onli Vault (species-sim). Returns vault ID and count.',
     inputSchema: z.object({}),
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const [vaRes, vaultRes] = await Promise.all([
-          fetch('http://localhost:4001/api/v1/virtual-accounts/va-species-user-001'),
-          fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001'),
-        ]);
-        const va = await vaRes.json();
+        const vaultRes = await fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001');
         const vault = await vaultRes.json();
-        return { ...va, vaultCount: vault.count };
+        return { vaultId: vault.vaultId, specieCount: vault.count };
       } catch {
-        return {
-          vaId: 'va-species-user-001', subtype: 'species',
-          balance: { posted: 8500000000, pending: 0, available: 8500000000 },
-          currency: 'USDC', status: 'active', vaultCount: 8500,
-        };
+        return { vaultId: 'vault-onli-user-001', specieCount: 8500 };
       }
     },
   });
