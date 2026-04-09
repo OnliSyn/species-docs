@@ -26,7 +26,7 @@ const BLOG_POSTS: BlogPost[] = [
     excerpt: 'Traditional digital systems provide access. Onli provides possession. Understanding this distinction is the key to understanding why digital ownership has been impossible until now.',
     body: `Traditional digital systems are built around access. You log in, you get permission, you see your balance. But you never actually hold anything.\n\nOnli changes this. In Onli, ownership is based on possession. The asset resides in your Vault, bound to your Gene. You hold it. You control it. You can transfer it or destroy it.\n\nThis is not a minor distinction. It is the difference between holding a baseball card in your hand and having a line item in someone else's spreadsheet that says you own one.\n\nA ledger can describe ownership claims, but it cannot create singular digital reality. That is why Onli replaces ledgers with possession.\n\nThe three assertions that underpin any economic system — existence, allocation, and rights — all require an owner. Without an owner, allocation cannot be established, rights cannot be exercised, and obligations cannot be assigned.\n\nOnli enforces these assertions at the data level, making true digital ownership possible for the first time.\n\nConsider what happens when you send money today. Your bank decreases a number in its database and the receiving bank increases a number in theirs. Nothing physical moves. What you call ownership is really just a shared agreement between institutions to honor a ledger entry. If either institution fails, disputes the record, or freezes your account, your claim evaporates.\n\nOnli eliminates this dependency on institutional goodwill. The asset is in your Vault. Period. No intermediary can revoke what they never held.`,
     date: 'Apr 4, 2026',
-    readTime: '8 min read',
+    readTime: '4 min read',
     hero: true,
     image: '/images/blog-abstract-1.jpg',
   },
@@ -37,7 +37,7 @@ const BLOG_POSTS: BlogPost[] = [
     excerpt: 'A deep look at how Onli uses multi-dimensional data structures to create singular, evolving digital objects.',
     body: `A Genome is the underlying hyper-dimensional container structure that makes an asset possible in Onli. It should not be confused with the asset itself — the asset is what you talk about philosophically and commercially; the Genome is the technical substrate beneath it.\n\nGenomes are arranged using tensor-based structures. A tensor is a multi-dimensional data structure that generalizes scalars, vectors, and matrices into higher dimensions. Onli uses tensors because they support the structural model required for singular digital containers better than flat file metaphors.\n\nThe tensor model allows Onli to represent assets as structured multi-dimensional containers rather than flat files, preserve internal state and relationships in a richer way, and support evolutionary transfer logic rather than ordinary duplication logic.\n\nWhen an asset moves in Onli, the asset leaves one Vault and appears in another. The transfer is direct. The system does not rely on copying the asset and then updating a ledger to reflect a new owner. This is fundamentally different from how blockchains or traditional databases handle ownership.\n\nThe tensor approach also enables Genomes to carry their own history forward as they evolve. Every state transition — issuance, transfer, modification — is embedded within the container structure itself, creating a self-describing object that does not rely on an external ledger for provenance.`,
     date: 'Apr 2, 2026',
-    readTime: '12 min read',
+    readTime: '3 min read',
     image: '/images/blog-abstract-2.jpg',
   },
   {
@@ -47,7 +47,7 @@ const BLOG_POSTS: BlogPost[] = [
     excerpt: 'From submission to oracle verification, every stage of the pipeline is designed for speed and assurance.',
     body: `The Species Marketplace pipeline processes every transaction through nine distinct stages: Submit, Authenticate, Validate, Match, Stage Asset, Process Payment, Deliver to Vault, Oracle Verify, and Complete.\n\nEach stage is tracked in real-time. The pipeline is designed so that at every step, the system maintains full accountability of where the asset is, who controls it, and what state it is in.\n\nSettlement happens in under 100 milliseconds using an atomic double-entry settlement engine designed for instant finality.\n\nThe assurance model backs every transaction. The Buy Back Guarantee ensures that holders can always redeem at the guaranteed ratio, providing a floor of confidence that traditional digital asset systems cannot match.\n\nThe Oracle layer is central to this confidence. After every transaction completes, an immutable ledger entry is written to the Oracle. This entry records the exact state of the asset before and after settlement — who held it, where it moved, and what payments were made. This creates an auditable trail that neither party can dispute.\n\nUnlike traditional clearinghouses that reconcile at end-of-day, the Species pipeline reconciles at the moment of transaction. There is no settlement window and no counterparty risk during processing.`,
     date: 'Mar 28, 2026',
-    readTime: '6 min read',
+    readTime: '3 min read',
     image: '/images/blog-abstract-3.jpg',
   },
   {
@@ -57,7 +57,7 @@ const BLOG_POSTS: BlogPost[] = [
     excerpt: 'A model where data is held and exchanged as an owned asset rather than extracted and warehoused as platform inventory.',
     body: `In the current data economy, companies collect data, store copies of it, monetize access to it, and turn the user into the product.\n\nThe private-data economy envisioned by Onli is different. Data can exist as an owned asset. The owner controls access and use. Transfer and disclosure can be direct and intentional. Value can be created without relying on permanent third-party custody of copied data.\n\nThis is possible because Onli solves the Uniqueness-Quantification Problem: digital data is normally copyable at near-zero cost, which makes ordinary digital information excellent for communication but terrible for singular ownership.\n\nBy making the asset itself singular at the data level, Onli enables a model where data is held and exchanged as an owned asset rather than extracted and warehoused as a platform resource.\n\nThe implications extend far beyond personal privacy. Industries built on data licensing, content distribution, and credential verification can operate with direct asset exchange instead of access-permission models. A medical record, a diploma, a creative work — each can exist as a singular owned object that the holder controls and can selectively disclose without surrendering custody.`,
     date: 'Mar 22, 2026',
-    readTime: '5 min read',
+    readTime: '3 min read',
     image: '/images/blog-abstract-4.jpg',
   },
   {
@@ -67,7 +67,7 @@ const BLOG_POSTS: BlogPost[] = [
     excerpt: 'Step-by-step guide to creating applications that orchestrate asset interactions without taking possession.',
     body: `Appliances are applications built on Onli Cloud APIs. They are the interface layer that developers create to make the system usable in real-world workflows.\n\nAppliances can connect users to services, orchestrate transactions, enforce business logic, and request issuance, transfer, verification, or settlement actions. But Appliances do not possess the asset and cannot unilaterally move it.\n\nOnly the Owner, through the appropriate control path, can authorize movement of an owned asset. This is a fundamental design principle.\n\nTo get started, you need an Onli Cloud API key and a basic understanding of the asset lifecycle: issuance, transfer, and verification. The SDK provides typed clients for all operations, and the Species Marketplace API handles the full 9-stage pipeline for buy, sell, and transfer orders.\n\nThe separation between orchestration and possession is what makes Appliances fundamentally different from traditional applications. A conventional app stores your data in its database and gives you a view of it. An Appliance facilitates actions on assets that you hold in your own Vault. If the Appliance shuts down, your assets remain exactly where they are — in your possession.\n\nThis architecture means developers can build powerful services without assuming the liability and trust burden of holding user assets.`,
     date: 'Mar 18, 2026',
-    readTime: '10 min read',
+    readTime: '3 min read',
     image: '/images/blog-abstract-5.jpg',
   },
 ];
@@ -143,7 +143,7 @@ const TRADE_POSTS: BlogPost[] = [
     excerpt: 'Every transaction settles in under 100ms using atomic double-entry settlement. No batch processing. No delays.',
     body: `The Species Marketplace uses an atomic double-entry settlement engine for instant finality.\n\nEvery buy, sell, and transfer order flows through a 9-stage pipeline that tracks the asset from submission to Oracle verification. At each step, the system maintains full accountability.\n\nThe MarketSB cashier handles all USDC movements with integer arithmetic — no floating point, no rounding errors. Fees are calculated in base units and distributed atomically across up to 5 atomic transfers per transaction.`,
     date: 'Apr 6, 2026',
-    readTime: '4 min read',
+    readTime: '2 min read',
     hero: true,
     image: '/images/blog-abstract-4.jpg',
   },
@@ -154,7 +154,7 @@ const TRADE_POSTS: BlogPost[] = [
     excerpt: 'Every Specie sold is backed by the assurance pool. Holders can always redeem at the guaranteed ratio.',
     body: `The assurance model is designed so that every outstanding Specie is fully covered by the assurance balance.\n\nWhen you redeem, the MarketMaker pays 1:1 from the assurance pool, minus a 1% liquidity fee. This creates a floor of confidence that traditional digital asset markets cannot provide.\n\nThe coverage ratio is tracked in real-time and visible in the Assurance dashboard.`,
     date: 'Apr 3, 2026',
-    readTime: '3 min read',
+    readTime: '2 min read',
     image: '/images/blog-abstract-2.jpg',
   },
   {
@@ -164,7 +164,7 @@ const TRADE_POSTS: BlogPost[] = [
     excerpt: 'Buy and transfer are fee-free. Sell listings have no fee. Only redemption carries a 1% liquidity fee.',
     body: `The fee structure is simple: Buy from the marketplace — no fee. Transfer to a contact — no fee. List for sale — no fee (your Specie is escrowed until sold).\n\nRedemption through the MarketMaker carries a 1% liquidity fee, which goes to the assurance pool to maintain full coverage.\n\nAll fees are calculated in integer base units (1 USDC = 1,000,000 units) to ensure precision.`,
     date: 'Mar 30, 2026',
-    readTime: '3 min read',
+    readTime: '2 min read',
     image: '/images/blog-abstract-5.jpg',
   },
 ];
@@ -180,7 +180,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     excerpt: 'How Onli applies physical scarcity principles to digital containers, solving the fundamental copyability problem.',
     body: `Digital data is copyable at near-zero cost. This property makes it excellent for communication but terrible for ownership.\n\nOnli solves this by enforcing singularity at the data level. A Genome cannot be duplicated — it can only exist in one Vault at a time, bound to one Gene.\n\nThis paper explores why every previous attempt to create digital scarcity has failed at the fundamental level, and how Onli's approach differs by working at the asset layer rather than the permission or ledger layer.`,
     date: 'Mar 2026',
-    readTime: '18 min read',
+    readTime: '2 min read',
     hero: true,
     image: '/images/blog-abstract-3.jpg',
   },
@@ -191,7 +191,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     excerpt: 'The core problem Onli solves: making digital data behave as singular, ownable objects.',
     body: `The Uniqueness-Quantification Problem states that digital data, being copyable by nature, cannot serve as the basis for ownership unless singularity is enforced at the structural level.\n\nBlockchains attempted to solve this with consensus-based ledgers, but a ledger entry is a claim about ownership — not ownership itself.\n\nOnli solves UQP by making the container itself singular. The Genome is a tensor-based structure that cannot be duplicated, only transferred.`,
     date: 'Mar 2026',
-    readTime: '14 min read',
+    readTime: '2 min read',
     image: '/images/blog-abstract-1.jpg',
   },
   {
@@ -201,7 +201,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     excerpt: 'Technical specification for the multi-dimensional data structures that underpin Onli assets.',
     body: `A Genome is arranged using tensor-based structures — multi-dimensional data containers that generalize scalars, vectors, and matrices into higher dimensions.\n\nThis paper covers the mathematical foundations, the state evolution model, and the binding protocol between Genomes, Genes, and Vaults.`,
     date: 'Feb 2026',
-    readTime: '22 min read',
+    readTime: '2 min read',
     image: '/images/blog-abstract-5.jpg',
   },
   {
@@ -211,7 +211,7 @@ const DEVELOP_POSTS: BlogPost[] = [
     excerpt: 'Defining what it means to truly possess a digital asset vs holding a custodial claim.',
     body: `Actual possession means the asset resides in your Vault and is bound to your Gene. You hold it, control it, and can transfer or destroy it.\n\nCustodial possession means a third party holds the asset and gives you a ledger entry. Your rights depend on their honesty and solvency.\n\nThis paper formalizes the distinction and proves why actual possession is the only model compatible with true digital ownership.`,
     date: 'Feb 2026',
-    readTime: '12 min read',
+    readTime: '2 min read',
     image: '/images/blog-abstract-2.jpg',
   },
 ];

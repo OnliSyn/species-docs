@@ -152,11 +152,11 @@ const CANON_QA: CanonEntry[] = [
   },
   {
     keywords: ['what can you build', 'build with onli', 'use cases'],
-    answer: 'Onli can be used anywhere true digital ownership matters:\n\n- Digital credentials and licenses\n- Legal documents, titles, and deeds\n- Private identity data\n- Financial instruments\n- Branded currencies or commodities\n- AI-native data structures\n- Proprietary models and intellectual property\n- Controlled data exchange\n\n**The general rule:** if the digital thing needs to be owned, transferred, restricted, verified, or held in possession — Onli is the right model.',
+    answer: 'Onli can be used anywhere true digital ownership matters:\n\n- Digital credentials and licenses\n- Legal documents, titles, and deeds\n- Private identity data\n- Financial instruments\n- Branded currencies or commodities\n- AI-native data structures\n- Proprietary models and intellectual property\n- Controlled data exchange\n\n**The general rule:** if the digital thing needs to be owned, transferred, restricted, verified, or held in possession — Onli is the right model.\n\nVisit **https://onli.cloud/** to get started with developer access and documentation.',
   },
   {
     keywords: ['what are appliances', 'appliances'],
-    answer: '**Appliances** are applications built on Onli Cloud APIs.\n\nThey are the interface layer that developers create for real-world workflows. Appliances can:\n- Connect users to services\n- Orchestrate transactions\n- Enforce business logic\n- Request issuance, transfer, or settlement\n\nBut Appliances **do not possess the asset** and cannot unilaterally move it. Only the Owner, through the appropriate control path, can authorize movement.\n\n> Appliances orchestrate interactions but do not own or control the asset itself.',
+    answer: '**Appliances** are applications built on Onli Cloud APIs.\n\nThey are the interface layer that developers create for real-world workflows. Appliances can:\n- Connect users to services\n- Orchestrate transactions\n- Enforce business logic\n- Request issuance, transfer, or settlement\n\nBut Appliances **do not possess the asset** and cannot unilaterally move it. Only the Owner, through the appropriate control path, can authorize movement.\n\nTo get started building Appliances, visit **https://onli.cloud/** for developer registration and documentation.\n\n> Appliances orchestrate interactions but do not own or control the asset itself.',
   },
   {
     keywords: ['private-data economy', 'private data economy', 'data economy'],

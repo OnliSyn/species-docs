@@ -29,7 +29,13 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   cleaned = cleaned.replace(/([^\n])\n(\*\*[A-Z])/g, '$1\n\n$2');
   cleaned = cleaned.replace(/([^\n])\n(\d+\. )/g, '$1\n\n$2');
 
-  // Step 4: Clean up excessive blank lines
+  // Step 4: Strip bullet/number prefixes from list items (bold label + description)
+  // "- **Label** — desc" or "- **Label**: desc" → "\n**Label** — desc"
+  cleaned = cleaned.replace(/^[\t ]*[-*]\s+(\*\*.+)/gm, '$1');
+  // "1. **Label** — desc" → "\n**Label** — desc"
+  cleaned = cleaned.replace(/^[\t ]*\d+\.\s+(\*\*.+)/gm, '$1');
+
+  // Step 5: Clean up excessive blank lines
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
   return (
@@ -39,9 +45,9 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       components={{
         p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
         strong: ({ children }) => <span className="font-bold">{children}</span>,
-        ul: ({ children }) => <ul className="list-disc list-inside text-sm mb-2 space-y-1">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal list-inside text-sm mb-2 space-y-1">{children}</ol>,
-        li: ({ children }) => <li className="text-sm">{children}</li>,
+        ul: ({ children }) => <div className="text-sm mb-2 space-y-1">{children}</div>,
+        ol: ({ children }) => <div className="text-sm mb-2 space-y-1">{children}</div>,
+        li: ({ children }) => <div className="text-sm">{children}</div>,
         h1: ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
         h2: ({ children }) => <h2 className="text-sm font-bold mb-1">{children}</h2>,
         h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,

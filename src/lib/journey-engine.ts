@@ -614,9 +614,8 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
   const fromMarket = Math.min(quantity, availableOnMarket);
   const fromTreasury = quantity - fromMarket;
   const issuanceFee = fromTreasury * 0.05;
-  const liquidityFee = quantity * 0.01; // 1% of asset cost
   const cost = quantity * 1.00;
-  const total = cost + issuanceFee + liquidityFee;
+  const total = cost + issuanceFee;
 
   if (state.fundingBalance < total) {
     return `**Insufficient funds.** You need $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
@@ -629,7 +628,6 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
   if (fromTreasury > 0) {
     lines.push({ label: 'From Treasury', value: `${fromTreasury.toLocaleString()} @ $1.00` });
     lines.push({ label: 'Issuance Fee', value: `$${fmt(issuanceFee)}` });
-    lines.push({ label: 'Liquidity Fee (1%)', value: `$${fmt(liquidityFee)}` });
   }
   lines.push({ label: 'Asset Cost', value: `$${fmt(cost)}` });
   lines.push({ label: 'Total', value: `$${fmt(total)}`, bold: true });

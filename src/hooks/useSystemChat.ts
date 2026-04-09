@@ -60,6 +60,7 @@ export function useSystemChat(): UseSystemChatReturn {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const failCountRef = useRef(0);
+  const prevCardsJsonRef = useRef<string>('');
 
   const fetchCards = useCallback(async (mode: string) => {
     // Cancel any in-flight request
@@ -69,6 +70,7 @@ export function useSystemChat(): UseSystemChatReturn {
 
     const prompts = SYSTEM_PROMPTS[mode] || [];
     if (prompts.length === 0) {
+      prevCardsJsonRef.current = '[]';
       setCards([]);
       setIsLoading(false);
       return;
@@ -101,7 +103,11 @@ export function useSystemChat(): UseSystemChatReturn {
         prompt: prompts[i] || '',
       }));
 
-      setCards(newCards);
+      const newJson = JSON.stringify(newCards);
+      if (newJson !== prevCardsJsonRef.current) {
+        prevCardsJsonRef.current = newJson;
+        setCards(newCards);
+      }
       failCountRef.current = 0; // reset on success
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
