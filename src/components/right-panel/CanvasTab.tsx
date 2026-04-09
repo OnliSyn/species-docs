@@ -233,15 +233,13 @@ function TradeCanvas() {
     let cancelled = false;
     setLoading(true);
 
-    const url = activeTab === 'funding'
-      ? 'http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger'
-      : 'http://localhost:4012/oracle/ledger';
+    const url = `/api/oracle?type=${activeTab}&userRef=user-001`;
 
     fetch(url)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (cancelled) return;
-        const arr = Array.isArray(data) ? data : (data.entries || data.ledger || []);
+        const arr = Array.isArray(data) ? data : [];
         setEntries(arr.slice(0, 20));
         setLoading(false);
       })
@@ -255,13 +253,11 @@ function TradeCanvas() {
   // Poll for updates
   useEffect(() => {
     const interval = setInterval(() => {
-      const url = activeTab === 'funding'
-        ? 'http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger'
-        : 'http://localhost:4012/oracle/ledger';
+      const url = `/api/oracle?type=${activeTab}&userRef=user-001`;
       fetch(url)
         .then(r => r.ok ? r.json() : [])
         .then(data => {
-          const arr = Array.isArray(data) ? data : (data.entries || data.ledger || []);
+          const arr = Array.isArray(data) ? data : [];
           setEntries(arr.slice(0, 20));
         })
         .catch(() => {});

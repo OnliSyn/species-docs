@@ -89,14 +89,15 @@ export async function getBalanceSnapshot(
     specieCount = vault.count ?? 0;
   }
 
-  // Fetch assurance
-  const assRes = await fetch(`${MARKETSB}/api/v1/accounts/acc-sub-assurance/balance`, { method: 'POST' }).catch(() => null);
+  // Fetch assurance from the global assurance VA (not cashier-spec sub-account)
+  const assRes = await fetch(`${MARKETSB}/api/v1/virtual-accounts/assurance-global`).catch(() => null);
   let assuranceBalance = 0;
   let assuranceOutstanding = 0;
   if (assRes?.ok) {
     const ass = await assRes.json();
-    assuranceBalance = ass.posted ?? ass.posted_balance ?? 0;
-    assuranceOutstanding = ass.pending ?? 0;
+    const bal = ass.balance ?? ass;
+    assuranceBalance = bal.posted ?? bal.posted_balance ?? 0;
+    assuranceOutstanding = bal.pending ?? 0;
   }
 
   return { usdcPosted, usdcPending, specieCount, assuranceBalance, assuranceOutstanding };
