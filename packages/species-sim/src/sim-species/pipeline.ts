@@ -633,10 +633,10 @@ export async function runRedeemPipeline(
   const gross = order.quantity * 1.00;
   const sellerVaId = order.paymentSource?.vaId ?? 'va-funding-user-001';
   const sellerRef = sellerVaId.replace('va-funding-', '');
-  const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:4001';
 
   try {
-    const response = await fetch(`${MARKETSB}/api/v1/transactions/redeem`, {
+    // Use config.marketsbUrl which already includes /api/v1
+    const response = await fetch(`${config.marketsbUrl}/transactions/redeem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
