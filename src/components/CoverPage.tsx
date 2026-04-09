@@ -101,7 +101,7 @@ export function CoverPage({ onEnter }: CoverPageProps) {
       <div className="cover-inner relative w-full h-full bg-[#EFEFF2] border-4 border-white rounded-3xl shadow-[54px_84px_182px_rgba(209,209,209,0.1)] overflow-hidden">
 
         {/* Layer 0: p5.js sphere */}
-        <div ref={sphereRef} className="absolute inset-0 z-0 [&_canvas]:block [&_canvas]:!w-full [&_canvas]:!h-full" />
+        <div ref={sphereRef} className="absolute inset-0 z-0 pointer-events-none [&_canvas]:block [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:pointer-events-none" />
 
         {/* Layer 1: Sidebar cards */}
         <div className="absolute top-0 right-0 w-[300px] h-full p-6 flex flex-col gap-3 overflow-y-auto z-[1]">

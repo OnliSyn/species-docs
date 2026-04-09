@@ -22,20 +22,29 @@ export default function HomePage() {
 
     const inner = cover.querySelector('.cover-inner') as HTMLElement;
 
-    // Codrops-inspired transition: cover scales down with parallax
-    // inner content, revealing dashboard already in place underneath
-    const tl = gsap.timeline({
-      defaults: { duration: 1.1, ease: 'power2.inOut' },
-      onComplete: () => {
-        setShowCover(false);
-      },
-    });
+    // Safety fallback — if GSAP animation doesn't complete, force dismiss
+    const fallbackTimer = setTimeout(() => setShowCover(false), 1500);
 
-    tl.addLabel('start', 0)
-      // Cover container: scale down + fade out
-      .to(cover, { scale: 0.85, autoAlpha: 0, duration: 1.1 }, 'start')
-      // Inner content: counter-scale creates parallax depth
-      .to(inner, { scale: 1.3, duration: 1.1 }, 'start');
+    try {
+      // Codrops-inspired transition: cover scales down with parallax
+      // inner content, revealing dashboard already in place underneath
+      const tl = gsap.timeline({
+        defaults: { duration: 1.1, ease: 'power2.inOut' },
+        onComplete: () => {
+          clearTimeout(fallbackTimer);
+          setShowCover(false);
+        },
+      });
+
+      tl.addLabel('start', 0)
+        // Cover container: scale down + fade out
+        .to(cover, { scale: 0.85, opacity: 0, duration: 1.1 }, 'start')
+        // Inner content: counter-scale creates parallax depth
+        .to(inner, { scale: 1.3, duration: 1.1 }, 'start');
+    } catch {
+      clearTimeout(fallbackTimer);
+      setShowCover(false);
+    }
   }, []);
 
   return (
