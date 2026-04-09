@@ -16,6 +16,7 @@ export function matchOrder(
   state: SpeciesSimState,
   intent: 'buy' | 'sell' | 'transfer',
   quantity: number,
+  buyerOnliId?: string,
 ): MatchResult {
   if (intent === 'transfer') {
     // Transfers don't go through matching — direct P2P vault movement
@@ -32,8 +33,9 @@ export function matchOrder(
   let remaining = quantity;
 
   // Sort listings by creation time (oldest first — FIFO)
+  // Exclude buyer's own listings — you can't buy your own assets
   const activeListings = Array.from(state.listings.values())
-    .filter((l) => l.status === 'active' && l.remainingQuantity > 0)
+    .filter((l) => l.status === 'active' && l.remainingQuantity > 0 && l.sellerOnliId !== buyerOnliId)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   for (const listing of activeListings) {

@@ -136,7 +136,8 @@ export async function runBuyPipeline(
     failOrder(emit, order, 'order.matched', 'matching_failed');
     return;
   }
-  const matchResult = matchOrder(state, 'buy', order.quantity);
+  const buyerOnliId = order.buyerOnliId || vaIdToOnliId(order.paymentSource?.vaId);
+  const matchResult = matchOrder(state, 'buy', order.quantity, buyerOnliId);
   order.matches = matchResult.fills;
   emitStage(emit, order, 'order.matched', {
     fills: matchResult.fills,
@@ -152,13 +153,17 @@ export async function runBuyPipeline(
   }
 
   // For each fill, move Specie from source to Settlement
+  // - Treasury fills: move from treasury vault to settlement
+  // - Listing fills: species are ALREADY in settlement (escrowed by sell pipeline)
   for (const fill of matchResult.fills) {
-    const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
-    const result = changeOwner(state, source, 'settlement', fill.quantity, order.eventId);
-    if (!result.success) {
-      failOrder(emit, order, 'asset.staged', result.error ?? 'staging_failed');
-      return;
+    if (fill.counterparty === 'treasury') {
+      const result = changeOwner(state, 'treasury', 'settlement', fill.quantity, order.eventId);
+      if (!result.success) {
+        failOrder(emit, order, 'asset.staged', result.error ?? 'staging_failed');
+        return;
+      }
     }
+    // Listing fills: already escrowed in settlement — no move needed
   }
   emitStage(emit, order, 'asset.staged', { result: 'staged_in_settlement' });
 
@@ -247,8 +252,7 @@ export async function runBuyPipeline(
     return;
   }
 
-  // Determine buyer onliId from paymentSource vaId
-  const buyerOnliId = vaIdToOnliId(order.paymentSource?.vaId);
+  // Reuse buyerOnliId from matching stage
   ensureUserVault(state, buyerOnliId);
 
   const ownerResult = changeOwner(
@@ -543,27 +547,13 @@ export async function runSellPipeline(
     fees: order.fees,
   });
 
-  // Stage 8: ownership.changed — Settlement → Buyer (treasury for sell)
+  // Stage 8: ownership.changed — Species stay in settlement (escrowed for listing)
+  // They will be delivered to the buyer when someone matches this listing.
+  // No ChangeOwner here — species are already in settlement from stage 6.
   await delay(state.stageDelays.ownershipChanged);
-  if (state.errorInjections.get('ownership.changed')) {
-    state.errorInjections.delete('ownership.changed');
-    failOrder(emit, order, 'ownership.changed', 'ownership_change_failed');
-    return;
-  }
-
-  const deliverResult = changeOwner(
-    state,
-    'settlement',
-    'treasury', // sell: Specie goes back to treasury
-    order.quantity,
-    order.eventId,
-  );
-  if (!deliverResult.success) {
-    failOrder(emit, order, 'ownership.changed', deliverResult.error ?? 'delivery_failed');
-    return;
-  }
   emitStage(emit, order, 'ownership.changed', {
-    newOwner: 'treasury',
+    status: 'escrowed_for_listing',
+    listingId,
     count: order.quantity,
   });
 
@@ -690,15 +680,25 @@ export async function runRedeemPipeline(
     fees: order.fees,
   });
 
-  // Stage 7: ownership.changed — Settlement → Treasury (species returned)
+  // Stage 7: ownership.changed — Settlement stays as MarketMaker escrow
+  // MarketMaker relists the redeemed species on the marketplace
   await delay(state.stageDelays.ownershipChanged);
-  const deliverResult = changeOwner(state, 'settlement', 'treasury', order.quantity, order.eventId);
-  if (!deliverResult.success) {
-    failOrder(emit, order, 'ownership.changed', deliverResult.error ?? 'return_to_treasury_failed');
-    return;
-  }
+
+  // Create a listing from the MarketMaker for the redeemed species
+  const relistId = `listing-redeem-${order.eventId}`;
+  state.listings.set(relistId, {
+    listingId: relistId,
+    sellerOnliId: 'market-maker',
+    quantity: order.quantity,
+    remainingQuantity: order.quantity,
+    unitPrice: UNIT_PRICE,
+    status: 'active',
+    createdAt: now(),
+  });
+
   emitStage(emit, order, 'ownership.changed', {
-    newOwner: 'treasury',
+    status: 'relisted_by_market_maker',
+    listingId: relistId,
     count: order.quantity,
   });
 
