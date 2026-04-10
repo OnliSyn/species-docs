@@ -28,7 +28,7 @@ const INFO_CARDS: FeedCard[] = [
     title: 'Onli Symplr',
     body: 'Watch the introduction to Onli — what it is, how it works, and why it matters.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/744624297',
+    videoUrl: 'https://vimeo.com/onlistudio/usecase?fl=tl&fe=ec',
   },
   {
     id: 'onli-you-ad',
@@ -112,14 +112,26 @@ function VideoOverlay({ title, videoUrl, onClose }: { title: string; videoUrl: s
   } else if (videoUrl.includes('vimeo.com/showcase')) {
     embedUrl = videoUrl; // showcase URLs work in iframe
   } else if (videoUrl.includes('vimeo.com/')) {
-    // Handle both public (vimeo.com/ID) and private (vimeo.com/ID/HASH) URLs
+    // Handle numeric ID URLs: vimeo.com/ID or vimeo.com/ID/HASH
     const match = videoUrl.match(/vimeo\.com\/(\d+)(?:\/([a-f0-9]+))?/);
     if (match) {
       const id = match[1];
       const hash = match[2];
+      // Preserve query params (e.g. ?fl=tl&fe=ec)
+      const qIdx = videoUrl.indexOf('?');
+      const qs = qIdx !== -1 ? `&${videoUrl.slice(qIdx + 1)}` : '';
       embedUrl = hash
-        ? `https://player.vimeo.com/video/${id}?h=${hash}`
-        : `https://player.vimeo.com/video/${id}`;
+        ? `https://player.vimeo.com/video/${id}?h=${hash}${qs}`
+        : `https://player.vimeo.com/video/${id}${qs ? `?${qs.slice(1)}` : ''}`;
+    } else {
+      // Handle username/slug URLs (e.g. vimeo.com/onlistudio/usecase)
+      // These can be embedded via the Vimeo oEmbed-style player URL
+      const slugMatch = videoUrl.match(/vimeo\.com\/([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)/);
+      if (slugMatch) {
+        const qIdx = videoUrl.indexOf('?');
+        const qs = qIdx !== -1 ? `?${videoUrl.slice(qIdx + 1)}` : '';
+        embedUrl = `https://player.vimeo.com/${slugMatch[1]}${qs}`;
+      }
     }
   }
 
@@ -316,7 +328,7 @@ const TRADE_CARDS: FeedCard[] = [
     title: 'Species Trading',
     body: 'Watch how the marketplace pipeline works — from order submission to settlement.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/771885641',
+    videoUrl: 'https://vimeo.com/796891396?fl=tl&fe=ec',
   },
   {
     id: 'species-suite-ad',
@@ -362,7 +374,7 @@ const DEVELOP_CARDS: FeedCard[] = [
     title: 'Onli Architecture',
     body: 'Deep dive into Genomes, Vaults, and the possession model that powers Onli.',
     meta: { author: 'Onli' },
-    videoUrl: 'https://vimeo.com/771885641',
+    videoUrl: 'https://vimeo.com/onlistudio/usecase?fl=tl&fe=ec',
   },
 ];
 

@@ -28,6 +28,7 @@ export interface SpeciesSimState {
   listings?: Record<string, {
     status: string;
     remainingQuantity: number;
+    sellerOnliId?: string;
   }>;
 }
 
@@ -57,6 +58,8 @@ export interface AuditSnapshot {
   userVaults: Record<string, number>;
   assuranceBalance: number; // USDC base units
   listedSpecieCount: number;
+  marketMakerListedCount: number; // redeemed specie relisted by MarketMaker (pending assurance replenishment)
+  userListedCount: number; // user sell listings (already backed by assurance)
 }
 
 export interface AuditResult {
@@ -91,12 +94,20 @@ export function runAudit(
     }
   }
 
-  // Sum remaining quantity across all active listings
+  // Sum remaining quantity across all active listings, split by seller type
   let listedSpecieCount = 0;
+  let marketMakerListedCount = 0;
+  let userListedCount = 0;
   if (specState.listings) {
     for (const listing of Object.values(specState.listings)) {
       if (listing.status === 'active') {
-        listedSpecieCount += listing.remainingQuantity ?? 0;
+        const qty = listing.remainingQuantity ?? 0;
+        listedSpecieCount += qty;
+        if (listing.sellerOnliId === 'market-maker') {
+          marketMakerListedCount += qty;
+        } else {
+          userListedCount += qty;
+        }
       }
     }
   }
@@ -112,6 +123,8 @@ export function runAudit(
     userVaults,
     assuranceBalance,
     listedSpecieCount,
+    marketMakerListedCount,
+    userListedCount,
   };
 
   // --- Check 1: Specie Conservation ---
@@ -126,18 +139,23 @@ export function runAudit(
   });
 
   // --- Check 2: Assurance 1:1 Backing ---
-  // assurance_balance == (circulation + settlement) × USDC_PER_SPECIE
-  // All issued specie (user-held + escrowed for listings) must be backed $1 each.
-  // Treasury buys credit assurance, redeems debit it but relist via MarketMaker,
-  // and MarketMaker listing purchases replenish assurance.
-  const issuedCount = circulationCount + settlementCount;
-  const expectedAssurance = issuedCount * USDC_PER_SPECIE;
+  // assurance = (circulation + userListings) × $1
+  //
+  // MarketMaker listings are redeemed specie not yet resold — assurance already
+  // paid out $1/specie on redeem, so those are NOT currently backed. Assurance
+  // will be replenished when someone buys the MarketMaker listing.
+  //
+  // User listings are sell-escrowed specie that were originally bought from
+  // treasury — assurance still holds their $1 backing.
+  const backedCount = circulationCount + userListedCount;
+  const expectedAssurance = backedCount * USDC_PER_SPECIE;
   checks.push({
     name: 'Assurance 1:1 Backing',
     passed: assuranceBalance === expectedAssurance,
     expected: `${expectedAssurance}`,
     actual: `${assuranceBalance}`,
-    details: `${issuedCount} issued Specie (${circulationCount} circulating + ${settlementCount} escrowed) × $1 = $${(expectedAssurance / USDC_PER_SPECIE).toFixed(2)} expected, assurance holds $${(assuranceBalance / USDC_PER_SPECIE).toFixed(2)}`,
+    details: `${backedCount} backed Specie (${circulationCount} circulating + ${userListedCount} user-listed) × $1 = $${(expectedAssurance / USDC_PER_SPECIE).toFixed(2)}, assurance holds $${(assuranceBalance / USDC_PER_SPECIE).toFixed(2)}` +
+      (marketMakerListedCount > 0 ? `. ${marketMakerListedCount} MarketMaker-listed (pending replenishment).` : ''),
   });
 
   // --- Check 3: No Negative Balances ---
