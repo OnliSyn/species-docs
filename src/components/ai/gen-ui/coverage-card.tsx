@@ -8,8 +8,8 @@ type CoverageData = { balance: number; outstanding: number; coverage: number; _u
 
 function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
   const assuranceDollars = data.balance / 1_000_000; // base units → USDC
-  const circulationCount = data.outstanding; // already in Specie count (from species-sim vaults)
-  const ratio = circulationCount > 0 ? assuranceDollars / circulationCount : 0;
+  const circulationCount = data.outstanding; // Specie count held by users (not marketplace)
+  const ratio = assuranceDollars; // Hero shows total assurance pool, not per-specie ratio
   const pct = data.coverage;
   const color = pct >= 50 ? 'var(--color-accent-green)' : pct >= 25 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
   const label = pct >= 50 ? 'Healthy' : pct >= 25 ? 'Warning' : 'Critical';
@@ -30,11 +30,14 @@ function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
     const to = ratio;
     prevRatioRef.current = ratio;
 
+    const fmt = (v: number) => {
+      const w = Math.floor(v).toLocaleString('en-US');
+      const c = (v % 1).toFixed(2).slice(1);
+      return '$' + w + '<span class="text-[24px] text-[var(--color-text-secondary)]">' + c + '</span>';
+    };
+
     if (from === to) {
-      const w = Math.floor(to);
-      const c = (to % 1).toFixed(2).slice(1);
-      ratioRef.current.innerHTML =
-        '$' + w + '<span class="text-[24px] text-[var(--color-text-secondary)]">' + c + '</span>';
+      ratioRef.current.innerHTML = fmt(to);
       return;
     }
 
@@ -45,11 +48,7 @@ function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
       ease: 'power2.out',
       onUpdate: () => {
         if (ratioRef.current) {
-          const w = Math.floor(target.val);
-          const c = (target.val % 1).toFixed(2).slice(1);
-          ratioRef.current.innerHTML =
-            '$' + w +
-            '<span class="text-[24px] text-[var(--color-text-secondary)]">' + c + '</span>';
+          ratioRef.current.innerHTML = fmt(target.val);
         }
       },
     });

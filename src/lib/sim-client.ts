@@ -90,7 +90,7 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
       }
     }
 
-    // Circulation: from Species sim — total Specie held by all users (not treasury)
+    // Circulation: from Species sim — total Specie held by all users (not treasury, not settlement)
     let circulation = 0;
     try {
       const specStateRes = await simFetch(`${SPECIES}/sim/state`);
@@ -98,7 +98,6 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
         const specState = await specStateRes.json();
         const users = specState.vaults?.users;
         if (users) {
-          // users is a Map serialized as object or array of entries
           if (users instanceof Object) {
             for (const [uid, vault] of Object.entries(users)) {
               if (uid !== 'treasury') {
@@ -110,7 +109,9 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
       }
     } catch { /* species sim unavailable — use 0 */ }
 
-    const coverage = circulation > 0 ? Math.round((totalAssurance / circulation) * 100) : 100;
+    // Coverage: assurance dollars per specie in circulation. Convert base units to USDC.
+    const assuranceDollars = totalAssurance / 1_000_000;
+    const coverage = circulation > 0 ? Math.round((assuranceDollars / circulation) * 100) : 100;
     return { balance: totalAssurance, outstanding: circulation, coverage };
   } catch {
     return null;
