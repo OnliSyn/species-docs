@@ -191,7 +191,7 @@ export async function runBuyPipeline(
       buyerVaId,
       sellerVaId: MARKETSB_TREASURY_VA_ID,
       unitPrice: UNIT_PRICE,
-      fees: { issuance: true, liquidity: true, listing: false },
+      fees: { issuance: true, liquidity: false, listing: false },
     };
 
     const response = await fetch(`${config.marketsbUrl}/cashier/post-batch`, {

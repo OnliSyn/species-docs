@@ -32,6 +32,7 @@ import {
 // Species-sim pipeline helper — single entry point for buy/sell/transfer/redeem
 // ---------------------------------------------------------------------------
 const SPECIES_SIM = process.env.SPECIES_URL || 'http://localhost:4012';
+const MARKETSB_SIM = process.env.MARKETSB_URL || 'http://localhost:4001';
 
 interface PipelineResult {
   ok: boolean;
@@ -118,6 +119,29 @@ async function submitPipeline(payload: {
       }
     } catch {
       // Receipt fetch optional
+    }
+  }
+
+  // 4. Post-transaction audit — verify market invariants after every completed transaction
+  if (status === 'completed') {
+    try {
+      const [msbRes, specRes] = await Promise.all([
+        fetch(`${MARKETSB_SIM}/sim/state`),
+        fetch(`${SPECIES_SIM}/sim/state`),
+      ]);
+      if (msbRes.ok && specRes.ok) {
+        const { runAudit } = await import('@/lib/audit');
+        const auditResult = runAudit(await specRes.json(), await msbRes.json());
+        if (!auditResult.ok) {
+          const failures = auditResult.checks.filter(c => !c.passed);
+          console.error(`[AUDIT VIOLATION] after ${payload.intent} (${eventId}):`);
+          for (const f of failures) {
+            console.error(`  [FAIL] ${f.name}: expected ${f.expected}, got ${f.actual} — ${f.details ?? ''}`);
+          }
+        }
+      }
+    } catch {
+      // Audit fetch is non-blocking — don't fail the transaction
     }
   }
 

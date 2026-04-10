@@ -126,14 +126,18 @@ export function runAudit(
   });
 
   // --- Check 2: Assurance 1:1 Backing ---
-  // assurance_balance == circulation × USDC_PER_SPECIE
-  const expectedAssurance = circulationCount * USDC_PER_SPECIE;
+  // assurance_balance == (circulation + settlement) × USDC_PER_SPECIE
+  // All issued specie (user-held + escrowed for listings) must be backed $1 each.
+  // Treasury buys credit assurance, redeems debit it but relist via MarketMaker,
+  // and MarketMaker listing purchases replenish assurance.
+  const issuedCount = circulationCount + settlementCount;
+  const expectedAssurance = issuedCount * USDC_PER_SPECIE;
   checks.push({
     name: 'Assurance 1:1 Backing',
     passed: assuranceBalance === expectedAssurance,
     expected: `${expectedAssurance}`,
     actual: `${assuranceBalance}`,
-    details: `${circulationCount} Specie × $1 = $${(expectedAssurance / USDC_PER_SPECIE).toFixed(2)} expected, assurance holds $${(assuranceBalance / USDC_PER_SPECIE).toFixed(2)}`,
+    details: `${issuedCount} issued Specie (${circulationCount} circulating + ${settlementCount} escrowed) × $1 = $${(expectedAssurance / USDC_PER_SPECIE).toFixed(2)} expected, assurance holds $${(assuranceBalance / USDC_PER_SPECIE).toFixed(2)}`,
   });
 
   // --- Check 3: No Negative Balances ---
