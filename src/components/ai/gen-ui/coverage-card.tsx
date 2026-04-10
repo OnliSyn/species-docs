@@ -8,8 +8,8 @@ type CoverageData = { balance: number; outstanding: number; coverage: number; _u
 
 function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
   const assuranceDollars = data.balance / 1_000_000; // base units → USDC
-  const circulationCount = data.outstanding; // Specie count held by users (not marketplace)
-  const ratio = assuranceDollars; // Hero shows total assurance pool, not per-specie ratio
+  const outstandingCount = data.outstanding; // all issued specie (user-held + listed) that assurance backs
+  const ratio = outstandingCount > 0 ? assuranceDollars / outstandingCount : 0; // per-specie backing rate (should be $1.00)
   const pct = data.coverage;
   const color = pct >= 50 ? 'var(--color-accent-green)' : pct >= 25 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
   const label = pct >= 50 ? 'Healthy' : pct >= 25 ? 'Warning' : 'Critical';
@@ -87,7 +87,7 @@ function CoverageCardUI({ data }: GenUIProps<CoverageData>) {
         <div className="flex justify-between">
           <span className="text-[var(--color-text-secondary)]">Circulation</span>
           <span className="font-semibold">
-            {circulationCount.toLocaleString('en-US')} SPECIES
+            {outstandingCount.toLocaleString('en-US')} SPECIES
           </span>
         </div>
       </div>
