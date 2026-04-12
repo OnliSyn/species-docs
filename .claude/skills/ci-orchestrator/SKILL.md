@@ -16,6 +16,16 @@ If tests fail, the push is blocked. No exceptions. No `--no-verify`.
 
 ## Pipeline Stages
 
+### Stage 0: Code Review
+Invoke `/code-review` skill:
+1. Collect staged diff + identify boundary files
+2. Run 6 domain checks (floating-point money, fee formulas, API shapes, mode isolation, audit gaps, regression patterns)
+3. Auto-fix simple violations, re-stage fixed files
+4. Generate report to `tests/reports/review-report-{timestamp}.md`
+
+If status is `BLOCKED` → STOP pipeline. Report unfixable violations to user.
+If status is `PASS` or `FIXED` → continue to Stage 1.
+
 ### Stage 1: Pre-flight
 ```bash
 npm run build
@@ -61,12 +71,16 @@ fly deploy
 
 | Agent | Skill | Purpose |
 |-------|-------|---------|
+| QA Engineer | `/code-review` | Pre-commit domain rule verification |
 | Test Runner | `/test-runner` | Execute tests, classify failures |
 | Test Debugger | `/test-debugger` | Diagnose and fix failures |
 | UI Agent | (general-purpose) | UI fixes, panel work, visual polish |
 
 ## Decision Tree
 ```
+code review passes?
+  BLOCKED → report violations, STOP
+  PASS/FIXED ↓
 build passes?
   NO → fix compilation errors → retry
   YES ↓
