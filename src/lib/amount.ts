@@ -52,8 +52,8 @@ export function baseUnitsToSpecie(baseUnits: bigint): number {
 /** Fee preview (display only -- actual fees computed by MarketSB) */
 export function previewBuyFees(quantity: number) {
   const cost = BigInt(quantity) * SPECIE_PRICE;
-  const issuanceFee = BigInt(quantity) * 10_000n;
-  const liquidityFee = (cost * 2n) / 100n;
+  const issuanceFee = BigInt(quantity) * 50_000n;
+  const liquidityFee = (cost * 1n) / 100n;
   return {
     assetCost: cost,
     issuanceFee,

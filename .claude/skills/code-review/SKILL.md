@@ -46,11 +46,12 @@ Search the diff for these patterns in files that handle money (any file importin
 Search the diff for fee calculations and verify they match the canonical formulas:
 
 **Canonical formulas (from `src/lib/amount.ts`):**
-- Issuance fee: `quantity * 10_000n` (exactly $0.01 per Specie)
-- Liquidity fee (buy): `(assetCost * 2n) / 100n` (2% of asset cost)
-- Liquidity fee (sell): `(grossProceeds * 2n) / 100n` (2% of gross proceeds)
+- Issuance fee: `quantity * 50_000n` (exactly $0.05 per Specie)
+- Liquidity fee (buy): `(assetCost * 1n) / 100n` (1% of asset cost)
+- Liquidity fee (redeem): `gross * 0.01` (1% of gross proceeds)
+- Sell (list): no fees
 - Total buy cost: `assetCost + issuanceFee + liquidityFee`
-- Net sell proceeds: `grossProceeds - liquidityFee`
+- Net redeem proceeds: `gross - liquidityFee`
 
 **Detection:** Any arithmetic on variables named `fee`, `issuance`, `liquidity`, `cost`, `proceeds` that doesn't match these formulas.
 

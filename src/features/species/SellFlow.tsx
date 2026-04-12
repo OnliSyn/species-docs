@@ -16,9 +16,7 @@ export function SellFlow({ quantity, onComplete, onCancel }: SellFlowProps) {
   const { orderState, startOrder, cancelOrder, resetOrder } = useOrderFlow();
   const [confirmStatus, setConfirmStatus] = useState<'pending' | 'confirmed' | 'cancelled'>('pending');
 
-  const proceeds = BigInt(quantity) * USDC_SCALE;
-  const liquidityFee = (proceeds * 2n) / 100n;
-  const netProceeds = proceeds - liquidityFee;
+  const listingValue = BigInt(quantity) * USDC_SCALE;
 
   const handleConfirm = () => {
     setConfirmStatus('confirmed');
@@ -38,7 +36,7 @@ export function SellFlow({ quantity, onComplete, onCancel }: SellFlowProps) {
         <div className="text-center p-4">
           <p className="text-sm font-semibold text-[var(--color-accent-green)]">Sell Complete!</p>
           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-            {quantity} SPECIES sold for {formatUsdcDisplay(netProceeds)}
+            {quantity} SPECIES listed for {formatUsdcDisplay(listingValue)}
           </p>
           <button
             onClick={() => { resetOrder(); onComplete(); }}
@@ -60,10 +58,8 @@ export function SellFlow({ quantity, onComplete, onCancel }: SellFlowProps) {
       title={`Sell ${quantity.toLocaleString()} SPECIES`}
       lines={[
         { label: 'Quantity', value: `${quantity.toLocaleString()} SPECIES` },
-        { label: 'Unit Price', value: '$1.00' },
-        { label: 'Gross Proceeds', value: formatUsdcDisplay(proceeds) },
-        { label: 'Liquidity Fee (2%)', value: `-${formatUsdcDisplay(liquidityFee)}` },
-        { label: 'Net Proceeds', value: formatUsdcDisplay(netProceeds) },
+        { label: 'Listing Price', value: `${formatUsdcDisplay(listingValue)} ($1.00/Specie)` },
+        { label: 'Fees', value: 'None' },
       ]}
       system="asset"
       status={confirmStatus === 'pending' ? 'pending' : confirmStatus === 'confirmed' ? 'confirmed' : 'cancelled'}

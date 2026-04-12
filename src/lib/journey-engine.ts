@@ -639,7 +639,8 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
   const fromTreasury = quantity - fromMarket;
   const issuanceFee = fromTreasury * 0.05;
   const cost = quantity * 1.00;
-  const total = cost + issuanceFee;
+  const liquidityFee = cost * 0.01;
+  const total = cost + issuanceFee + liquidityFee;
 
   if (state.fundingBalance < total) {
     return `**Insufficient funds.** You need $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
@@ -653,6 +654,7 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
     lines.push({ label: 'From Treasury', value: `${fromTreasury.toLocaleString()} @ $1.00` });
     lines.push({ label: 'Issuance Fee', value: `$${fmt(issuanceFee)}` });
   }
+  lines.push({ label: 'Liquidity Fee (1%)', value: `$${fmt(liquidityFee)}` });
   lines.push({ label: 'Asset Cost', value: `$${fmt(cost)}` });
   lines.push({ label: 'Total', value: `$${fmt(total)}`, bold: true });
 
@@ -696,8 +698,9 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
   const totalCost = Number(receipt.totalCost || 0);
   const fees = (receipt.fees as any) || { issuance: 0, liquidity: 0, listing: 0 };
   const issuanceFee = Number(fees.issuance || 0) / 1_000_000;
+  const liquidityFee = Number(fees.liquidity || 0) / 1_000_000;
   const cost = quantity * 1.00;
-  const total = cost + issuanceFee;
+  const total = cost + issuanceFee + liquidityFee;
 
   const state = await getLiveState();
 
@@ -710,7 +713,7 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
       eventId: result.eventId,
       batchId: receipt.tbBatchId || null,
       stages: mapPipelineStages(result.stages, false),
-      receipt: { quantity, cost: `$${fmt(cost)}`, fees: `$${fmt(issuanceFee)}`, total: `$${fmt(total)}`, assurance: `$${fmt(cost)}` },
+      receipt: { quantity, cost: `$${fmt(cost)}`, fees: `$${fmt(issuanceFee + liquidityFee)}`, total: `$${fmt(total)}`, assurance: `$${fmt(cost)}` },
       balances: { funding: `$${fmt(state.fundingBalance)}`, species: `${state.specieCount.toLocaleString()} SPECIES` },
     },
     followUp: `Order complete! You bought ${quantity.toLocaleString()} SPECIES for $${fmt(total)}.`,

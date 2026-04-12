@@ -124,11 +124,12 @@ These are the specific rules the reviewer enforces, derived from the current cod
 - `baseUnitsToSpecie()` returns Number (acceptable for integer counts only)
 
 ### Fee Formulas
-- Issuance fee: `quantity * 10_000n` ($0.01 per Specie)
-- Liquidity fee (buy): `(assetCost * 2n) / 100n` (2% of cost)
-- Liquidity fee (sell): `(grossProceeds * 2n) / 100n` (2% of proceeds)
+- Issuance fee: `quantity * 50_000n` ($0.05 per Specie)
+- Liquidity fee (buy): `(assetCost * 1n) / 100n` (1% of cost)
+- Liquidity fee (redeem): `gross * 0.01` (1% of gross proceeds)
+- Sell (list): no fees
 - Total buy cost: `assetCost + issuanceFee + liquidityFee`
-- Net sell proceeds: `grossProceeds - liquidityFee`
+- Net redeem proceeds: `gross - liquidityFee`
 
 ### API Shape Contracts
 - MarketSB `posted_balance`: string (must `BigInt()` before arithmetic)
