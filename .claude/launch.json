@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "onli-synth",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "port": 3000,
+      "cwd": "/Users/syn/DevStudio/Onliai",
       "env": {
         "PATH": "/opt/homebrew/opt/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
       }
