@@ -34,7 +34,7 @@ describe('IDEMP — Idempotency Tests', () => {
     const afterSecond = await getBalanceSnapshot();
 
     // Clean seed: treasury buy — $1.06/Specie (includes $0.05 issuance + $0.01 liquidity fee)
-    const costPerBuy = 100 * 1_060_000; // $106 per 100 Specie
+    const costPerBuy = 100 * 1_050_000; // $105 per 100 Specie (no liquidity on buy)
 
     const firstDelta = afterFirst.usdcPosted - before.usdcPosted;
     const secondDelta = afterSecond.usdcPosted - afterFirst.usdcPosted;

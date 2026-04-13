@@ -505,14 +505,23 @@ export function detectJourneyState(messages: Message[]): JourneyState {
   const transferContextActive = askedWhoAndHowMany || allContext.includes('who and how many') ||
     lastAssistantLower.includes('who would you like to transfer') || lastAssistantLower.includes('your contacts');
   if (transferContextActive) {
-    const transferMatch = lastUserText.match(/(.+?)\s+(\d+)/i);
-    if (transferMatch) {
-      const recipient = transferMatch[1].trim();
-      const qty = parseInt(transferMatch[2]);
+    // Try "name number" format: "pepper potts 100", "tony 5000"
+    const nameFirstMatch = lastUserText.match(/^([a-zA-Z\s]+?)\s+(\d[\d,]*)\s*$/i);
+    if (nameFirstMatch) {
+      const recipient = nameFirstMatch[1].trim();
+      const qty = parseInt(nameFirstMatch[2].replace(/,/g, ''));
       return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
     }
 
-    const knownContacts = ['pepper', 'pepper potts', 'tony', 'tony stark', 'happy', 'happy hogan'];
+    // Try "number name" format: "5000 tony stark", "100 pepper"
+    const numFirstMatch = lastUserText.match(/^(\d[\d,]*)\s+([a-zA-Z\s]+?)\s*$/i);
+    if (numFirstMatch) {
+      const qty = parseInt(numFirstMatch[1].replace(/,/g, ''));
+      const recipient = numFirstMatch[2].trim();
+      return { phase: 'confirm', journey: 'transfer', quantity: qty, recipient };
+    }
+
+    const knownContacts = ['pepper', 'pepper potts', 'tony', 'tony stark', 'happy', 'happy hogan', 'steve', 'steve rogers', 'natasha', 'natasha romanoff'];
     const isContactName = knownContacts.some(c => lastUserLower.includes(c));
     if (isContactName) {
       let ctxQty = 0;
@@ -639,8 +648,8 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
   const fromTreasury = quantity - fromMarket;
   const issuanceFee = fromTreasury * 0.05;
   const cost = quantity * 1.00;
-  const liquidityFee = cost * 0.01;
-  const total = cost + issuanceFee + liquidityFee;
+  // No liquidity fee on buy — liquidity fee ONLY applies to redeem
+  const total = cost + issuanceFee;
 
   if (state.fundingBalance < total) {
     return `**Insufficient funds.** You need $${fmt(total)} but your Funding Account has $${fmt(state.fundingBalance)}.\n\nUse **Fund** to deposit USDC first.`;
@@ -652,9 +661,8 @@ export async function buyConfirm(quantity: number): Promise<JourneyResponse | st
   }
   if (fromTreasury > 0) {
     lines.push({ label: 'From Treasury', value: `${fromTreasury.toLocaleString()} @ $1.00` });
-    lines.push({ label: 'Issuance Fee', value: `$${fmt(issuanceFee)}` });
+    lines.push({ label: 'Issuance Fee ($0.05/Specie)', value: `$${fmt(issuanceFee)}` });
   }
-  lines.push({ label: 'Liquidity Fee (1%)', value: `$${fmt(liquidityFee)}` });
   lines.push({ label: 'Asset Cost', value: `$${fmt(cost)}` });
   lines.push({ label: 'Total', value: `$${fmt(total)}`, bold: true });
 

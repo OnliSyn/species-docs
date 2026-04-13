@@ -26,9 +26,10 @@ describe('TRD-BUY — Buy Journey', () => {
     const after = await getBalanceSnapshot();
 
     // Clean seed: all buys from treasury (no marketplace listings)
-    // Treasury buy: $1.00/Specie + $0.05 issuance + $0.01 liquidity (1%) = $1.06/Specie
-    // 100 Specie × $1.06 = $106 = 106,000,000 base units
-    const costPerSpecie = 1_000_000 + 50_000 + 10_000; // $1.00 + $0.05 issuance + $0.01 liquidity
+    // Treasury buy: $1.00/Specie + $0.05 issuance = $1.05/Specie
+    // No liquidity fee on buy (only on redeem)
+    // 100 Specie × $1.05 = $105 = 105,000,000 base units
+    const costPerSpecie = 1_000_000 + 50_000; // $1.00 + $0.05 issuance
     assertBalanceDelta(before, after, {
       usdcPosted: -(quantity * costPerSpecie),
       specieCount: quantity,
@@ -44,7 +45,7 @@ describe('TRD-BUY — Buy Journey', () => {
     const after = await getBalanceSnapshot();
     const usdcDelta = before.usdcPosted - after.usdcPosted;
 
-    // 1000 × ($1.00 + $0.05 + $0.01) = $1,060 = 1,060,000,000 base units
-    expect(usdcDelta).toBe(quantity * 1_060_000);
+    // 1000 × ($1.00 + $0.05) = $1,050 = 1,050,000,000 base units (no liquidity fee on buy)
+    expect(usdcDelta).toBe(quantity * 1_050_000);
   });
 });
