@@ -111,12 +111,11 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
       }
     } catch { /* species sim unavailable — use 0 */ }
 
-    // Outstanding = all issued specie that assurance must back
-    const outstanding = circulation + settlement;
-    // Coverage: assurance dollars per outstanding specie. Convert base units to USDC.
+    // Circulation = species in user vaults (what assurance backs)
+    // Settlement/MarketMaker listed species are NOT backed by assurance
     const assuranceDollars = totalAssurance / 1_000_000;
-    const coverage = outstanding > 0 ? Math.round((assuranceDollars / outstanding) * 100) : 100;
-    return { balance: totalAssurance, outstanding, coverage };
+    const coverage = circulation > 0 ? Math.round((assuranceDollars / circulation) * 100) : 100;
+    return { balance: totalAssurance, outstanding: circulation, coverage };
   } catch {
     return null;
   }
