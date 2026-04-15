@@ -27,3 +27,5 @@ dist-ssr
 tsconfig.tsbuildinfo
 .superpowers/
 .vercel
+playwright-report
+test-results

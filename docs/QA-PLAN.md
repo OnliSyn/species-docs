@@ -6,9 +6,9 @@ Three systems behind one AI orchestrator (Synth):
 
 | System | Owns | Sim Port |
 |--------|------|----------|
-| **MarketSB** | USDC balances, deposits, withdrawals, cashier settlement | :4001 |
-| **Species Marketplace** | Buy/sell matching, listings, fees, marketplace stats | :4012 |
-| **Onli Cloud (sim)** | Vaults, ChangeOwner, possession, asset delivery | :4012 |
+| **MarketSB** | USDC balances, deposits, withdrawals, cashier settlement | :3101 |
+| **Species Marketplace** | Buy/sell matching, listings, fees, marketplace stats | :3102 |
+| **Onli Cloud (sim)** | Vaults, ChangeOwner, possession, asset delivery | :3102 |
 | **Synth (AI)** | Intent parsing, journey orchestration, mode enforcement | :3000 |
 
 Authorization layer: **Onli You** (simulated — indicated but not enforced in playground).

@@ -163,6 +163,8 @@ export function CoverPage({ onEnter }: CoverPageProps) {
             Welcome to Specie
           </h1>
           <button
+            type="button"
+            data-testid="cover-enter"
             onClick={() => {
               destroySketch();
               onEnter();

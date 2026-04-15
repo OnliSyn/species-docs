@@ -22,6 +22,8 @@ import {
   CURRENT_USER,
 } from '@/lib/sim-client';
 import { getSystemPrompt, FULL_CANON } from '@/lib/system-prompts';
+
+const MARKETSB_ORIGIN = process.env.MARKETSB_URL || 'http://localhost:3101';
 import {
   detectJourneyState,
   getLiveState,
@@ -745,7 +747,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/virtual-accounts/va-funding-user-001');
+        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/virtual-accounts/va-funding-user-001`);
         const data = await res.json();
         return data;
       } catch {
@@ -765,7 +767,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const vaultRes = await fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001');
+        const vaultRes = await fetch('http://localhost:3102/marketplace/v1/vault/onli-user-001');
         const vault = await vaultRes.json();
         return { vaultId: vault.vaultId, specieCount: vault.count };
       } catch {
@@ -781,7 +783,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/virtual-accounts/va-assurance-user-001');
+        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/virtual-accounts/va-assurance-user-001`);
         const data = await res.json();
         const balance = data.balance?.available || data.balance?.posted || 0;
         const outstanding = 1000000000000;
@@ -802,7 +804,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async ({ limit }: { limit?: number }) => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger');
+        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger`);
         if (res.ok) {
           const ledger = await res.json();
           return (Array.isArray(ledger) ? ledger : ledger.events || []).slice(0, limit || 5);
@@ -827,7 +829,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async ({ deposit_id }: { deposit_id?: string }) => {
       try {
-        const res = await fetch(`http://localhost:4001/api/v1/deposits/${deposit_id || 'dep-001'}`);
+        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/deposits/${deposit_id || 'dep-001'}`);
         return await res.json();
       } catch {
         return {
@@ -852,7 +854,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4012/marketplace/v1/stats');
+        const res = await fetch('http://localhost:3102/marketplace/v1/stats');
         return await res.json();
       } catch {
         return {

@@ -23,7 +23,7 @@
 
 ## Input/Output Protocol
 
-**Input:** 3-project spec의 P2 섹션, MarketSB sim URL (http://localhost:4001)
+**Input:** 3-project spec의 P2 섹션, MarketSB sim URL (http://localhost:3101)
 **Output:** `packages/species-sim/` 하위 모든 TypeScript 파일
 
 ## Error Handling

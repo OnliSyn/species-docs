@@ -10,7 +10,7 @@ import {
   waitForHealth,
 } from '../../helpers/sim-control';
 
-const MARKETSB = 'http://localhost:4001';
+const MARKETSB = 'http://localhost:3101';
 
 describe('CASHIER — Cash Only (no species VAs)', () => {
   beforeEach(async () => {

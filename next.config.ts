@@ -14,11 +14,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://localhost:4001/api/v1/:path*',
+        destination: 'http://localhost:3101/api/v1/:path*',
       },
       {
         source: '/marketplace/v1/:path*',
-        destination: 'http://localhost:4012/marketplace/v1/:path*',
+        destination: 'http://localhost:3102/marketplace/v1/:path*',
       },
     ];
   },

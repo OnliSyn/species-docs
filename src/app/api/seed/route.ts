@@ -1,10 +1,10 @@
 // POST /api/seed — Reset both sims to their seeded state
-// Calls POST /sim/reset on MarketSB (4001) and Species (4002)
+// Calls POST /sim/reset on MarketSB (3101) and Species (3102)
 
 import { NextResponse } from 'next/server';
 
-const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:4001';
-const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:4012';
+const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:3101';
+const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:3102';
 
 export async function POST() {
   const results: Record<string, unknown> = {};

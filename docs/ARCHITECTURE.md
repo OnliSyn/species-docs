@@ -14,7 +14,7 @@
 |                                                          |
 |  +-----------------+  +---------------+  +-------------+ |
 |  | Next.js App     |  | MarketSB Sim  |  | Species Sim | |
-|  | :8080           |  | :4001         |  | :4012       | |
+|  | :8080           |  | :3101         |  | :3102       | |
 |  +-----------------+  +---------------+  +-------------+ |
 |        |                    ^                  ^          |
 |        |  HTTP calls        |   HTTP calls     |          |
@@ -93,14 +93,14 @@
   |
   |  5. executes against Species Sim
   v
- Species Sim (:4012)
+ Species Sim (:3102)
   |  9-stage pipeline
   |  WebSocket stage events
   |
   |  6. calls MarketSB cashier
   |     for payment settlement
   v
- MarketSB Sim (:4001)
+ MarketSB Sim (:3101)
   |  Cashier engine
   |  Oracle log
   |
@@ -126,7 +126,7 @@
 
 ## 4. Sim Architecture
 
-### 4.1 MarketSB Sim (:4001)
+### 4.1 MarketSB Sim (:3101)
 
 Simulates MarketSB-USDC banking infrastructure with TigerBeetle-style virtual accounts.
 
@@ -161,7 +161,7 @@ MarketSB Sim
 - No floating-point arithmetic anywhere in the money path.
 - Idempotency keys on all mutating operations.
 
-### 4.2 Species Sim (:4012)
+### 4.2 Species Sim (:3102)
 
 Simulates the Species Marketplace and Onli Cloud (Vault, ChangeOwner, AskToMove).
 
@@ -198,7 +198,7 @@ Species Sim
         |
         |  HTTP -> MarketSB Cashier
         v
-   MarketSB Sim (:4001)
+   MarketSB Sim (:3101)
 ```
 
 ### 4.3 Inter-Sim Communication
@@ -291,8 +291,8 @@ exposed port: 8080 (HTTPS)
 ```
 entrypoint.sh
   |
-  +-- start MarketSB Sim (:4001)   [background]
-  +-- start Species Sim  (:4012)   [background]
+  +-- start MarketSB Sim (:3101)   [background]
+  +-- start Species Sim  (:3102)   [background]
   +-- start Next.js App  (:8080)   [foreground]
 ```
 

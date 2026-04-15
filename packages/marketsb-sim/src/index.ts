@@ -13,7 +13,7 @@ export type {
   LifecycleStep,
 } from './state.js';
 
-// If run directly (not imported), start on default port 4001 (matches DEFAULT_CONFIG)
+// If run directly (not imported), start on default port 3101 (matches DEFAULT_CONFIG)
 const isDirectRun =
   process.argv[1]?.endsWith('index.ts') ||
   process.argv[1]?.endsWith('index.js');
@@ -21,7 +21,7 @@ const isDirectRun =
 if (isDirectRun) {
   const { createMarketSBSim } = await import('./server.js');
 
-  const port = parseInt(process.env.MARKETSB_SIM_PORT || '4001', 10);
+  const port = parseInt(process.env.MARKETSB_SIM_PORT || '3101', 10);
   const sim = createMarketSBSim({
     port,
     seedData: 'development',

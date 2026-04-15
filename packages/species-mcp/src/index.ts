@@ -1,12 +1,12 @@
 /**
  * MCP server — proxies @species/sim HTTP API for AI tools (stdio transport).
- * Env: SPECIES_URL (default http://localhost:4012) — origin only.
+ * Env: SPECIES_URL (default http://localhost:3102) — origin only.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const BASE = (process.env.SPECIES_URL ?? 'http://localhost:4012').replace(/\/$/, '');
+const BASE = (process.env.SPECIES_URL ?? 'http://localhost:3102').replace(/\/$/, '');
 const MP = `${BASE}/marketplace/v1`;
 
 function textJson(data: unknown, status?: number): { content: [{ type: 'text'; text: string }] } {

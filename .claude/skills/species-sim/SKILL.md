@@ -13,8 +13,8 @@ Species Marketplace 파이프라인 + sim-Onli Cloud 시뮬레이션 서버. `pa
 import { createSpeciesSim } from '@species/sim';
 
 const sim = createSpeciesSim({
-  port: 4002,
-  marketsbUrl: 'http://localhost:4001/api/v1',
+  port: 3102,
+  marketsbUrl: 'http://localhost:3101/api/v1',
   pipelineDelays: {
     authenticated: 100,
     validated: 300,
@@ -28,8 +28,8 @@ const sim = createSpeciesSim({
   askToMoveTimeoutSeconds: 300,
 });
 
-await sim.start();  // Express on http://localhost:4002/marketplace/v1/...
-await sim.stop();   // WS on ws://localhost:4002/events/:eventId/stream
+await sim.start();  // Express on http://localhost:3102/marketplace/v1/...
+await sim.stop();   // WS on ws://localhost:3102/events/:eventId/stream
 ```
 
 ## State Model

@@ -20,10 +20,10 @@ const procs = [];
 
 console.log('Starting sim servers only...\n');
 
-// 1. MarketSB sim (port 4001)
+// 1. MarketSB sim (port 3101)
 procs.push(startProcess('marketsb', 'npx', ['tsx', 'src/index.ts'], join(ROOT, 'packages/marketsb-sim')));
 
-// 2. Species sim (port 4012) — wait 2s for MarketSB to be ready
+// 2. Species sim (port 3102) — wait 2s for MarketSB to be ready
 setTimeout(() => {
   procs.push(startProcess('species', 'npx', ['tsx', 'src/index.ts'], join(ROOT, 'packages/species-sim')));
 }, 2000);

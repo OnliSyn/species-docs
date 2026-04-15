@@ -31,8 +31,8 @@ import {
 // ---------------------------------------------------------------------------
 // Species-sim pipeline helper — single entry point for buy/sell/transfer/redeem
 // ---------------------------------------------------------------------------
-const SPECIES_SIM = process.env.SPECIES_URL || 'http://localhost:4012';
-const MARKETSB_SIM = process.env.MARKETSB_URL || 'http://localhost:4001';
+const SPECIES_SIM = process.env.SPECIES_URL || 'http://localhost:3102';
+const MARKETSB_SIM = process.env.MARKETSB_URL || 'http://localhost:3101';
 
 interface PipelineResult {
   ok: boolean;

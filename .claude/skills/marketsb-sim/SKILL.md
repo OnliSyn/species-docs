@@ -13,14 +13,14 @@ MarketSB-USDC REST API의 인메모리 시뮬레이션 서버. `packages/markets
 import { createMarketSBSim } from '@marketsb/sim';
 
 const sim = createMarketSBSim({
-  port: 4001,
+  port: 3101,
   seedData: 'development',
   depositLifecycleDelayMs: 2000,
   withdrawalLifecycleDelayMs: 3000,
   sendoutApprovalThresholdUsd: 10_000_000_000n,  // $10,000
 });
 
-await sim.start();  // Express on http://localhost:4001/api/v1/...
+await sim.start();  // Express on http://localhost:3101/api/v1/...
 await sim.stop();
 ```
 

@@ -9,7 +9,7 @@ import {
 } from '../../helpers/sim-control';
 import { redeemExecute } from '@/lib/journey-engine';
 
-const MARKETSB = 'http://localhost:4001';
+const MARKETSB = 'http://localhost:3101';
 
 /** Fund the assurance sub-account directly for test setup */
 async function fundAssurance(amount: number): Promise<void> {

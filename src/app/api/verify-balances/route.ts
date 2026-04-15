@@ -3,8 +3,8 @@
 
 import { NextResponse } from 'next/server';
 
-const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:4001';
-const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:4012';
+const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:3101';
+const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:3102';
 
 interface UserCheck {
   userRef: string;

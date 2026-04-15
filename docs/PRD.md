@@ -179,8 +179,8 @@ Every issued Specie is backed 1:1 by $1.00 USDC held in assurance. This invarian
 | Animations | GSAP 3.14 | Cover page transition, card entrance, counter animations |
 | Cover Page | p5.js | Full-screen sphere animation with GSAP parallax exit |
 | Styling | TailwindCSS | Glassmorphic design system, Manrope font |
-| Sim: Funding | MarketSB Express server (:4001) | USDC balances, deposits, withdrawals, cashier settlement |
-| Sim: Assets | Species Express server (:4012) | Buy/sell matching, vaults, 9-stage pipeline, Oracle |
+| Sim: Funding | MarketSB Express server (:3101) | USDC balances, deposits, withdrawals, cashier settlement |
+| Sim: Assets | Species Express server (:3102) | Buy/sell matching, vaults, 9-stage pipeline, Oracle |
 | Deployment | Fly.io | Single Docker container (frontend + both sim servers) |
 
 ### System Topology
@@ -189,8 +189,8 @@ Every issued Specie is backed 1:1 by $1.00 USDC held in assurance. This invarian
                      Synth (AI Orchestrator :3000)
                     /              |              \
               MarketSB          Species         Onli Cloud
-              (:4001)         Marketplace        (simulated)
-                |               (:4012)             |
+              (:3101)         Marketplace        (simulated)
+                |               (:3102)             |
           USDC balances      Buy/sell/match      Vaults, Gene auth,
           Cashier batches    9-stage pipeline     ChangeOwner
           Deposits/withdrawals  Listings          Asset delivery

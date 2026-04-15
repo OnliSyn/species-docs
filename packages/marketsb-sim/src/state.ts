@@ -126,7 +126,7 @@ export interface SimConfig {
 }
 
 export const DEFAULT_CONFIG: SimConfig = {
-  port: 4001,
+  port: 3101,
   seedData: 'development',
   depositLifecycleDelayMs: 2000,
   withdrawalLifecycleDelayMs: 3000,

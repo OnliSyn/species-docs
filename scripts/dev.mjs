@@ -20,10 +20,10 @@ const procs = [];
 
 console.log('Starting Onli Synth dev environment...\n');
 
-// 1. MarketSB sim (port 4001)
+// 1. MarketSB sim (port 3101)
 procs.push(startProcess('marketsb', 'npx', ['tsx', 'src/index.ts'], join(ROOT, 'packages/marketsb-sim')));
 
-// 2. Species sim (port 4012) — wait 2s for MarketSB to be ready
+// 2. Species sim (port 3102) — wait 2s for MarketSB to be ready
 setTimeout(() => {
   procs.push(startProcess('species', 'npx', ['tsx', 'src/index.ts'], join(ROOT, 'packages/species-sim')));
 }, 2000);
@@ -33,9 +33,9 @@ setTimeout(() => {
   procs.push(startProcess('chat', 'node', ['server.mjs'], ROOT));
 }, 1000);
 
-// 4. Vite dev server (port 6001) — wait for sims
+// 4. Vite dev server (port 3200 — keep all npm/dev processes in 3000–4000)
 setTimeout(() => {
-  procs.push(startProcess('vite', 'npx', ['vite', '--port', '6001', '--host'], ROOT));
+  procs.push(startProcess('vite', 'npx', ['vite', '--port', '3200', '--host'], ROOT));
 }, 3000);
 
 // Graceful shutdown

@@ -59,7 +59,7 @@ function buildTools() {
     parameters: z.object({}),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/virtual-accounts/va-funding-user-001');
+        const res = await fetch('http://localhost:3101/api/v1/virtual-accounts/va-funding-user-001');
         const data = await res.json();
         return data; // BalanceDTO — frontend renders as BalanceCard
       } catch {
@@ -79,8 +79,8 @@ function buildTools() {
     execute: async () => {
       try {
         const [vaRes, vaultRes] = await Promise.all([
-          fetch('http://localhost:4001/api/v1/virtual-accounts/va-species-user-001'),
-          fetch('http://localhost:4012/marketplace/v1/vault/onli-user-001'),
+          fetch('http://localhost:3101/api/v1/virtual-accounts/va-species-user-001'),
+          fetch('http://localhost:3102/marketplace/v1/vault/onli-user-001'),
         ]);
         const va = await vaRes.json();
         const vault = await vaultRes.json();
@@ -101,7 +101,7 @@ function buildTools() {
     parameters: z.object({}),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/virtual-accounts/va-assurance-user-001');
+        const res = await fetch('http://localhost:3101/api/v1/virtual-accounts/va-assurance-user-001');
         const data = await res.json();
         const balance = data.balance?.available || data.balance?.posted || 0;
         const outstanding = 1000000000000; // Total Specie x $1
@@ -121,7 +121,7 @@ function buildTools() {
     }),
     execute: async ({ limit }) => {
       try {
-        const res = await fetch('http://localhost:4001/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger');
+        const res = await fetch('http://localhost:3101/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger');
         if (res.ok) {
           const ledger = await res.json();
           return (Array.isArray(ledger) ? ledger : ledger.events || []).slice(0, limit || 5);
@@ -146,7 +146,7 @@ function buildTools() {
     }),
     execute: async ({ deposit_id }) => {
       try {
-        const res = await fetch(`http://localhost:4001/api/v1/deposits/${deposit_id || 'dep-001'}`);
+        const res = await fetch(`http://localhost:3101/api/v1/deposits/${deposit_id || 'dep-001'}`);
         return await res.json();
       } catch {
         // Fallback: DepositData matching frontend DepositStatusCard interface
@@ -171,7 +171,7 @@ function buildTools() {
     parameters: z.object({}),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:4012/marketplace/v1/stats');
+        const res = await fetch('http://localhost:3102/marketplace/v1/stats');
         return await res.json();
       } catch {
         // Fallback: StatsData matching frontend MarketStatsCard interface

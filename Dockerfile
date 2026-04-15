@@ -24,9 +24,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
-ENV MARKETSB_SIM_PORT=4001
-ENV MARKETSB_URL=http://localhost:4001
-ENV SPECIES_URL=http://localhost:4012
+ENV MARKETSB_SIM_PORT=3101
+ENV MARKETSB_URL=http://localhost:3101
+ENV SPECIES_URL=http://localhost:3102
 
 # Copy Next.js standalone build
 COPY --from=builder /app/.next/standalone ./

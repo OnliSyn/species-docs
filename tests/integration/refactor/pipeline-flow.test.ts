@@ -13,7 +13,7 @@ import {
 } from '../../helpers/sim-control';
 import { buyExecute, sellExecute, transferExecute } from '@/lib/journey-engine';
 
-const SPECIES = 'http://localhost:4012';
+const SPECIES = 'http://localhost:3102';
 
 describe('PIPELINE — Journey flows through eventRequest', () => {
   beforeEach(async () => {
@@ -77,7 +77,7 @@ describe('PIPELINE — Journey flows through eventRequest', () => {
   it('PIPE-005 — No species VAs created in MarketSB after buy', async () => {
     await buyExecute(100);
 
-    const res = await fetch('http://localhost:4001/sim/state');
+    const res = await fetch('http://localhost:3101/sim/state');
     const state = await res.json();
     const vas = Object.keys(state.virtualAccounts || {});
     const speciesVAs = vas.filter((v: string) => v.includes('species'));

@@ -8,7 +8,7 @@ import {
 } from '../../helpers/sim-control';
 import { buyExecute, redeemExecute, transferExecute } from '@/lib/journey-engine';
 
-const MARKETSB = 'http://localhost:4001';
+const MARKETSB = 'http://localhost:3101';
 async function fundAssurance(amount: number): Promise<void> {
   await fetch(`${MARKETSB}/api/v1/accounts/acc-sub-assurance/credit`, {
     method: 'POST',

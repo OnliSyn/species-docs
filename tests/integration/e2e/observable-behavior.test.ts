@@ -12,8 +12,8 @@ import {
 } from '../../helpers/sim-control';
 import { buyExecute } from '@/lib/journey-engine';
 
-const MARKETSB = 'http://localhost:4001';
-const SPECIES = 'http://localhost:4012';
+const MARKETSB = 'http://localhost:3101';
+const SPECIES = 'http://localhost:3102';
 
 describe('E2E — Observable Behavior After Buy', () => {
   beforeEach(async () => {

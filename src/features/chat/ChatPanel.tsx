@@ -310,9 +310,10 @@ export function ChatPanel({ coverDismissed = true }: { coverDismissed?: boolean 
             }}
           >
             {/* Mode dropdown */}
-            <div ref={modeMenuRef} className="relative flex-shrink-0">
+            <div ref={modeMenuRef} className="relative flex-shrink-0" data-testid="chat-mode-menu">
               <button
                 type="button"
+                data-testid="chat-mode-trigger"
                 onClick={() => setModeMenuOpen((v) => !v)}
                 className="flex items-center gap-1 text-[12px] font-semibold text-[#8F8F8F] hover:text-[#0A0A0A] transition-colors cursor-pointer px-1"
               >
@@ -325,6 +326,7 @@ export function ChatPanel({ coverDismissed = true }: { coverDismissed?: boolean 
                     <button
                       key={key}
                       type="button"
+                      data-testid={`chat-mode-option-${key}`}
                       onClick={() => { setChatMode(key); setModeMenuOpen(false); }}
                       className={cn(
                         'w-full rounded-[8px] px-3 py-1.5 text-[12px] font-medium text-[#171717] text-left hover:bg-[#F0F0F0] transition-colors',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:4001';
-const SPECIES = process.env.SPECIES_URL || 'http://localhost:4012';
+const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:3101';
+const SPECIES = process.env.SPECIES_URL || 'http://localhost:3102';
 
 /**
  * Proxy Oracle ledger requests to sims.

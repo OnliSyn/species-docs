@@ -37,8 +37,8 @@ export interface SpeciesSim {
 
 export function createSpeciesSim(options: CreateSpeciesSimOptions = {}): SpeciesSim {
   const config: SpeciesSimConfig = {
-    port: options.port ?? 4012,
-    marketsbUrl: options.marketsbUrl ?? 'http://localhost:4001/api/v1',
+    port: options.port ?? 3102,
+    marketsbUrl: options.marketsbUrl ?? 'http://localhost:3101/api/v1',
     pipelineDelays: { ...DEFAULT_DELAYS, ...options.pipelineDelays } as StageDelays,
     askToMoveTimeoutSeconds: options.askToMoveTimeoutSeconds ?? 300,
   };

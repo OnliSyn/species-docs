@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -12,6 +12,9 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:browser": "playwright test",
+    "test:browser:ui": "playwright test --ui",
+    "test:browser:headed": "playwright test --headed",
     "mcp:marketsb": "npm run start --prefix packages/marketsb-mcp",
     "mcp:species": "npm run start --prefix packages/species-mcp"
   },
@@ -55,6 +58,7 @@
     "globals": "^17.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.58.0",
-    "vitest": "^4.1.3"
+    "vitest": "^4.1.3",
+    "@playwright/test": "^1.55.0"
   }
 }

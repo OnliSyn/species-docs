@@ -1,12 +1,12 @@
 /**
  * MCP server — proxies @marketsb/sim HTTP API for AI tools (stdio transport).
- * Env: MARKETSB_URL (default http://localhost:4001) — origin only, no /api/v1 suffix.
+ * Env: MARKETSB_URL (default http://localhost:3101) — origin only, no /api/v1 suffix.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const BASE = (process.env.MARKETSB_URL ?? 'http://localhost:4001').replace(/\/$/, '');
+const BASE = (process.env.MARKETSB_URL ?? 'http://localhost:3101').replace(/\/$/, '');
 const API = `${BASE}/api/v1`;
 
 function textJson(data: unknown, status?: number): { content: [{ type: 'text'; text: string }] } {

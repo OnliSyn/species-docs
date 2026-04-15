@@ -1,8 +1,8 @@
-// Shared sim client — fetches live data from MarketSB (4001) and Species (4002)
+// Shared sim client — fetches live data from MarketSB (3101) and Species (3102)
 // Used by both /api/chat and /api/system-chat routes
 
-const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:4001';
-const SPECIES = process.env.SPECIES_URL || 'http://localhost:4012';
+const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:3101';
+const SPECIES = process.env.SPECIES_URL || 'http://localhost:3102';
 
 // Current user — Alex Morgan
 const CURRENT_USER = {

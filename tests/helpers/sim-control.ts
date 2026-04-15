@@ -3,8 +3,8 @@
  * Manages sim lifecycle, state reset, and balance snapshots.
  */
 
-const MARKETSB = 'http://localhost:4001';
-const SPECIES = 'http://localhost:4012';
+const MARKETSB = 'http://localhost:3101';
+const SPECIES = 'http://localhost:3102';
 
 export interface BalanceSnapshot {
   /** USDC funding balance in base units (1 USDC = 1,000,000) */

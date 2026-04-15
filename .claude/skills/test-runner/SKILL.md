@@ -9,13 +9,22 @@ description: "Run the full Onli Synth test suite, classify failures by severity,
 Execute the full test suite and produce a structured failure report with severity classification.
 
 ## Pre-flight Checks
-1. Verify sims are healthy: `curl -s http://localhost:4001/health && curl -s http://localhost:4012/health`
+1. Verify sims are healthy: `curl -s http://localhost:3101/health && curl -s http://localhost:3102/health`
 2. If sims not running: `npm run dev:sims` and wait for health
-3. Reset sims to clean state: `curl -sX POST http://localhost:4001/sim/reset && curl -sX POST http://localhost:4012/sim/reset`
+3. Reset sims to clean state: `curl -sX POST http://localhost:3101/sim/reset && curl -sX POST http://localhost:3102/sim/reset`
 
-## Run Tests
+## Run Tests (API / Vitest)
 ```bash
 npm run test 2>&1
+```
+
+## Browser tests (Playwright)
+Real UI flows — desktop viewport (MobileGate). Next dev is started by Playwright unless a server already listens on `PLAYWRIGHT_BASE_URL` (default `http://127.0.0.1:3000`). Trade journeys need sims on **3101 / 3102** (`npm run dev:sims` in a second terminal).
+
+```bash
+npx playwright install chromium   # once per machine
+npm run test:browser              # headless
+npm run test:browser:ui           # debug
 ```
 
 ## Parse Results

@@ -423,7 +423,7 @@ The sim is a lightweight npm package that other projects import for local develo
 import { createMarketSBSim } from '@marketsb/sim';
 
 const sim = createMarketSBSim({
-  port: 4001,
+  port: 3101,
   seedData: 'development',  // pre-populate accounts
   depositLifecycleDelayMs: 2000,
   withdrawalLifecycleDelayMs: 3000,
@@ -431,7 +431,7 @@ const sim = createMarketSBSim({
 });
 
 await sim.start();
-// sim now responds on http://localhost:4001/api/v1/...
+// sim now responds on http://localhost:3101/api/v1/...
 // exact same endpoints, exact same response shapes
 
 await sim.stop();
@@ -941,12 +941,12 @@ import { createSpeciesSim } from '@species/sim';
 import { createMarketSBSim } from '@marketsb/sim';
 
 // Start MarketSB sim first (Species sim calls it as Cashier)
-const mbSim = createMarketSBSim({ port: 4001 });
+const mbSim = createMarketSBSim({ port: 3101 });
 await mbSim.start();
 
 const spSim = createSpeciesSim({
-  port: 4002,
-  marketsbUrl: 'http://localhost:4001/api/v1',
+  port: 3102,
+  marketsbUrl: 'http://localhost:3101/api/v1',
   pipelineDelays: {
     authenticated: 100,
     validated: 300,
@@ -961,8 +961,8 @@ const spSim = createSpeciesSim({
 });
 
 await spSim.start();
-// sim responds on http://localhost:4002/marketplace/v1/...
-// WebSocket on ws://localhost:4002/events/{eventId}/stream
+// sim responds on http://localhost:3102/marketplace/v1/...
+// WebSocket on ws://localhost:3102/events/{eventId}/stream
 ```
 
 **Sim pipeline behavior (Buy, 9 stages):**
@@ -1079,7 +1079,7 @@ docker compose up -d                       # Postgres + Redis
 # ── Development ──
 go run ./cmd/marketplace-api               # Start single service
 pm2 start ecosystem.config.js             # Start all Go services via PM2
-cd sim && pnpm dev                         # Start sim server (port 4002)
+cd sim && pnpm dev                         # Start sim server (port 3102)
 cd mcp && pnpm dev                         # Start MCP server locally
 
 # ── Testing (Go) ──
@@ -1466,7 +1466,7 @@ onli-synth/
 pnpm install                               # Installs @marketsb/sim + @species/sim as devDeps
 
 # ── Development (sim mode) ──
-pnpm dev:sims                              # Start both sim servers (ports 4001 + 4002)
+pnpm dev:sims                              # Start both sim servers (ports 3101 + 3102)
 pnpm dev                                   # Vite dev server (reads from sims)
 # These two commands are all you need for full local development.
 
