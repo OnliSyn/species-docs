@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { dismissCoverAndHello, openTradeMode } from './helpers/onboarding';
 
-const MARKETSB = process.env.PLAYWRIGHT_MARKETSB_URL ?? 'http://127.0.0.1:3101';
-const SPECIES = process.env.PLAYWRIGHT_SPECIES_URL ?? 'http://127.0.0.1:3102';
+const MARKETSB = process.env.PLAYWRIGHT_MARKETSB_URL ?? 'http://localhost:3101';
+const SPECIES = process.env.PLAYWRIGHT_SPECIES_URL ?? 'http://localhost:3102';
 
 async function simsHealthy(): Promise<boolean> {
   try {
