@@ -70,10 +70,11 @@ export async function GET(req: Request) {
 
     const circulationValuePosted = BigInt(circulationSpecieCount) * USDC_SCALE;
 
-    const coveragePercent =
+    const rawCoverage =
       circulationValuePosted > 0n
         ? Number((assuranceGlobalPosted * 100n) / circulationValuePosted)
         : 100;
+    const coveragePercent = Math.min(100, Math.max(0, Math.round(rawCoverage)));
 
     return NextResponse.json({
       ok: true,

@@ -19,6 +19,8 @@ export function ModeTabBar({ tabs, activeTab, onTabChange }: ModeTabBarProps) {
       {tabs.map((tab) => (
         <button
           key={tab.key}
+          type="button"
+          data-testid={`left-tab-${tab.key}`}
           onClick={() => onTabChange(tab.key)}
           className={cn(
             'flex-1 px-4 py-2 text-sm font-semibold rounded-[var(--radius-input)] transition-all',

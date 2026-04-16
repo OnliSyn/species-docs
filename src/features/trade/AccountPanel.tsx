@@ -32,6 +32,17 @@ export function AccountPanel() {
       )}
       {truth && (
         <>
+          <div
+            className="sr-only"
+            aria-hidden
+            data-testid="trade-panel-truth"
+            data-funding-posted={truth.fundingPosted}
+            data-vault-count={String(truth.vaultSpecieCount)}
+            data-species-va-posted={truth.speciesVaPosted}
+            data-assurance-posted={truth.assuranceGlobalPosted}
+            data-circulation-value-posted={truth.circulationValuePosted}
+            data-coverage-percent={String(truth.coveragePercent)}
+          />
           <BalanceView
             fundingBalance={BigInt(truth.fundingPosted)}
             vaultSpecieCount={truth.vaultSpecieCount}

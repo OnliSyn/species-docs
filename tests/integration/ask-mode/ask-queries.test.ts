@@ -66,9 +66,11 @@ describe('ASK MODE — Read-only queries', () => {
   it('ASK-005 — Assurance balance returns coverage data', async () => {
     const assurance = await getAssuranceBalance();
     expect(assurance).not.toBeNull();
-    expect(typeof assurance!.balance).toBe('number');
-    expect(typeof assurance!.outstanding).toBe('number');
-    expect(typeof assurance!.coverage).toBe('number');
+    expect(typeof assurance!.assurancePosted).toBe('number');
+    expect(typeof assurance!.circulationSpecieCount).toBe('number');
+    expect(typeof assurance!.circulationValuePosted).toBe('number');
+    expect(typeof assurance!.coveragePercent).toBe('number');
+    expect(assurance!.circulationValuePosted).toBe(assurance!.circulationSpecieCount * 1_000_000);
   });
 
   it('ASK-006 — All queries are read-only: zero mutations', async () => {

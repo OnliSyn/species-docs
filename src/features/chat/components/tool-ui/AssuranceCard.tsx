@@ -1,18 +1,25 @@
 'use client';
 
-interface AssuranceData {
-  balance: number;
-  outstanding: number;
-  coverage: number;
-}
+import type { AssuranceCoverageSnapshot } from '@/lib/sim-client';
+import { formatUsdcDisplay } from '@/lib/amount';
+import { normalizeAssuranceCoveragePayload } from '@/lib/normalize-assurance-coverage';
 
-export function AssuranceCoverageCard({ data }: { data: AssuranceData }) {
-  const balance = (data.balance / 1_000_000).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-  const outstanding = (data.outstanding / 1_000_000).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-  const coverage = data.coverage || (data.outstanding > 0 ? Math.round((data.balance / data.outstanding) * 100) : 100);
+export type AssuranceToolData = AssuranceCoverageSnapshot & { _ui?: string };
 
-  const color = coverage >= 50 ? 'var(--color-accent-green)' : coverage >= 25 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
-  const label = coverage >= 50 ? 'Healthy' : coverage >= 25 ? 'Warning' : 'Critical';
+export function AssuranceCoverageCard({ data }: { data: AssuranceToolData }) {
+  const {
+    assurancePosted,
+    circulationSpecieCount,
+    circulationValuePosted,
+    coveragePercent,
+  } = normalizeAssuranceCoveragePayload(data);
+
+  const balance = formatUsdcDisplay(BigInt(assurancePosted));
+  const circulationValue = formatUsdcDisplay(BigInt(circulationValuePosted));
+  const coverage = coveragePercent;
+
+  const color = coverage >= 100 ? 'var(--color-accent-green)' : coverage >= 50 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
+  const label = coverage >= 100 ? 'Healthy' : coverage >= 50 ? 'Warning' : 'Critical';
 
   return (
     <div className="rounded-[var(--radius-card)] bg-white border border-[var(--color-border)] p-4 shadow-[var(--shadow-card)] my-2 max-w-sm">
@@ -26,12 +33,16 @@ export function AssuranceCoverageCard({ data }: { data: AssuranceData }) {
       </div>
       <div className="space-y-2 mb-3">
         <div className="flex justify-between text-xs">
-          <span className="text-[var(--color-text-secondary)]">Balance</span>
+          <span className="text-[var(--color-text-secondary)]">Assurance</span>
           <span className="font-bold">{balance}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-[var(--color-text-secondary)]">Outstanding</span>
-          <span>{outstanding}</span>
+          <span className="text-[var(--color-text-secondary)]">Circulation value</span>
+          <span>{circulationValue}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-[var(--color-text-secondary)]">Circulation</span>
+          <span className="font-mono">{circulationSpecieCount.toLocaleString()} SPECIES</span>
         </div>
       </div>
       <div>

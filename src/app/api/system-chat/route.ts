@@ -73,12 +73,13 @@ async function matchPromptToTool(prompt: string): Promise<SystemToolResult | nul
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        balance: assurance?.balance ?? 0,
-        outstanding: assurance?.outstanding ?? 0,
-        coverage: assurance?.coverage ?? 0,
+        assurancePosted: assurance?.assurancePosted ?? 0,
+        circulationSpecieCount: assurance?.circulationSpecieCount ?? 0,
+        circulationValuePosted: assurance?.circulationValuePosted ?? 0,
+        coveragePercent: assurance?.coveragePercent ?? 0,
       },
       commentary: assurance
-        ? `Coverage is at ${assurance.coverage}%.`
+        ? `Coverage is at ${assurance.coveragePercent}%.`
         : 'Unable to fetch assurance data.',
     };
   }

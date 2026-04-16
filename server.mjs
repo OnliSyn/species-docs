@@ -45,6 +45,54 @@ Important rules:
   return base;
 }
 
+/** Same semantics as `getAssuranceBalance` in src/lib/sim-client.ts (sim /sim/state only). */
+async function fetchAssuranceCoverageSnapshot() {
+  const marketsb = process.env.MARKETSB_URL || 'http://localhost:3101';
+  const species = process.env.SPECIES_URL || 'http://localhost:3102';
+  try {
+    const msbStateRes = await fetch(`${marketsb}/sim/state`);
+    if (!msbStateRes.ok) return null;
+    const msbState = await msbStateRes.json();
+    let totalAssurance = 0;
+    for (const [vaId, va] of Object.entries(msbState.virtualAccounts || {})) {
+      if (vaId === 'assurance-global') {
+        totalAssurance += Number(va?.posted ?? 0);
+      }
+    }
+    let circulation = 0;
+    try {
+      const specStateRes = await fetch(`${species}/sim/state`);
+      if (specStateRes.ok) {
+        const specState = await specStateRes.json();
+        const users = specState.vaults?.users;
+        if (users && typeof users === 'object') {
+          for (const [uid, vault] of Object.entries(users)) {
+            if (uid !== 'treasury') circulation += Number(vault?.count ?? 0);
+          }
+        }
+      }
+    } catch {
+      /* species sim down */
+    }
+    const USDC_SCALE = 1000000n;
+    const circVal = BigInt(circulation) * USDC_SCALE;
+    const ass = BigInt(totalAssurance);
+    let coveragePercent = 100;
+    if (circVal > 0n) {
+      const raw = Number((ass * 100n) / circVal);
+      coveragePercent = Math.min(100, Math.max(0, Math.round(raw)));
+    }
+    return {
+      assurancePosted: totalAssurance,
+      circulationSpecieCount: circulation,
+      circulationValuePosted: Number(circVal),
+      coveragePercent,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // MCP-style tool definitions (only created when AI is active)
 // ---------------------------------------------------------------------------
@@ -97,19 +145,17 @@ function buildTools() {
 
   const get_assurance_coverage = tool({
     description:
-      'Get the assurance account balance, total outstanding Specie value, and coverage percentage.',
+      'Assurance-global posted, user-vault circulation count, circulation USDC value ($1 × count), coverage % (capped 0–100).',
     parameters: z.object({}),
     execute: async () => {
-      try {
-        const res = await fetch('http://localhost:3101/api/v1/virtual-accounts/va-assurance-user-001');
-        const data = await res.json();
-        const balance = data.balance?.available || data.balance?.posted || 0;
-        const outstanding = 1000000000000; // Total Specie x $1
-        const coverage = Math.round((balance / outstanding) * 100);
-        return { balance, outstanding, coverage };
-      } catch {
-        return { balance: 950000000000, outstanding: 1000000000000, coverage: 95 };
-      }
+      const snap = await fetchAssuranceCoverageSnapshot();
+      if (snap) return snap;
+      return {
+        assurancePosted: 0,
+        circulationSpecieCount: 0,
+        circulationValuePosted: 0,
+        coveragePercent: 100,
+      };
     },
   });
 
@@ -281,7 +327,7 @@ async function handleRealChat(req, res) {
 // ---------------------------------------------------------------------------
 // POST /api/chat — Mock mode (no API key)
 // ---------------------------------------------------------------------------
-function handleMockChat(req, res) {
+async function handleMockChat(req, res) {
   const messages = req.body.messages || [];
   const mode = req.body.mode || req.body.body?.mode || 'ask';
   console.log('[MOCK] Mode:', mode, '| Body keys:', Object.keys(req.body));
@@ -296,7 +342,7 @@ function handleMockChat(req, res) {
   const conversationContext = allTexts.join(' ').toLowerCase();
 
   // Check if this query should render a generative UI tool card
-  const toolResult = getToolResult(lastText, mode);
+  const toolResult = await getToolResult(lastText, mode);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -369,7 +415,7 @@ function handleMockChat(req, res) {
 // ---------------------------------------------------------------------------
 // Tool result mapping — returns structured data for generative UI cards
 // ---------------------------------------------------------------------------
-function getToolResult(message, mode) {
+async function getToolResult(message, mode) {
   const lower = (message || '').toLowerCase();
 
   // Ask mode tool queries
@@ -422,14 +468,17 @@ function getToolResult(message, mode) {
   }
 
   if (lower.includes('assurance') || lower.includes('coverage')) {
+    const snap = await fetchAssuranceCoverageSnapshot();
+    const data = snap ?? {
+      assurancePosted: 0,
+      circulationSpecieCount: 0,
+      circulationValuePosted: 0,
+      coveragePercent: 100,
+    };
     return {
       toolName: 'get_assurance_coverage',
-      data: {
-        balance: 950000000000,
-        outstanding: 1000000000000,
-        coverage: 95,
-      },
-      commentary: 'Coverage is healthy at 95%. The Assurance account is backed by proceeds from all Specie issuance sales.',
+      data: { _ui: 'CoverageCard', ...data },
+      commentary: `Coverage is at ${data.coveragePercent}%. The Assurance account is backed by proceeds from all Specie issuance sales.`,
     };
   }
 
@@ -481,7 +530,10 @@ app.post('/api/chat', (req, res) => {
   if (USE_REAL_AI) {
     handleRealChat(req, res);
   } else {
-    handleMockChat(req, res);
+    void handleMockChat(req, res).catch((err) => {
+      console.error('[MOCK CHAT]', err);
+      if (!res.headersSent) res.status(500).json({ error: String(err?.message || err) });
+    });
   }
 });
 

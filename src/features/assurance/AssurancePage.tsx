@@ -131,8 +131,8 @@ export function AssurancePage() {
       {/* Coverage History Chart */}
       <div className="rounded-[var(--radius-card)] bg-white border border-[var(--color-border)] p-[var(--padding-card)] shadow-[var(--shadow-card)]">
         <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)] mb-4">Coverage History (30 Days)</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 min-h-[16rem] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart data={COVERAGE_HISTORY} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }} />

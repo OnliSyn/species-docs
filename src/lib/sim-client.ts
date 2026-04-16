@@ -74,9 +74,20 @@ export async function getFundingBalance(userRef = CURRENT_USER.ref): Promise<VAB
   }
 }
 
-export async function getAssuranceBalance(): Promise<{ balance: number; outstanding: number; coverage: number } | null> {
+/** Single snapshot for assurance vs user-vault circulation (aligned with GET /api/trade-panel). */
+export interface AssuranceCoverageSnapshot {
+  /** assurance-global posted, USDC base units (6 dp) */
+  assurancePosted: number;
+  /** Sum of Specie counts in all user vaults (excludes treasury) */
+  circulationSpecieCount: number;
+  /** circulationSpecieCount × $1 in base units */
+  circulationValuePosted: number;
+  /** 0–100; capped when assurance exceeds circulation value (reserves) */
+  coveragePercent: number;
+}
+
+export async function getAssuranceBalance(): Promise<AssuranceCoverageSnapshot | null> {
   try {
-    // Balance: from MarketSB assurance accounts
     const msbStateRes = await simFetch(`${MARKETSB}/sim/state`);
     if (!msbStateRes.ok) return null;
     const msbState = await msbStateRes.json();
@@ -84,38 +95,44 @@ export async function getAssuranceBalance(): Promise<{ balance: number; outstand
     let totalAssurance = 0;
     for (const [vaId, va] of Object.entries(msbState.virtualAccounts || {})) {
       const posted = Number((va as Record<string, unknown>).posted ?? 0);
-      // Single global assurance account only
       if (vaId === 'assurance-global') {
         totalAssurance += posted;
       }
     }
 
-    // Outstanding: all issued specie (user vaults + settlement/listed) — everything assurance backs
     let circulation = 0;
-    let settlement = 0;
     try {
       const specStateRes = await simFetch(`${SPECIES}/sim/state`);
       if (specStateRes.ok) {
         const specState = await specStateRes.json();
-        settlement = Number(specState.vaults?.settlement?.count ?? 0);
         const users = specState.vaults?.users;
-        if (users) {
-          if (users instanceof Object) {
-            for (const [uid, vault] of Object.entries(users)) {
-              if (uid !== 'treasury') {
-                circulation += Number((vault as Record<string, unknown>).count ?? 0);
-              }
+        if (users && users instanceof Object) {
+          for (const [uid, vault] of Object.entries(users)) {
+            if (uid !== 'treasury') {
+              circulation += Number((vault as Record<string, unknown>).count ?? 0);
             }
           }
         }
       }
-    } catch { /* species sim unavailable — use 0 */ }
+    } catch {
+      /* species sim unavailable */
+    }
 
-    // Circulation = species in user vaults (what assurance backs)
-    // Settlement/MarketMaker listed species are NOT backed by assurance
-    const assuranceDollars = totalAssurance / 1_000_000;
-    const coverage = circulation > 0 ? Math.round((assuranceDollars / circulation) * 100) : 100;
-    return { balance: totalAssurance, outstanding: circulation, coverage };
+    const USDC_SCALE = 1_000_000n;
+    const circVal = BigInt(circulation) * USDC_SCALE;
+    const ass = BigInt(totalAssurance);
+    let coveragePercent = 100;
+    if (circVal > 0n) {
+      const raw = Number((ass * 100n) / circVal);
+      coveragePercent = Math.min(100, Math.max(0, Math.round(raw)));
+    }
+
+    return {
+      assurancePosted: totalAssurance,
+      circulationSpecieCount: circulation,
+      circulationValuePosted: Number(circVal),
+      coveragePercent,
+    };
   } catch {
     return null;
   }

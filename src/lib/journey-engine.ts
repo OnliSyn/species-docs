@@ -8,7 +8,6 @@ import {
   getUserState,
   getFundingBalance,
   getVaultBalance,
-  getAssuranceBalance,
   getOracleLedger,
   getMarketplaceStats,
   getListings,

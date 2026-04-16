@@ -193,6 +193,7 @@ export function ChatPanel({ coverDismissed = true }: { coverDismissed?: boolean 
             {messages.map((message: UIMessage) => (
               <div
                 key={message.id}
+                data-testid={message.role === 'assistant' ? 'chat-message-assistant' : 'chat-message-user'}
                 className={cn(
                   'flex',
                   message.role === 'user' ? 'justify-end' : 'justify-start',

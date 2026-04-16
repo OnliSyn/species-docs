@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as marketsb from '@/api/marketsb';
 import * as species from '@/api/species';
@@ -40,7 +41,8 @@ export interface TradePanelTruth {
 }
 
 export function useTradePanelTruth(userRef: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['trade-panel', userRef],
     queryFn: async () => {
       const res = await fetch(`/api/trade-panel?userRef=${encodeURIComponent(userRef!)}`);
@@ -52,6 +54,17 @@ export function useTradePanelTruth(userRef: string | null) {
     },
     enabled: !!userRef,
   });
+
+  useEffect(() => {
+    if (!userRef) return;
+    const onBalanceChanged = () => {
+      void queryClient.invalidateQueries({ queryKey: ['trade-panel', userRef] });
+    };
+    window.addEventListener('synth:balance-changed', onBalanceChanged);
+    return () => window.removeEventListener('synth:balance-changed', onBalanceChanged);
+  }, [queryClient, userRef]);
+
+  return query;
 }
 
 export function useDepositStatus(depositId: string | null) {

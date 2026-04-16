@@ -26,19 +26,27 @@ export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePerc
       <div className="space-y-3">
         <div className="flex justify-between items-baseline">
           <span className="text-xs text-[var(--color-text-secondary)]">Balance</span>
-          <span className="text-lg font-bold">{formatUsdcDisplay(assuranceBalance)}</span>
+          <span className="text-lg font-bold" data-testid="assurance-balance-display">
+            {formatUsdcDisplay(assuranceBalance)}
+          </span>
         </div>
 
         <div className="flex justify-between items-baseline">
           <span className="text-xs text-[var(--color-text-secondary)]">Outstanding</span>
-          <span className="text-sm">{formatUsdcDisplay(totalOutstanding)}</span>
+          <span className="text-sm" data-testid="assurance-outstanding-display">
+            {formatUsdcDisplay(totalOutstanding)}
+          </span>
         </div>
 
         {/* Coverage bar */}
         <div>
           <div className="flex justify-between mb-1">
             <span className="text-xs text-[var(--color-text-secondary)]">Coverage</span>
-            <span className="text-xs font-semibold" style={{ color: statusColor }}>
+            <span
+              className="text-xs font-semibold"
+              style={{ color: statusColor }}
+              data-testid="assurance-coverage-display"
+            >
               {coveragePercent}%
             </span>
           </div>

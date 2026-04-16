@@ -260,12 +260,13 @@ async function getToolResult(message: string, mode: string): Promise<ToolResult 
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        balance: assurance?.balance ?? 0,
-        outstanding: assurance?.outstanding ?? 0,
-        coverage: assurance?.coverage ?? 0,
+        assurancePosted: assurance?.assurancePosted ?? 0,
+        circulationSpecieCount: assurance?.circulationSpecieCount ?? 0,
+        circulationValuePosted: assurance?.circulationValuePosted ?? 0,
+        coveragePercent: assurance?.coveragePercent ?? 0,
       },
       commentary: assurance
-        ? `Coverage is at ${assurance.coverage}%. The Assurance account is backed by proceeds from all Specie issuance sales.`
+        ? `Coverage is at ${assurance.coveragePercent}%. The Assurance account is backed by proceeds from all Specie issuance sales.`
         : 'Unable to fetch assurance data.',
     };
   }
@@ -591,7 +592,8 @@ async function getResponse(message: string, mode: string, context: string, messa
   if (lower.includes('assurance') || lower.includes('coverage')) {
     const assurance = await getAssuranceBalance();
     if (assurance) {
-      return `Your current assurance coverage:\n\n- **Assurance Balance:** $${fmtUSDC(assurance.balance)}\n- **Total Outstanding:** $${fmtUSDC(assurance.outstanding)}\n- **Coverage:** ${assurance.coverage}%\n\nCoverage is ${assurance.coverage >= 50 ? 'healthy' : 'low'} (${assurance.coverage}%). The Assurance account is backed by proceeds from all Specie issuance sales.`;
+      const pct = assurance.coveragePercent;
+      return `Your current assurance coverage:\n\n- **Assurance Account:** $${fmtUSDC(assurance.assurancePosted)}\n- **Circulation value ($1 × count):** $${fmtUSDC(assurance.circulationValuePosted)}\n- **Circulation:** ${assurance.circulationSpecieCount.toLocaleString()} SPECIES\n- **Coverage:** ${pct}%\n\nCoverage is ${pct >= 100 ? 'full' : pct >= 50 ? 'partial' : 'low'} (${pct}%). The Assurance account is backed by proceeds from all Specie issuance sales.`;
     }
     return 'Unable to fetch assurance data at this time.';
   }
@@ -609,8 +611,8 @@ async function getResponse(message: string, mode: string, context: string, messa
 
   if (lower.includes('risk') || lower.includes('alert') || lower.includes('escalate')) {
     const assurance = await getAssuranceBalance();
-    const coverage = assurance?.coverage ?? 0;
-    return `No critical coverage shortfalls detected. Current status:\n\n- Coverage: ${coverage}% (${coverage >= 50 ? 'Healthy' : 'Warning'})\n- Last reconciliation: Pass\n\nAll systems operating normally.`;
+    const coverage = assurance?.coveragePercent ?? 0;
+    return `No critical coverage shortfalls detected. Current status:\n\n- Coverage: ${coverage}% (${coverage >= 100 ? 'Healthy' : coverage >= 50 ? 'Watch' : 'Warning'})\n- Last reconciliation: Pass\n\nAll systems operating normally.`;
   }
 
   return 'I\'m Synth, your Onli AI assistant. I can help you with:\n\n- **Balances** \u2014 Check your funding and asset balances\n- **Transactions** \u2014 View recent activity and deposits\n- **Assurance** \u2014 Coverage monitoring and risk alerts\n\nWhat would you like to know?';
@@ -778,20 +780,18 @@ function buildTools() {
 
   const get_assurance_coverage = tool({
     description:
-      'Get the assurance account balance, total outstanding Specie value, and coverage percentage.',
+      'Get assurance-global posted balance, user-vault circulation (Specie count), circulation USDC value at $1 per Specie, and coverage % (assurance ÷ circulation value, capped at 100).',
     inputSchema: z.object({}),
     outputSchema: z.any(),
     execute: async () => {
-      try {
-        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/virtual-accounts/va-assurance-user-001`);
-        const data = await res.json();
-        const balance = data.balance?.available || data.balance?.posted || 0;
-        const outstanding = 1000000000000;
-        const coverage = Math.round((balance / outstanding) * 100);
-        return { balance, outstanding, coverage };
-      } catch {
-        return { balance: 950000000000, outstanding: 1000000000000, coverage: 95 };
-      }
+      const snap = await getAssuranceBalance();
+      if (snap) return snap;
+      return {
+        assurancePosted: 0,
+        circulationSpecieCount: 0,
+        circulationValuePosted: 0,
+        coveragePercent: 100,
+      };
     },
   });
 
