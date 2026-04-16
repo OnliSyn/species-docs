@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { gsap } from '@/lib/gsap-config';
 
 interface HelloGreetingProps {
@@ -16,12 +16,21 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
     const svgContainer = svgContainerRef.current;
     if (!svgContainer) return;
 
+    let cancelled = false;
+
     fetch('/images/hello-text.svg')
-      .then((res) => res.text())
+      .then((res) => {
+        if (!res.ok) throw new Error(`hello svg ${res.status}`);
+        return res.text();
+      })
       .then((svgText) => {
+        if (cancelled) return;
         svgContainer.innerHTML = svgText;
         const svg = svgContainer.querySelector('svg');
-        if (!svg) return;
+        if (!svg) {
+          setAnimDone(true);
+          return;
+        }
 
         const ellipses = svg.querySelectorAll('ellipse');
         gsap.set(ellipses, { autoAlpha: 0 });
@@ -39,34 +48,41 @@ export function HelloGreeting({ onComplete }: HelloGreetingProps) {
 
         // 25% faster than the original 3 → 3.75
         tl.timeScale(3.75);
+      })
+      .catch(() => {
+        if (!cancelled) setAnimDone(true);
       });
 
     return () => {
+      cancelled = true;
       gsap.killTweensOf(svgContainer);
     };
   }, []);
 
   const dismissing = useRef(false);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     if (dismissing.current) return;
     dismissing.current = true;
     const container = containerRef.current;
-    if (!container) { onComplete(); return; }
+    if (!container) {
+      onComplete();
+      return;
+    }
     gsap.to(container, {
       opacity: 0,
       duration: 0.4,
       ease: 'power2.in',
       onComplete,
     });
-  };
+  }, [onComplete]);
 
   // Global click — clicking anywhere on the page dismisses the animation
   useEffect(() => {
     const handler = () => handleDismiss();
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
-  });
+  }, [handleDismiss]);
 
   return (
     <div
