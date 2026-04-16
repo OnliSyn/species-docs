@@ -71,7 +71,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
       <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)] mb-4">
         {title}
       </h3>
-      <div className="h-56">{children}</div>
+      <div className="h-56 min-h-[14rem] w-full min-w-0">{children}</div>
     </div>
   );
 }
@@ -84,7 +84,7 @@ export function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Funding Balance Over Time */}
         <ChartCard title="Funding Balance Over Time">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <AreaChart data={fundingData}>
               <defs>
                 <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
@@ -106,7 +106,7 @@ export function AnalyticsPage() {
 
         {/* Transaction Volume */}
         <ChartCard title="Transaction Volume">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart data={volumeData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: COLORS.secondary }} interval={6} />
@@ -123,7 +123,7 @@ export function AnalyticsPage() {
 
         {/* Coverage Trend */}
         <ChartCard title="Assurance Coverage Trend">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <LineChart data={coverageData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: COLORS.secondary }} interval={6} />
@@ -139,7 +139,7 @@ export function AnalyticsPage() {
 
         {/* Fee Summary */}
         <ChartCard title="Fee Summary">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <PieChart>
               <Pie
                 data={feeData}
