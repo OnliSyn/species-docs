@@ -3,6 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 /** Match `next dev` URL so webServer readiness + reuseExistingServer align with the running app */
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
 
+/** Only auto-start Next when tests target this machine; use PLAYWRIGHT_BASE_URL for deploy smoke */
+const isLocalBase = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(baseURL);
+
 export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: false,
@@ -24,12 +27,16 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
   },
   projects: [{ name: 'chromium' }],
-  webServer: {
-    command: 'npm run dev',
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  ...(isLocalBase
+    ? {
+        webServer: {
+          command: 'npm run dev',
+          url: baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          stdout: 'pipe',
+          stderr: 'pipe',
+        },
+      }
+    : {}),
 });

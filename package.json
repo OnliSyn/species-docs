@@ -13,6 +13,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:browser": "playwright test",
+    "test:browser:fly": "PLAYWRIGHT_BASE_URL=https://onli-synth.fly.dev playwright test journeys",
     "test:browser:ui": "playwright test --ui",
     "test:browser:headed": "playwright test --headed",
     "mcp:marketsb": "npm run start --prefix packages/marketsb-mcp",
