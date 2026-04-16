@@ -44,6 +44,7 @@ export function FundWizard() {
       // Invalidate account queries so balances refresh from the API layer
       queryClient.invalidateQueries({ queryKey: ['virtual-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['virtual-account'] });
+      queryClient.invalidateQueries({ queryKey: ['trade-panel'] });
     }, 6000);
   };
 

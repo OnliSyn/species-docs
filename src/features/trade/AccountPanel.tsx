@@ -5,8 +5,10 @@ import { AssuranceCard } from '@/components/AssuranceCard';
 import { ContactList } from '@/components/ContactList';
 import { FundWizard } from './FundWizard';
 import { CirculationCard } from './CirculationCard';
-import { useVirtualAccounts, useAssetBalance } from '@/hooks/use-virtual-accounts';
-import { MOCK_USER_ID } from '@/lib/mock-data';
+import { useTradePanelTruth } from '@/hooks/use-virtual-accounts';
+
+/** Matches MarketSB / species-sim seed user (see verify-balances route). */
+const USER_REF = 'user-001';
 
 const MOCK_CONTACTS = [
   { id: '1', name: 'Pepper Potts', address: '0x1234...5678abcd', online: true },
@@ -14,37 +16,38 @@ const MOCK_CONTACTS = [
   { id: '3', name: 'Happy Hogan', address: '0x5678...abcd1234', online: true },
 ];
 
-const TOTAL_CIRCULATION = 1_000_000;
-
 export function AccountPanel() {
-  const { data: accounts } = useVirtualAccounts(MOCK_USER_ID);
-
-  const fundingVA = accounts?.find((a) => a.subtype === 'funding');
-  const assuranceVA = accounts?.find((a) => a.subtype === 'assurance');
-
-  const fundingBalance = fundingVA?.balance?.posted_balance
-    ? BigInt(fundingVA.balance.posted_balance)
-    : 0n;
-
-  const assuranceBalance = assuranceVA?.balance?.posted_balance
-    ? BigInt(assuranceVA.balance.posted_balance)
-    : 0n;
-
-  const { possessionCount: specieCount } =
-    useAssetBalance(MOCK_USER_ID);
+  const { data: truth, isLoading, error } = useTradePanelTruth(USER_REF);
 
   return (
     <div className="space-y-4">
       <FundWizard />
-      <BalanceView
-        fundingBalance={fundingBalance}
-        specieCount={specieCount}
-      />
-      <CirculationCard totalCirculation={TOTAL_CIRCULATION} />
-      <AssuranceCard
-        assuranceBalance={assuranceBalance}
-        totalOutstanding={BigInt(TOTAL_CIRCULATION) * 1_000_000n}
-      />
+      {isLoading && (
+        <p className="text-xs text-[var(--color-text-secondary)]">Loading portfolio…</p>
+      )}
+      {error && (
+        <p className="text-xs text-[var(--color-accent-red)]">
+          Could not load portfolio: {(error as Error).message}
+        </p>
+      )}
+      {truth && (
+        <>
+          <BalanceView
+            fundingBalance={BigInt(truth.fundingPosted)}
+            vaultSpecieCount={truth.vaultSpecieCount}
+            speciesAccountPosted={BigInt(truth.speciesVaPosted)}
+          />
+          <CirculationCard
+            totalCirculation={truth.circulationSpecieCount}
+            circulationValuePosted={BigInt(truth.circulationValuePosted)}
+          />
+          <AssuranceCard
+            assuranceBalance={BigInt(truth.assuranceGlobalPosted)}
+            totalOutstanding={BigInt(truth.circulationValuePosted)}
+            coveragePercent={truth.coveragePercent}
+          />
+        </>
+      )}
       <ContactList
         contacts={MOCK_CONTACTS}
         onContactTap={(c) => console.log('Transfer to:', c.name)}

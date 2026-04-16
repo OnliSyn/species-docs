@@ -6,16 +6,17 @@ import { formatUsdcDisplay, formatSpecieCount } from '@/lib/amount';
 
 interface BalanceViewProps {
   fundingBalance: bigint;
-  specieCount: number;
+  /** Vault count from species-sim (authoritative for quantity). */
+  vaultSpecieCount: number;
+  /** Species-linked VA posted balance from MarketSB (authoritative for USDC mirror). */
+  speciesAccountPosted: bigint;
 }
 
-export function BalanceView({ fundingBalance, specieCount }: BalanceViewProps) {
+export function BalanceView({ fundingBalance, vaultSpecieCount, speciesAccountPosted }: BalanceViewProps) {
   const { balanceView, setBalanceView } = useTabStore();
   const isFunding = balanceView === 'funding';
 
-  // Species value derived from vault count: 1 Specie = $1 = 1_000_000 base units
-  const assetBalance = BigInt(specieCount) * 1_000_000n;
-  const displayBalance = isFunding ? fundingBalance : assetBalance;
+  const displayBalance = isFunding ? fundingBalance : speciesAccountPosted;
   const formatted = formatUsdcDisplay(displayBalance);
   // Split "$12,450.00" into "$12,450" and ".00"
   const dotIndex = formatted.lastIndexOf('.');
@@ -64,15 +65,13 @@ export function BalanceView({ fundingBalance, specieCount }: BalanceViewProps) {
         ) : (
           <>
             <p className="text-[36px] font-bold text-[var(--color-text-primary)] leading-tight">
-              {formatSpecieCount(specieCount)}
+              {formatSpecieCount(vaultSpecieCount)}
             </p>
             <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-              {'\u2248'} {formatUsdcDisplay(assetBalance)}
+              {'\u2248'} {formatUsdcDisplay(speciesAccountPosted)}
             </p>
           </>
         )}
-
-        {/* No reconciliation warning needed — vault is the single source of truth */}
       </div>
     </div>
   );

@@ -5,12 +5,11 @@ import { formatUsdcDisplay } from '@/lib/amount';
 interface AssuranceCardProps {
   assuranceBalance: bigint;
   totalOutstanding: bigint;
+  /** Pre-computed on the server from sim balances (UI does not derive coverage). */
+  coveragePercent: number;
 }
 
-export function AssuranceCard({ assuranceBalance, totalOutstanding }: AssuranceCardProps) {
-  const coveragePercent = totalOutstanding > 0n
-    ? Number((assuranceBalance * 100n) / totalOutstanding)
-    : 100;
+export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePercent }: AssuranceCardProps) {
 
   const statusColor = coveragePercent >= 50
     ? 'var(--color-accent-green)'

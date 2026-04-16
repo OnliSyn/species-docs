@@ -24,6 +24,36 @@ export function useVirtualAccounts(ownerRef: string | null) {
   });
 }
 
+/** Aggregated portfolio fields from GET /api/trade-panel (sim state — no client money math). */
+export interface TradePanelTruth {
+  ok: true;
+  userRef: string;
+  onliId: string;
+  fundingPosted: string;
+  speciesVaPosted: string;
+  vaultSpecieCount: number;
+  assuranceGlobalPosted: string;
+  circulationSpecieCount: number;
+  circulationValuePosted: string;
+  coveragePercent: number;
+  timestamp: string;
+}
+
+export function useTradePanelTruth(userRef: string | null) {
+  return useQuery({
+    queryKey: ['trade-panel', userRef],
+    queryFn: async () => {
+      const res = await fetch(`/api/trade-panel?userRef=${encodeURIComponent(userRef!)}`);
+      const body = await res.json();
+      if (!res.ok || !body.ok) {
+        throw new Error(body.error || 'trade-panel request failed');
+      }
+      return body as TradePanelTruth;
+    },
+    enabled: !!userRef,
+  });
+}
+
 export function useDepositStatus(depositId: string | null) {
   return useQuery({
     queryKey: ['deposit', depositId],
@@ -90,6 +120,7 @@ export function useTransfer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtual-account'] });
       queryClient.invalidateQueries({ queryKey: ['virtual-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['trade-panel'] });
     },
   });
 }
@@ -100,6 +131,7 @@ export function useRequestWithdrawal() {
     mutationFn: marketsb.requestWithdrawal,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtual-account'] });
+      queryClient.invalidateQueries({ queryKey: ['trade-panel'] });
     },
   });
 }
@@ -107,8 +139,14 @@ export function useRequestWithdrawal() {
 // === Species Hooks ===
 
 export function useSubmitOrder() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: EventRequest) => species.submitOrder(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['virtual-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['trade-panel'] });
+    },
   });
 }
 
@@ -138,7 +176,7 @@ export function useVaultBalance(userId: string | null) {
   });
 }
 
-// === Asset Balance (from species-sim vault only — no species VA in MarketSB) ===
+// === Asset Balance (vault count via species proxy — prefer useTradePanelTruth for full panel) ===
 
 export function useAssetBalance(userId: string | null) {
   const vault = useVaultBalance(userId);
