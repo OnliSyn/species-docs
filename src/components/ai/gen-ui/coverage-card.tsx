@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useRef, type ComponentType } from 'react';
 import gsap from 'gsap';
 import { ShieldCheck, AlertTriangle } from 'lucide-react';
 import { formatUsdcDisplay } from '@/lib/amount';
@@ -18,7 +18,6 @@ type CoverageCardData = {
 
 function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [displayPct, setDisplayPct] = useState(0);
 
   const { assurancePosted, circulationSpecieCount, circulationValuePosted, coveragePercent }
     = normalizeAssuranceCoveragePayload(data);
@@ -29,22 +28,15 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
 
   useEffect(() => {
     if (!cardRef.current) return;
-    const pctObj = { v: 0 };
     const ctx = gsap.context(() => {
       gsap.fromTo(
         cardRef.current,
         { opacity: 0, y: 20 },
         { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' },
       );
-      gsap.to(pctObj, {
-        v: coveragePercent,
-        duration: 1.2,
-        ease: 'power2.out',
-        onUpdate: () => setDisplayPct(Math.round(pctObj.v)),
-      });
     }, cardRef);
     return () => ctx.revert();
-  }, [coveragePercent]);
+  }, []);
 
   return (
     <div
@@ -66,9 +58,12 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
       </div>
 
       <div className="mb-1 text-center">
-        <span className="text-4xl font-bold tabular-nums text-white">{displayPct}</span>
-        <span className="text-2xl font-semibold text-white/80">%</span>
-        <p className="mt-1 text-xs text-white/50">Coverage (assurance vs circulation value)</p>
+        <div className="text-4xl font-bold tabular-nums tracking-tight text-white">
+          <span className="text-white/90">$</span>
+          <span>1</span>
+          <span className="text-2xl font-semibold text-white/80">.00</span>
+        </div>
+        <p className="mt-1 text-xs text-white/50">Redemption peg — $1.00 USDC per Specie</p>
       </div>
 
       <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
@@ -86,12 +81,16 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
             {circulationSpecieCount.toLocaleString()} SPECIES
           </span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-white/50">Backing (sim snapshot)</span>
+          <span className="font-mono font-medium text-white">{coveragePercent}%</span>
+        </div>
       </div>
 
       {!healthy && (
         <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200/90">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>Coverage below 100%. Assurance is less than $1 × circulation (server snapshot).</span>
+          <span>Backing below 100%. Assurance is less than $1 × circulation value (server snapshot).</span>
         </div>
       )}
     </div>
