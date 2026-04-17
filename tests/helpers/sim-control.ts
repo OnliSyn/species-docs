@@ -3,8 +3,9 @@
  * Manages sim lifecycle, state reset, and balance snapshots.
  */
 
-const MARKETSB = 'http://localhost:3101';
-const SPECIES = 'http://localhost:3102';
+/** Use loopback IP so Node fetch and curl agree (avoids occasional ::1 vs 127.0.0.1 mismatches). */
+const MARKETSB = 'http://127.0.0.1:3101';
+const SPECIES = 'http://127.0.0.1:3102';
 
 export interface BalanceSnapshot {
   /** USDC funding balance in base units (1 USDC = 1,000,000) */

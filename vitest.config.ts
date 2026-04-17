@@ -15,5 +15,7 @@ export default defineConfig({
     hookTimeout: 30_000,
     // Run test files sequentially — sims are shared mutable state
     fileParallelism: false,
+    /** When VITEST_MANAGE_SIMS=1 (see package.json test scripts), start or reuse sims */
+    globalSetup: ['./tests/global-setup.ts'],
   },
 });

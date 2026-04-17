@@ -12,8 +12,8 @@ import {
 } from '../../helpers/sim-control';
 import { buyExecute } from '@/lib/journey-engine';
 
-const MARKETSB = 'http://localhost:3101';
-const SPECIES = 'http://localhost:3102';
+const MARKETSB = 'http://127.0.0.1:3101';
+const SPECIES = 'http://127.0.0.1:3102';
 
 describe('E2E — Observable Behavior After Buy', () => {
   beforeEach(async () => {
@@ -46,11 +46,14 @@ describe('E2E — Observable Behavior After Buy', () => {
     const data = await res.json();
     const entries = Array.isArray(data) ? data : (data.entries || data.ledger || []);
 
-    // Should have change_owner entries (treasury→settlement, settlement→user)
-    expect(entries.length).toBeGreaterThanOrEqual(2);
+    // Pipeline records one change_owner per fill at ownership.changed (treasury|sellerLocker → buyer)
+    expect(entries.length).toBeGreaterThanOrEqual(1);
 
     const changeOwners = entries.filter((e: any) => e.type === 'change_owner');
-    expect(changeOwners.length).toBeGreaterThanOrEqual(2);
+    expect(changeOwners.length).toBeGreaterThanOrEqual(1);
+    const toBuyer = changeOwners.filter((e: any) => e.to === 'onli-user-001');
+    expect(toBuyer.length).toBeGreaterThanOrEqual(1);
+    expect(toBuyer.some((e: any) => e.count === 100)).toBe(true);
   });
 
   it('E2E-003 — Oracle proxy API returns entries (simulates frontend fetch)', async () => {

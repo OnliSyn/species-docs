@@ -11,26 +11,13 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ Build passed"
 
-# Check if sims are running
-MARKETSB_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3101/health 2>/dev/null)
-SPECIES_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3102/health 2>/dev/null)
-
-if [ "$MARKETSB_OK" = "200" ] && [ "$SPECIES_OK" = "200" ]; then
-  echo "🔄 Running full test suite (sims running)..."
-  npm run test 2>&1
-  if [ $? -ne 0 ]; then
-    echo "❌ TESTS FAILED — push blocked"
-    exit 1
-  fi
-  echo "✅ All tests passed"
-else
-  echo "⚠️  Sims not running — running unit tests only"
-  npm run test:unit 2>&1
-  if [ $? -ne 0 ]; then
-    echo "❌ UNIT TESTS FAILED — push blocked"
-    exit 1
-  fi
-  echo "✅ Unit tests passed (integration tests skipped — start sims for full coverage)"
+# Full suite: Vitest global-setup starts sims when VITEST_MANAGE_SIMS=1 (npm run test)
+echo "🔄 Running full test suite (sims auto-started or reused)..."
+npm run test 2>&1
+if [ $? -ne 0 ]; then
+  echo "❌ TESTS FAILED — push blocked"
+  exit 1
 fi
+echo "✅ All tests passed"
 
 echo "🚀 Push approved"
