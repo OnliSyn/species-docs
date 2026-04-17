@@ -22,6 +22,13 @@ export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePerc
   // Derive simple counts
   const circulationSpecieCount = totalOutstanding ? Number(totalOutstanding / 1000000n) : 0;
 
+  const calcRatio = () => {
+    if (circulationSpecieCount === 0) return '1.00';
+    const assuranceDollars = Number(assuranceBalance) / 1_000_000;
+    return (assuranceDollars / circulationSpecieCount).toFixed(2);
+  };
+  const [dollars, cents] = calcRatio().split('.');
+
   return (
     <div className="rounded-[1.25rem] bg-white border border-[#E5E5E5] p-5 shadow-sm">
       <div className="flex justify-between items-start mb-6">
@@ -34,8 +41,8 @@ export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePerc
       </div>
 
       <div className="mb-6 flex items-baseline">
-        <span className="text-5xl font-light text-[#171717] tracking-tight">$1</span>
-        <span className="text-3xl font-light text-[#737373]">.00</span>
+        <span className="text-5xl font-light text-[#171717] tracking-tight">${dollars}</span>
+        <span className="text-3xl font-light text-[#737373]">.{cents}</span>
       </div>
 
       <div className="space-y-3">

@@ -26,6 +26,13 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
   const assuranceStr = formatUsdcDisplay(BigInt(assurancePosted));
   const circulationValueStr = formatUsdcDisplay(BigInt(circulationValuePosted));
 
+  const calcRatio = () => {
+    if (circulationSpecieCount === 0) return '1.00';
+    const assuranceDollars = assurancePosted / 1_000_000;
+    return (assuranceDollars / circulationSpecieCount).toFixed(2);
+  };
+  const [dollars, cents] = calcRatio().split('.');
+
   useEffect(() => {
     if (!cardRef.current) return;
     const ctx = gsap.context(() => {
@@ -41,44 +48,49 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
   return (
     <div
       ref={cardRef}
-      className="rounded-[1.25rem] bg-white border border-[#E5E5E5] p-5 shadow-sm"
+      className="rounded-[1.5rem] bg-white border border-[#E5E5E5] p-6 shadow-sm"
     >
-      <div className="flex justify-between items-start mb-6">
-        <h3 className="text-[11px] font-medium text-[#737373] tracking-[0.1em] uppercase leading-tight w-24">
+      <div className="flex justify-between items-start mb-8">
+        <h3 className="text-[11px] font-medium text-[#8A8A8A] tracking-[0.15em] uppercase leading-relaxed w-28">
           Buy Back<br />Guarantee
         </h3>
         <span
-          className="text-xs font-medium" style={{ color: healthy ? '#B2D271' : 'var(--color-accent-amber)' }}
+          className="text-[13px] font-medium" style={{ color: healthy ? '#B2D271' : '#F4B251' }}
         >
           {healthy ? 'Healthy' : 'Attention'}
         </span>
       </div>
 
-      <div className="mb-6 flex items-baseline">
-        <span className="text-5xl font-light text-[#171717] tracking-tight">$1</span>
-        <span className="text-3xl font-light text-[#737373]">.00</span>
+      <div className="mb-8 flex items-baseline">
+        <span className="text-[56px] font-light text-[#171717] tracking-tight leading-none">${dollars}</span>
+        <span className="text-[36px] font-light text-[#737373] leading-none">.{cents}</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <span className="text-xs text-[#737373]">Assurance Account</span>
-          <span className="text-xs font-medium text-[#171717]">
+          <span className="text-[14px] text-[#737373]">Assurance Account</span>
+          <span className="text-[14px] font-medium text-[#171717]">
             {assuranceStr}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-xs text-[#737373]">Circulation</span>
-          <span className="text-xs font-medium text-[#171717]">
+          <span className="text-[14px] text-[#737373]">Circulation</span>
+          <span className="text-[14px] font-medium text-[#171717]">
             {circulationSpecieCount.toLocaleString()} SPECIES
           </span>
         </div>
       </div>
 
       {!healthy && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <span>Backing below 100%. Assurance is less than $1 × circulation value (server snapshot).</span>
+        <div className="mt-6 flex items-start gap-3 rounded-xl bg-[#FFF9EB] p-4 text-[14px] text-[#A66108] leading-relaxed">
+          <AlertTriangle className="mt-[2px] h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+          <div>
+            Backing below 100%.<br />
+            Assurance is less than $1 ×<br />
+            circulation value (server<br />
+            snapshot).
+          </div>
         </div>
       )}
     </div>

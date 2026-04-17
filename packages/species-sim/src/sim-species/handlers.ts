@@ -173,7 +173,7 @@ export function createMarketplaceRouter(
     const totalVolume = completedOrders.reduce((sum, o) => sum + o.quantity, 0);
     const activeListings = listings.filter((l) => l.status === 'active');
 
-    const circulationCount = state.vaults.settlement.count + 
+    const circulationCount = state.vaults.sellerLocker.count + 
       Array.from(state.vaults.users.values()).reduce((sum, v) => sum + v.count, 0);
 
     res.json({
@@ -184,7 +184,8 @@ export function createMarketplaceRouter(
       totalVolumeSpecie: totalVolume,
       activeListings: activeListings.length,
       treasuryCount: state.vaults.treasury.count,
-      settlementCount: state.vaults.settlement.count,
+      sellerLockerCount: state.vaults.sellerLocker.count,
+      marketMakerCount: state.vaults.marketMaker.count,
       userVaults: state.vaults.users.size,
       circulationCount,
     });

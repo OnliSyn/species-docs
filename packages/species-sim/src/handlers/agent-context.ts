@@ -19,7 +19,7 @@ export function buildSpeciesAgentContext(config: SpeciesSimConfig): Record<strin
 
     description: [
       'Species sim models the product-facing marketplace: users submit orders (buy, sell, transfer) with idempotency, receive a 202 and an eventId, then observe progress over WebSocket or poll status.',
-      'Asset ownership moves through treasury → settlement → buyer/seller user vaults, recorded in the Species asset oracle (change_owner entries).',
+      'Asset ownership moves through treasury → sellerLocker/marketMaker → buyer/seller user vaults, recorded in the Species asset oracle (change_owner entries).',
       'When an order reaches payment.confirmed, Species calls MarketSB POST /cashier/post-batch with intent buy or sell, buyer/seller virtual account ids, quantity, and fees. MarketSB posts debits/credits and returns tbBatchId and oracleRefs; Species stores those on the order and receipt.',
       'For the Onli AI interface: use MarketSB agentContext for cashier accounts, fees, and funding VA semantics; use this agentContext for pipeline stages, marketplace routes, WS channels, and how the two services connect.',
     ].join(' '),
@@ -49,7 +49,7 @@ export function buildSpeciesAgentContext(config: SpeciesSimConfig): Record<strin
         transfer: 'P2P move between onliIds; may require AskToMove approval (sim control)',
       },
       idempotency: 'POST /marketplace/v1/eventRequest requires idempotencyKey; duplicates return the same eventId and ws channel',
-      vaults: ['treasury', 'settlement', 'per-user (onliId)'],
+      vaults: ['treasury', 'sellerLocker', 'marketMaker', 'per-user (onliId)'],
       listings: 'GET /marketplace/v1/listings — sells can match active listings',
     },
 

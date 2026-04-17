@@ -33,7 +33,7 @@ export function createControlRouter(
   // ── GET /sim/state ───────────────────────────────────────────────────
   router.get('/sim/state', (_req: Request, res: Response) => {
     const state = getState();
-    const circulation = state.vaults.settlement.count + 
+    const circulation = state.vaults.sellerLocker.count + 
       Array.from(state.vaults.users.values()).reduce((sum, v) => sum + v.count, 0);
 
     res.json({
@@ -43,7 +43,8 @@ export function createControlRouter(
       idempotencyKeys: Array.from(state.idempotencyKeys),
       vaults: {
         treasury: state.vaults.treasury,
-        settlement: state.vaults.settlement,
+        sellerLocker: state.vaults.sellerLocker,
+        marketMaker: state.vaults.marketMaker,
         users: Object.fromEntries(state.vaults.users),
       },
       pendingAskToMove: Array.from(state.pendingAskToMove.keys()),
@@ -59,7 +60,8 @@ export function createControlRouter(
     res.json({
       vaults: {
         treasury: state.vaults.treasury,
-        settlement: state.vaults.settlement,
+        sellerLocker: state.vaults.sellerLocker,
+        marketMaker: state.vaults.marketMaker,
         users: Object.fromEntries(state.vaults.users),
       },
       pendingAskToMove: Array.from(state.pendingAskToMove.entries()).map(([id, atm]) => ({
@@ -121,16 +123,16 @@ export function createControlRouter(
     const matched = quantity - remaining;
     const now = new Date().toISOString();
 
-    // Move species from settlement to buyer vault
+    // Move species from sellerLocker to buyer vault
     if (matched > 0) {
-      state.vaults.settlement.count -= matched;
+      state.vaults.sellerLocker.count -= matched;
       const buyer = state.vaults.users.get(buyerOnliId);
       if (buyer) {
         buyer.count += matched;
         buyer.history.push({
           type: 'credit',
           count: matched,
-          from: 'settlement',
+          from: 'sellerLocker',
           to: buyerOnliId,
           eventId: `buy-market-${Date.now()}`,
           timestamp: now,
@@ -141,7 +143,7 @@ export function createControlRouter(
         id: `ao-buy-market-${Date.now()}`,
         eventId: `buy-market-${Date.now()}`,
         type: 'change_owner',
-        from: 'settlement',
+        from: 'sellerLocker',
         to: buyerOnliId,
         count: matched,
         timestamp: now,
@@ -153,7 +155,7 @@ export function createControlRouter(
       fromTreasury: remaining,
       fills,
       buyerVaultCount: state.vaults.users.get(buyerOnliId)?.count ?? 0,
-      settlementCount: state.vaults.settlement.count,
+      sellerLockerCount: state.vaults.sellerLocker.count,
     });
   });
 
@@ -207,7 +209,7 @@ export function createControlRouter(
   });
 
   // ── POST /sim/create-listing ──────────────────────────────────────────
-  // Create a marketplace listing (species moved to settlement/escrow)
+  // Create a marketplace listing (species moved to sellerLocker/escrow)
   router.post('/sim/create-listing', (req: Request, res: Response) => {
     const state = getState();
     const { sellerOnliId, quantity, unitPrice } = req.body;
@@ -230,18 +232,18 @@ export function createControlRouter(
     const listingId = `listing-${sellerOnliId}-${Date.now()}`;
     const now = new Date().toISOString();
 
-    // Move species from user vault to settlement (escrow)
+    // Move species from user vault to sellerLocker (escrow)
     vault.count -= quantity;
     vault.history.push({
       type: 'debit',
       count: quantity,
       from: sellerOnliId,
-      to: 'settlement',
+      to: 'sellerLocker',
       eventId: listingId,
       timestamp: now,
     });
 
-    state.vaults.settlement.count += quantity;
+    state.vaults.sellerLocker.count += quantity;
 
     // Create the listing
     state.listings.set(listingId, {
@@ -260,7 +262,7 @@ export function createControlRouter(
       eventId: listingId,
       type: 'listing_escrow',
       from: sellerOnliId,
-      to: 'settlement',
+      to: 'sellerLocker',
       count: quantity,
       timestamp: now,
     });

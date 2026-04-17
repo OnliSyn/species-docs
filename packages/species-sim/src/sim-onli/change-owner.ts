@@ -21,10 +21,10 @@ export function changeOwner(
   eventId: string,
 ): ChangeOwnerResult {
   // Ensure user vaults exist
-  if (from !== 'treasury' && from !== 'settlement') {
+  if (from !== 'treasury' && from !== 'sellerLocker' && from !== 'marketMaker') {
     ensureUserVault(state, from);
   }
-  if (to !== 'treasury' && to !== 'settlement') {
+  if (to !== 'treasury' && to !== 'sellerLocker' && to !== 'marketMaker') {
     ensureUserVault(state, to);
   }
 

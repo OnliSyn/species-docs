@@ -84,7 +84,7 @@ List Specie for sale on the marketplace. The seller's Specie is escrowed to sett
 - **Trigger:** "sell", "list"
 - **Fee:** None
 - **USDC effect:** None (until a buyer matches)
-- **Specie effect:** Escrowed from seller's vault to settlement
+- **Specie effect:** Escrowed from seller's vault to sellerLocker
 
 ### 4.4 Transfer
 
@@ -101,7 +101,7 @@ Sell Specie back to the system at the guaranteed $1.00/Specie backing rate via a
 - **Trigger:** "redeem", "buyback"
 - **Fee:** 1% liquidity fee (deducted from gross proceeds)
 - **USDC effect:** Increases by (quantity x $1.00) minus 1% fee
-- **Specie effect:** Decreases by redeemed quantity (returned to treasury/MarketMaker)
+- **Specie effect:** Decreases by redeemed quantity (transferred to marketMakerVault)
 
 ### 4.6 SendOut (Withdraw)
 
@@ -159,6 +159,18 @@ Every issued Specie is backed 1:1 by $1.00 USDC held in assurance. This invarian
 - It verifies that total Specie in circulation equals assurance pool balance (in dollar terms)
 - Audit results are logged as part of the post-transaction pipeline
 - Any invariant violation is flagged immediately
+
+### Definition of Imbalance
+
+Imbalance means one of only a few things happened:
+- a transition was malformed
+- a state update was missed
+- a quantity was misclassified
+- a fee touched principal when it should not have
+- issued/redeemed/relisted inventory was counted incorrectly
+- data integrity drift occurred
+
+Therefore, **imbalance becomes explicitly:** evidence of implementation or accounting error.
 
 ### Additional Guarantees
 

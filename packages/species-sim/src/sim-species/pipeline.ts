@@ -152,46 +152,42 @@ export async function runBuyPipeline(
     return;
   }
 
-  // For each fill, move Specie from source to Settlement
-  // - Treasury fills: move from treasury vault to settlement
-  // - Listing fills: species are ALREADY in settlement (escrowed by sell pipeline)
-  for (const fill of matchResult.fills) {
-    if (fill.counterparty === 'treasury') {
-      const result = changeOwner(state, 'treasury', 'settlement', fill.quantity, order.eventId);
-      if (!result.success) {
-        failOrder(emit, order, 'asset.staged', result.error ?? 'staging_failed');
-        return;
-      }
-    }
-    // Listing fills: already escrowed in settlement — no move needed
-  }
-  emitStage(emit, order, 'asset.staged', { result: 'staged_in_settlement' });
+  // Rule: Funding first, ChangeOwner only after funding is settled.
+  // We defer actual asset movement until ownership.changed stage.
+  emitStage(emit, order, 'asset.staged', { result: 'pending_payment_settlement' });
 
   // Stage 7: payment.confirmed — Call MarketSB Cashier
   await delay(state.stageDelays.paymentConfirmed);
   if (state.errorInjections.get('payment.confirmed')) {
     state.errorInjections.delete('payment.confirmed');
-    // Rollback: move from settlement back to sources
-    for (const fill of matchResult.fills) {
-      const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
-      changeOwner(state, 'settlement', source, fill.quantity, order.eventId);
-    }
     failOrder(emit, order, 'payment.confirmed', 'payment_failed');
     return;
   }
 
   // Call MarketSB Cashier — the checkout step. If cashier rejects, rollback assets.
   try {
+    const match = order.matches?.[0];
+    const sellerOnliId = match?.sellerOnliId;
+    const isPrimaryIssuance = match?.counterparty === 'treasury' || sellerOnliId === 'marketMaker';
+
     const buyerVaId = order.paymentSource?.vaId ?? 'va-funding-user-001';
+    
+    // Map sellerOnliId to their Funding VA explicitly
+    const sellerVaId = isPrimaryIssuance 
+      ? MARKETSB_TREASURY_VA_ID 
+      : sellerOnliId ? `va-funding-${sellerOnliId.replace('onli-', '')}` : MARKETSB_TREASURY_VA_ID;
+
     const cashierPayload = {
       eventId: order.eventId,
-      matchId: order.matches?.[0]?.matchId ?? 'match-unknown',
-      intent: 'buy',
+      matchId: match?.matchId ?? 'match-unknown',
+      intent: isPrimaryIssuance ? 'buy' : 'sell', // 'sell' in Cashier implies secondary market routing
       quantity: order.quantity,
       buyerVaId,
-      sellerVaId: MARKETSB_TREASURY_VA_ID,
+      sellerVaId,
       unitPrice: UNIT_PRICE,
-      fees: { issuance: true, liquidity: false, listing: false },
+      fees: isPrimaryIssuance 
+        ? { issuance: true, liquidity: false, listing: false }
+        : { issuance: false, liquidity: true, listing: false },
     };
 
     const response = await fetch(`${config.marketsbUrl}/cashier/post-batch`, {
@@ -203,11 +199,7 @@ export async function runBuyPipeline(
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
       console.error(`[species-sim] Cashier rejected buy: ${response.status} ${errText}`);
-      // FATAL: rollback staged assets, fail the order
-      for (const fill of matchResult.fills) {
-        const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
-        changeOwner(state, 'settlement', source, fill.quantity, order.eventId);
-      }
+      // FATAL: fail the order
       failOrder(emit, order, 'payment.confirmed', `cashier_rejected: ${response.status}`);
       return;
     }
@@ -229,11 +221,7 @@ export async function runBuyPipeline(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
     console.error(`[species-sim] Cashier unreachable for buy: ${msg}`);
-    // FATAL: no payment = no asset transfer. Rollback.
-    for (const fill of matchResult.fills) {
-      const source = fill.counterparty === 'treasury' ? 'treasury' : fill.counterparty;
-      changeOwner(state, 'settlement', source, fill.quantity, order.eventId);
-    }
+    // FATAL: no payment
     failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
     return;
   }
@@ -255,16 +243,20 @@ export async function runBuyPipeline(
   // Reuse buyerOnliId from matching stage
   ensureUserVault(state, buyerOnliId);
 
-  const ownerResult = changeOwner(
-    state,
-    'settlement',
-    buyerOnliId,
-    order.quantity,
-    order.eventId,
-  );
-  if (!ownerResult.success) {
-    failOrder(emit, order, 'ownership.changed', ownerResult.error ?? 'ownership_failed');
-    return;
+  // Execute final asset movement ONLY NOW that funding is settled
+  for (const fill of matchResult.fills) {
+    const source = fill.counterparty === 'treasury' ? 'treasury' : 'sellerLocker';
+    const ownerResult = changeOwner(
+      state,
+      source,
+      buyerOnliId,
+      fill.quantity,
+      order.eventId,
+    );
+    if (!ownerResult.success) {
+      failOrder(emit, order, 'ownership.changed', ownerResult.error ?? 'ownership_failed');
+      return;
+    }
   }
   emitStage(emit, order, 'ownership.changed', {
     newOwner: buyerOnliId,
@@ -510,25 +502,25 @@ export async function runSellPipeline(
     emitStage(emit, order, 'ask_to_move.approved', { approved: true });
   }
 
-  // Move seller's Specie to settlement
-  const stageResult = changeOwner(state, sellerOnliId, 'settlement', order.quantity, order.eventId);
+  // Move seller's Specie to sellerLocker
+  const stageResult = changeOwner(state, sellerOnliId, 'sellerLocker', order.quantity, order.eventId);
   if (!stageResult.success) {
     state.listings.delete(listingId);
     failOrder(emit, order, 'asset.staged', stageResult.error ?? 'staging_failed');
     return;
   }
   if (autoAuthorize) {
-    emitStage(emit, order, 'asset.staged', { result: 'staged_in_settlement' });
+    emitStage(emit, order, 'asset.staged', { result: 'staged_in_seller_locker' });
   }
 
-  // Stage 7: payment.confirmed — Sell/List is escrow-only (no USDC settlement)
-  // USDC settlement happens later when a buyer matches this listing.
+  // Stage 7: payment.confirmed — Sell/List is escrow-only (no USDC sellerLocker)
+  // USDC sellerLocker happens later when a buyer matches this listing.
   // For now, just record the listing as payment-confirmed with zero cost.
   await delay(state.stageDelays.paymentConfirmed);
   if (state.errorInjections.get('payment.confirmed')) {
     state.errorInjections.delete('payment.confirmed');
-    // Rollback: settlement → seller
-    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
+    // Rollback: sellerLocker → seller
+    changeOwner(state, 'sellerLocker', sellerOnliId, order.quantity, order.eventId);
     state.listings.delete(listingId);
     failOrder(emit, order, 'payment.confirmed', 'payment_failed');
     return;
@@ -547,9 +539,9 @@ export async function runSellPipeline(
     fees: order.fees,
   });
 
-  // Stage 8: ownership.changed — Species stay in settlement (escrowed for listing)
+  // Stage 8: ownership.changed — Species stay in sellerLocker (escrowed for listing)
   // They will be delivered to the buyer when someone matches this listing.
-  // No ChangeOwner here — species are already in settlement from stage 6.
+  // No ChangeOwner here — species are already in sellerLocker from stage 6.
   await delay(state.stageDelays.ownershipChanged);
   emitStage(emit, order, 'ownership.changed', {
     status: 'escrowed_for_listing',
@@ -605,27 +597,21 @@ export async function runRedeemPipeline(
   await delay(state.stageDelays.classified);
   emitStage(emit, order, 'order.classified', { intent: 'redeem' });
 
-  // Stage 5: asset.staged — move species to settlement
+  // Stage 5: asset.staged
+  // Rule: Funding first, ChangeOwner only after funding is settled.
+  // We defer actual asset movement until ownership.changed stage.
   await delay(state.stageDelays.assetStaged);
   if (state.errorInjections.get('asset.staged')) {
     state.errorInjections.delete('asset.staged');
     failOrder(emit, order, 'asset.staged', 'staging_failed');
     return;
   }
-
-  const stageResult = changeOwner(state, sellerOnliId, 'settlement', order.quantity, order.eventId);
-  if (!stageResult.success) {
-    failOrder(emit, order, 'asset.staged', stageResult.error ?? 'staging_failed');
-    return;
-  }
-  emitStage(emit, order, 'asset.staged', { result: 'settlement_vaulted' });
+  emitStage(emit, order, 'asset.staged', { result: 'pending_payment_settlement' });
 
   // Stage 6: payment.confirmed — call MarketSB cashier redeem
   await delay(state.stageDelays.paymentConfirmed);
   if (state.errorInjections.get('payment.confirmed')) {
     state.errorInjections.delete('payment.confirmed');
-    // Roll back: settlement → seller
-    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
     failOrder(emit, order, 'payment.confirmed', 'payment_failed');
     return;
   }
@@ -650,8 +636,6 @@ export async function runRedeemPipeline(
       }),
     });
     if (!response.ok) {
-      // Roll back: settlement → seller
-      changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
       failOrder(emit, order, 'payment.confirmed', 'cashier_redeem_failed');
       return;
     }
@@ -664,7 +648,6 @@ export async function runRedeemPipeline(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
     console.error(`[species-sim] Cashier unreachable for redeem: ${msg}`);
-    changeOwner(state, 'settlement', sellerOnliId, order.quantity, order.eventId);
     failOrder(emit, order, 'payment.confirmed', `cashier_unreachable: ${msg}`);
     return;
   }
@@ -680,9 +663,16 @@ export async function runRedeemPipeline(
     fees: order.fees,
   });
 
-  // Stage 7: ownership.changed — Settlement stays as MarketMaker escrow
+  // Stage 7: ownership.changed — marketMaker stays as MarketMaker escrow
   // MarketMaker relists the redeemed species on the marketplace
   await delay(state.stageDelays.ownershipChanged);
+
+  // Execute final asset movement ONLY NOW that funding is settled
+  const ownerResult = changeOwner(state, sellerOnliId, 'marketMaker', order.quantity, order.eventId);
+  if (!ownerResult.success) {
+    failOrder(emit, order, 'ownership.changed', ownerResult.error ?? 'ownership_failed');
+    return;
+  }
 
   // Create a listing from the MarketMaker for the redeemed species
   const relistId = `listing-redeem-${order.eventId}`;

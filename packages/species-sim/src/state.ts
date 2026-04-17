@@ -99,7 +99,8 @@ export interface SpeciesSimState {
   // Sim-Onli
   vaults: {
     treasury: { count: number };
-    settlement: { count: number };
+    sellerLocker: { count: number };
+    marketMaker: { count: number };
     users: Map<string, { count: number; history: VaultEvent[] }>;
   };
   pendingAskToMove: Map<string, AskToMoveRequest>;
@@ -119,7 +120,8 @@ export function createEmptyState(delays: StageDelays): SpeciesSimState {
     idempotencyKeys: new Set(),
     vaults: {
       treasury: { count: 0 },
-      settlement: { count: 0 },
+      sellerLocker: { count: 0 },
+      marketMaker: { count: 0 },
       users: new Map(),
     },
     pendingAskToMove: new Map(),
