@@ -18,8 +18,19 @@ export function MobileGate({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Don't render anything until we've checked (avoid flash)
-  if (!checked) return null;
+  // Avoid blank screen: first paint shows shell until viewport is classified
+  if (!checked) {
+    return (
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)]"
+        aria-busy="true"
+        aria-label="Loading"
+      >
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-text-primary)]" />
+        <p className="text-xs">Loading…</p>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
