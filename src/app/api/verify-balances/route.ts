@@ -65,8 +65,8 @@ export async function GET() {
     const assuranceVa = msbState.virtualAccounts?.['assurance-global'];
     const assuranceBalance = assuranceVa?.posted ?? '0';
 
-    // Total specie in circulation (all user vaults)
-    const totalCirculation = checks.reduce((sum, c) => sum + c.vaultSpecieCount, 0);
+    // Total specie in circulation (read directly from database)
+    const totalCirculation = specState.circulation ?? 0;
 
     return NextResponse.json({
       ok: true,

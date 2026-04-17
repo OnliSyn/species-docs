@@ -59,14 +59,7 @@ export async function GET(req: Request) {
 
     const assuranceGlobalPosted = toBigInt(vas['assurance-global']?.posted);
 
-    let circulationSpecieCount = 0;
-    const users = spec.vaults?.users;
-    if (users && typeof users === 'object') {
-      for (const [uid, vault] of Object.entries(users)) {
-        if (uid === 'treasury') continue;
-        circulationSpecieCount += Number((vault as { count?: unknown })?.count ?? 0);
-      }
-    }
+    const circulationSpecieCount = typeof spec.circulation === 'number' ? spec.circulation : 0;
 
     const circulationValuePosted = BigInt(circulationSpecieCount) * USDC_SCALE;
 

@@ -105,14 +105,7 @@ export async function getAssuranceBalance(): Promise<AssuranceCoverageSnapshot |
       const specStateRes = await simFetch(`${SPECIES}/sim/state`);
       if (specStateRes.ok) {
         const specState = await specStateRes.json();
-        const users = specState.vaults?.users;
-        if (users && users instanceof Object) {
-          for (const [uid, vault] of Object.entries(users)) {
-            if (uid !== 'treasury') {
-              circulation += Number((vault as Record<string, unknown>).count ?? 0);
-            }
-          }
-        }
+        circulation = specState.circulation ?? 0;
       }
     } catch {
       /* species sim unavailable */

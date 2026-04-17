@@ -41,55 +41,43 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
   return (
     <div
       ref={cardRef}
-      className="rounded-[20px] border border-white/10 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] p-5 shadow-xl"
+      className="rounded-[1.25rem] bg-white border border-[#E5E5E5] p-5 shadow-sm"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-[#C5DE8A]" />
-          <span className="text-sm font-semibold uppercase tracking-wider text-white/90">
-            Buy Back Guarantee
-          </span>
-        </div>
+      <div className="flex justify-between items-start mb-6">
+        <h3 className="text-[11px] font-medium text-[#737373] tracking-[0.1em] uppercase leading-tight w-24">
+          Buy Back<br />Guarantee
+        </h3>
         <span
-          className={`text-xs font-medium uppercase ${healthy ? 'text-[#C5DE8A]' : 'text-amber-400'}`}
+          className="text-xs font-medium" style={{ color: healthy ? '#B2D271' : 'var(--color-accent-amber)' }}
         >
           {healthy ? 'Healthy' : 'Attention'}
         </span>
       </div>
 
-      <div className="mb-1 text-center">
-        <div className="text-4xl font-bold tabular-nums tracking-tight text-white">
-          <span className="text-white/90">$</span>
-          <span>1</span>
-          <span className="text-2xl font-semibold text-white/80">.00</span>
-        </div>
-        <p className="mt-1 text-xs text-white/50">Redemption peg — $1.00 USDC per Specie</p>
+      <div className="mb-6 flex items-baseline">
+        <span className="text-5xl font-light text-[#171717] tracking-tight">$1</span>
+        <span className="text-3xl font-light text-[#737373]">.00</span>
       </div>
 
-      <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
-        <div className="flex justify-between">
-          <span className="text-white/50">Assurance Account</span>
-          <span className="font-mono font-medium text-white">{assuranceStr}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-white/50">Circulation value</span>
-          <span className="font-mono font-medium text-white">{circulationValueStr}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-white/50">Circulation</span>
-          <span className="font-mono font-medium text-[#C5DE8A]">
-            {circulationSpecieCount.toLocaleString()} SPECIES
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-[#737373]">Assurance Account</span>
+          <span className="text-xs font-medium text-[#171717]">
+            {assuranceStr}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-white/50">Backing (sim snapshot)</span>
-          <span className="font-mono font-medium text-white">{coveragePercent}%</span>
+
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-[#737373]">Circulation</span>
+          <span className="text-xs font-medium text-[#171717]">
+            {circulationSpecieCount.toLocaleString()} SPECIES
+          </span>
         </div>
       </div>
 
       {!healthy && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200/90">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
           <span>Backing below 100%. Assurance is less than $1 × circulation value (server snapshot).</span>
         </div>
       )}

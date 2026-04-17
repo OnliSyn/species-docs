@@ -33,7 +33,11 @@ export function createControlRouter(
   // ── GET /sim/state ───────────────────────────────────────────────────
   router.get('/sim/state', (_req: Request, res: Response) => {
     const state = getState();
+    const circulation = state.vaults.settlement.count + 
+      Array.from(state.vaults.users.values()).reduce((sum, v) => sum + v.count, 0);
+
     res.json({
+      circulation,
       orders: Object.fromEntries(state.orders),
       listings: Object.fromEntries(state.listings),
       idempotencyKeys: Array.from(state.idempotencyKeys),
