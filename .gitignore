@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local credential files (never commit)
+.env/fly.env
+.env/github.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
