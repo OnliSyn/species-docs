@@ -69,6 +69,13 @@ export async function GET(req: Request) {
         : 100;
     const coveragePercent = Math.min(100, Math.max(0, Math.round(rawCoverage)));
 
+    const calcRatio = () => {
+      if (circulationSpecieCount === 0) return '0.00';
+      const assuranceDollars = Number(assuranceGlobalPosted) / 1_000_000;
+      return (assuranceDollars / circulationSpecieCount).toFixed(2);
+    };
+    const [buyBackGuaranteeDollars, buyBackGuaranteeCents] = calcRatio().split('.');
+
     return NextResponse.json({
       ok: true,
       userRef,
@@ -80,6 +87,8 @@ export async function GET(req: Request) {
       circulationSpecieCount,
       circulationValuePosted: circulationValuePosted.toString(),
       coveragePercent,
+      buyBackGuaranteeDollars,
+      buyBackGuaranteeCents,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
