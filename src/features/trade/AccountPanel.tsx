@@ -44,17 +44,20 @@ export function AccountPanel() {
             data-coverage-percent={String(truth.coveragePercent)}
           />
           <BalanceView
-            fundingBalance={BigInt(truth.fundingPosted)}
+            fundingPostedDisplay={truth.fundingPostedDisplay}
+            speciesVaPostedDisplay={truth.speciesVaPostedDisplay}
             vaultSpecieCount={truth.vaultSpecieCount}
-            speciesAccountPosted={BigInt(truth.speciesVaPosted)}
           />
           <CirculationCard
             totalCirculation={truth.circulationSpecieCount}
-            circulationValuePosted={BigInt(truth.circulationValuePosted)}
+            circulationValuePostedDisplay={truth.circulationValuePostedDisplay}
           />
           <AssuranceCard
-            assuranceBalance={BigInt(truth.assuranceGlobalPosted)}
-            totalOutstanding={BigInt(truth.circulationValuePosted)}
+            assurancePostedDisplay={truth.assuranceGlobalPostedDisplay}
+            circulationValuePostedDisplay={truth.circulationValuePostedDisplay}
+            circulationSpecieCount={truth.circulationSpecieCount}
+            buyBackGuaranteeDollars={truth.buyBackGuaranteeDollars}
+            buyBackGuaranteeCents={truth.buyBackGuaranteeCents}
             coveragePercent={truth.coveragePercent}
           />
         </>

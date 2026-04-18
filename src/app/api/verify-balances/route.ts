@@ -2,9 +2,7 @@
 // No species VA in MarketSB — species are tracked in species-sim vaults only
 
 import { NextResponse } from 'next/server';
-
-const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:3101';
-const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:3102';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
 
 interface UserCheck {
   userRef: string;
@@ -24,8 +22,8 @@ export async function GET() {
   try {
     // Fetch full state from both sims
     const [msbRes, specRes] = await Promise.all([
-      fetch(`${MARKETSB_URL}/sim/state`),
-      fetch(`${SPECIES_URL}/sim/state`),
+      fetchMarketSb('/sim/state'),
+      fetchSpecies('/sim/state'),
     ]);
 
     if (!msbRes.ok || !specRes.ok) {

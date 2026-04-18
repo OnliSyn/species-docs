@@ -1,0 +1,12 @@
+---
+description: React UI must not compute money, assurance, coverage, or peg-domain values
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# UI is read-only (no domain calculation)
+
+- **Money and assurance:** Components render **strings and numbers produced by server routes or shared read-model modules used only on the server** (e.g. `GET /api/trade-panel`, `getAssuranceBalance`, `buildTradePanelReadModel`). Do not call `formatUsdcDisplay`, divide posted balances, derive coverage %, peg liability, or per-Specie backing **inside client components** for product truth.
+- **Allowed in UI:** layout math (e.g. progress bar width cap), `toLocaleString` on counts, parsing display strings for typography (split dollars/cents **only when the server already sent a single display string** to split for styling).
+- **Normalization:** Client normalizers may **coerce types** from tool JSON; they must **not** re-derive domain fields. Missing server fields → show em dash or empty snapshot, do not recompute from other fields.
+- **New surfaces:** When adding panels, extend the **server read model / API** first, then bind props.

@@ -6,6 +6,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import type { SpeciesSimState } from '../state.js';
+import { userLockerVaultId } from '../sim-onli/vault-ids.js';
 
 export function createOracleRouter(getState: () => SpeciesSimState): Router {
   const router = Router();
@@ -67,22 +68,28 @@ export function createOracleRouter(getState: () => SpeciesSimState): Router {
       return;
     }
 
-    let computedCount = 0;
+    const partyIds = [onliId, userLockerVaultId(onliId)];
+
+    let computedHeld = 0;
     for (const e of state.assetOracleLog) {
-      if (e.to === onliId) computedCount += e.count;
-      if (e.from === onliId) computedCount -= e.count;
+      if (partyIds.includes(e.to)) computedHeld += e.count;
+      if (partyIds.includes(e.from)) computedHeld -= e.count;
     }
 
-    const actualCount = vault.count;
-    const isValid = actualCount === computedCount;
+    const actualHeld = vault.count + vault.lockerCount;
+    const isValid = actualHeld === computedHeld;
 
     res.json({
       onliId,
-      actualCount,
-      computedCount,
-      entryCount: state.assetOracleLog.filter((e) => e.from === onliId || e.to === onliId).length,
+      actualCount: actualHeld,
+      computedCount: computedHeld,
+      vaultCount: vault.count,
+      lockerCount: vault.lockerCount,
+      entryCount: state.assetOracleLog.filter(
+        (e) => partyIds.includes(e.from) || partyIds.includes(e.to),
+      ).length,
       isValid,
-      variance: actualCount - computedCount,
+      variance: actualHeld - computedHeld,
       verifiedAt: new Date().toISOString(),
     });
   });

@@ -1,25 +1,37 @@
 'use client';
 
 import type { AssuranceCoverageSnapshot } from '@/lib/sim-client';
-import { formatUsdcDisplay } from '@/lib/amount';
 import { normalizeAssuranceCoveragePayload } from '@/lib/normalize-assurance-coverage';
 
 export type AssuranceToolData = AssuranceCoverageSnapshot & { _ui?: string };
 
 export function AssuranceCoverageCard({ data }: { data: AssuranceToolData }) {
+  const snap = normalizeAssuranceCoveragePayload(data);
   const {
-    assurancePosted,
     circulationSpecieCount,
-    circulationValuePosted,
     coveragePercent,
-  } = normalizeAssuranceCoveragePayload(data);
+    assurancePostedDisplay,
+    circulationValuePostedDisplay,
+  } = snap;
 
-  const balance = formatUsdcDisplay(BigInt(assurancePosted));
-  const circulationValue = formatUsdcDisplay(BigInt(circulationValuePosted));
-  const coverage = coveragePercent;
+  const circulationIdle = circulationSpecieCount <= 0;
+  let label: string;
+  let color: string;
+  if (circulationIdle) {
+    label = 'Idle';
+    color = 'var(--color-text-secondary)';
+  } else if (coveragePercent > 100) {
+    label = 'Surplus';
+    color = 'var(--color-accent-amber)';
+  } else if (coveragePercent < 100) {
+    label = coveragePercent >= 50 ? 'Warning' : 'Critical';
+    color = coveragePercent >= 50 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
+  } else {
+    label = 'Healthy';
+    color = 'var(--color-accent-green)';
+  }
 
-  const color = coverage >= 100 ? 'var(--color-accent-green)' : coverage >= 50 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
-  const label = coverage >= 100 ? 'Healthy' : coverage >= 50 ? 'Warning' : 'Critical';
+  const barWidthPct = Math.min(Math.max(coveragePercent, 0), 100);
 
   return (
     <div className="rounded-[var(--radius-card)] bg-white border border-[var(--color-border)] p-4 shadow-[var(--shadow-card)] my-2 max-w-sm">
@@ -34,11 +46,11 @@ export function AssuranceCoverageCard({ data }: { data: AssuranceToolData }) {
       <div className="space-y-2 mb-3">
         <div className="flex justify-between text-xs">
           <span className="text-[var(--color-text-secondary)]">Assurance</span>
-          <span className="font-bold">{balance}</span>
+          <span className="font-bold">{assurancePostedDisplay}</span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-[var(--color-text-secondary)]">Circulation value</span>
-          <span>{circulationValue}</span>
+          <span>{circulationValuePostedDisplay}</span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-[var(--color-text-secondary)]">Circulation</span>
@@ -48,10 +60,10 @@ export function AssuranceCoverageCard({ data }: { data: AssuranceToolData }) {
       <div>
         <div className="flex justify-between mb-1">
           <span className="text-[10px] text-[var(--color-text-secondary)]">Coverage</span>
-          <span className="text-xs font-bold" style={{ color }}>{coverage}%</span>
+          <span className="text-xs font-bold" style={{ color }}>{coveragePercent}%</span>
         </div>
         <div className="h-2 rounded-full bg-[var(--color-bg-card)]">
-          <div className="h-full rounded-full" style={{ width: `${Math.min(coverage, 100)}%`, backgroundColor: color }} />
+          <div className="h-full rounded-full" style={{ width: `${barWidthPct}%`, backgroundColor: color }} />
         </div>
       </div>
     </div>

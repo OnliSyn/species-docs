@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import type { SpeciesSimState, SpeciesSimConfig, OrderState } from '../state.js';
 import { startPipeline, type WsEmitter } from './pipeline.js';
-import { getVaultBalance, getVaultHistory } from '../sim-onli/vaults.js';
+import { getVaultBalance, getVaultHistory, speciesInCirculationCount } from '../sim-onli/vaults.js';
 import { buildSpeciesAgentContext } from '../handlers/agent-context.js';
 
 export function createMarketplaceRouter(
@@ -173,8 +173,7 @@ export function createMarketplaceRouter(
     const totalVolume = completedOrders.reduce((sum, o) => sum + o.quantity, 0);
     const activeListings = listings.filter((l) => l.status === 'active');
 
-    const circulationCount = state.vaults.sellerLocker.count + 
-      Array.from(state.vaults.users.values()).reduce((sum, v) => sum + v.count, 0);
+    const circulationCount = speciesInCirculationCount(state);
 
     res.json({
       totalOrders: orders.length,

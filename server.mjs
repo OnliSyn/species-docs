@@ -64,11 +64,16 @@ async function fetchAssuranceCoverageSnapshot() {
       const specStateRes = await fetch(`${species}/sim/state`);
       if (specStateRes.ok) {
         const specState = await specStateRes.json();
-        const users = specState.vaults?.users;
-        if (users && typeof users === 'object') {
-          for (const [uid, vault] of Object.entries(users)) {
-            if (uid !== 'treasury') circulation += Number(vault?.count ?? 0);
+        if (typeof specState.circulation === 'number') {
+          circulation = specState.circulation;
+        } else {
+          const users = specState.vaults?.users;
+          if (users && typeof users === 'object') {
+            for (const [, vault] of Object.entries(users)) {
+              circulation += Number(vault?.count ?? 0) + Number(vault?.lockerCount ?? 0);
+            }
           }
+          circulation += Number(specState.vaults?.sellerLocker?.count ?? 0);
         }
       }
     } catch {

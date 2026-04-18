@@ -48,9 +48,10 @@ COPY --from=builder /app/src/config ./src/config
 # Install tsx globally for sim servers
 RUN npm install -g tsx
 
-# Entrypoint script starts all 3 services
+# Entrypoint + sim smoke (entrypoint.sh waits for both authorities)
 COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
+COPY --from=builder /app/scripts/smoke-sims.sh ./scripts/smoke-sims.sh
+RUN chmod +x entrypoint.sh scripts/smoke-sims.sh
 
 EXPOSE 8080
 CMD ["./entrypoint.sh"]

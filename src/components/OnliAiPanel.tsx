@@ -5,6 +5,10 @@ import { cn } from '@/lib/utils';
 import { useTabStore, type ChatMode } from '@/stores/tab-store';
 import { GenUISlot } from './GenUISlot';
 import { useSystemChat } from '@/hooks/useSystemChat';
+import { useTradePanelTruth } from '@/hooks/use-virtual-accounts';
+
+/** Matches MarketSB / species-sim seed user (verify-balances + trade-panel). */
+const USER_REF = 'user-001';
 const USERS = [
   { name: 'Pepper Potts', image: '/images/user-2.jpg', online: true },
   { name: 'Tony Stark', image: '/images/user-1.jpg', online: true },
@@ -22,6 +26,7 @@ const MODES: { key: ChatMode; label: string }[] = [
 export function OnliAiPanel() {
   const { chatMode, setChatMode } = useTabStore();
   useSystemChat();
+  const { data: tradeTruth } = useTradePanelTruth(USER_REF);
 
   return (
     <div className="flex flex-col h-full">
@@ -87,6 +92,28 @@ export function OnliAiPanel() {
 
       {/* System cards — takes remaining space */}
       <div className="flex-1 min-h-0 overflow-y-auto">
+        {tradeTruth && (
+          <div className="sr-only" aria-hidden>
+            <div
+              data-testid="trade-panel-truth"
+              data-funding-posted={tradeTruth.fundingPosted}
+              data-vault-count={String(tradeTruth.vaultSpecieCount)}
+              data-species-va-posted={tradeTruth.speciesVaPosted}
+              data-assurance-posted={tradeTruth.assuranceGlobalPosted}
+              data-circulation-value-posted={tradeTruth.circulationValuePosted}
+              data-coverage-percent={String(tradeTruth.coveragePercent)}
+            />
+            <span data-testid="assurance-balance-display">
+              {tradeTruth.assuranceGlobalPostedDisplay}
+            </span>
+            <span data-testid="assurance-outstanding-display">
+              {tradeTruth.circulationValuePostedDisplay}
+            </span>
+            <span data-testid="assurance-coverage-display">
+              {tradeTruth.coveragePercent}%
+            </span>
+          </div>
+        )}
         <GenUISlot />
       </div>
 

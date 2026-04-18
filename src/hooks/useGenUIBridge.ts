@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { UIMessage } from 'ai';
 import { useGenUIStore } from '@/stores/genui-store';
 import { useTabStore } from '@/stores/tab-store';
+import { isKnownGenUiUiKey } from '@/lib/schemas/genui-ui-key';
 
 // Write tools that require user confirmation
 const WRITE_TOOLS = new Set([
@@ -68,10 +69,16 @@ export function useGenUIBridge(
 
           if (typeof output === 'object' && output !== null && '_ui' in (output as Record<string, unknown>)) {
             const data = output as Record<string, unknown>;
+            const ui = String(data._ui);
+            if (!isKnownGenUiUiKey(ui)) {
+              console.warn('[useGenUIBridge] skipping tool output with unknown _ui:', ui);
+              processedIds.current.add(cardKey);
+              continue;
+            }
             processedIds.current.add(cardKey);
             pushCard({
               id: toolCallId,
-              ui: String(data._ui),
+              ui,
               data,
               toolName: String(p.toolName || partType.replace('tool-', '')),
               timestamp: Date.now(),

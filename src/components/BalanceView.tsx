@@ -2,22 +2,21 @@
 
 import { cn } from '@/lib/utils';
 import { useTabStore } from '@/stores/tab-store';
-import { formatUsdcDisplay, formatSpecieCount } from '@/lib/amount';
+import { formatSpecieCount } from '@/lib/amount';
 
 interface BalanceViewProps {
-  fundingBalance: bigint;
+  /** From GET /api/trade-panel — server-formatted USDC. */
+  fundingPostedDisplay: string;
+  speciesVaPostedDisplay: string;
   /** Vault count from species-sim (authoritative for quantity). */
   vaultSpecieCount: number;
-  /** Species-linked VA posted balance from MarketSB (authoritative for USDC mirror). */
-  speciesAccountPosted: bigint;
 }
 
-export function BalanceView({ fundingBalance, vaultSpecieCount, speciesAccountPosted }: BalanceViewProps) {
+export function BalanceView({ fundingPostedDisplay, speciesVaPostedDisplay, vaultSpecieCount }: BalanceViewProps) {
   const { balanceView, setBalanceView } = useTabStore();
   const isFunding = balanceView === 'funding';
 
-  const displayBalance = isFunding ? fundingBalance : speciesAccountPosted;
-  const formatted = formatUsdcDisplay(displayBalance);
+  const formatted = isFunding ? fundingPostedDisplay : speciesVaPostedDisplay;
   // Split "$12,450.00" into "$12,450" and ".00"
   const dotIndex = formatted.lastIndexOf('.');
   const wholePart = dotIndex >= 0 ? formatted.slice(0, dotIndex) : formatted;
@@ -68,7 +67,7 @@ export function BalanceView({ fundingBalance, vaultSpecieCount, speciesAccountPo
               {formatSpecieCount(vaultSpecieCount)}
             </p>
             <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-              {'\u2248'} {formatUsdcDisplay(speciesAccountPosted)}
+              {'\u2248'} {speciesVaPostedDisplay}
             </p>
           </>
         )}

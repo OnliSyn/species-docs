@@ -1,5 +1,7 @@
 'use client';
 
+import { formatUsdcDisplay } from '@/lib/amount';
+
 interface BalanceCardData {
   vaId: string;
   subtype: string;
@@ -10,8 +12,7 @@ interface BalanceCardData {
 
 export function BalanceCard({ data }: { data: BalanceCardData }) {
   const amount = data.balance?.available || data.balance?.posted || 0;
-  const dollars = amount / 1_000_000;
-  const formatted = dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  const formatted = formatUsdcDisplay(BigInt(Math.trunc(amount)));
 
   const subtypeLabel = data.subtype === 'funding' ? 'Funding Account'
     : data.subtype === 'species' ? 'Species Account'
@@ -37,7 +38,7 @@ export function BalanceCard({ data }: { data: BalanceCardData }) {
       </p>
       {data.balance?.pending > 0 && (
         <p className="text-xs text-[var(--color-accent-amber)] mt-1">
-          Pending: ${(data.balance.pending / 1_000_000).toLocaleString('en-US', {minimumFractionDigits: 2})}
+          Pending: {formatUsdcDisplay(BigInt(Math.trunc(data.balance.pending)))}
         </p>
       )}
     </div>

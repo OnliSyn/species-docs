@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:3101';
-const SPECIES = process.env.SPECIES_URL || 'http://localhost:3102';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
 
 /**
  * Proxy Oracle ledger requests to sims.
- * Frontend can't call localhost directly on deployed environments.
+ * Frontend can't call sim hosts directly on deployed environments.
  *
  * GET /api/oracle?type=funding&userRef=user-001
  * GET /api/oracle?type=asset
@@ -15,14 +13,10 @@ export async function GET(req: NextRequest) {
   const userRef = req.nextUrl.searchParams.get('userRef') || 'user-001';
 
   try {
-    let url: string;
-    if (type === 'funding') {
-      url = `${MARKETSB}/api/v1/oracle/virtual-accounts/va-funding-${userRef}/ledger`;
-    } else {
-      url = `${SPECIES}/oracle/ledger`;
-    }
-
-    const res = await fetch(url);
+    const res =
+      type === 'funding'
+        ? await fetchMarketSb(`/api/v1/oracle/virtual-accounts/va-funding-${userRef}/ledger`)
+        : await fetchSpecies('/oracle/ledger');
     if (!res.ok) {
       return NextResponse.json([], { status: res.status });
     }

@@ -1,9 +1,9 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getFundingBalance,
   getVaultBalance,
   getAssuranceBalance,
+  EMPTY_ASSURANCE_COVERAGE_SNAPSHOT,
   getOracleLedger,
   getAssetOracleLedger,
   getMarketplaceStats,
@@ -69,17 +69,22 @@ async function matchPromptToTool(prompt: string): Promise<SystemToolResult | nul
   // Assurance / Buy Back Guarantee
   if (lower.includes('assurance') || lower.includes('coverage') || lower.includes('buy back') || lower.includes('guarantee')) {
     const assurance = await getAssuranceBalance();
+    const a = assurance ?? EMPTY_ASSURANCE_COVERAGE_SNAPSHOT;
     return {
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        assurancePosted: assurance?.assurancePosted ?? 0,
-        circulationSpecieCount: assurance?.circulationSpecieCount ?? 0,
-        circulationValuePosted: assurance?.circulationValuePosted ?? 0,
-        coveragePercent: assurance?.coveragePercent ?? 0,
+        assurancePosted: a.assurancePosted,
+        circulationSpecieCount: a.circulationSpecieCount,
+        circulationValuePosted: a.circulationValuePosted,
+        coveragePercent: a.coveragePercent,
+        buyBackGuaranteeDollars: a.buyBackGuaranteeDollars,
+        buyBackGuaranteeCents: a.buyBackGuaranteeCents,
+        assurancePostedDisplay: a.assurancePostedDisplay,
+        circulationValuePostedDisplay: a.circulationValuePostedDisplay,
       },
       commentary: assurance
-        ? `Coverage is at ${assurance.coveragePercent}%.`
+        ? `Coverage is at ${a.coveragePercent}%.`
         : 'Unable to fetch assurance data.',
     };
   }

@@ -1,4 +1,5 @@
 import type { SpeciesSimState, AssetOracleEntry } from '../state.js';
+import { tryParseUserLockerVaultId } from './vault-ids.js';
 import { getVaultCount, adjustVault, ensureUserVault } from './vaults.js';
 
 let oracleCounter = 0;
@@ -13,6 +14,21 @@ export interface ChangeOwnerResult {
   error?: string;
 }
 
+function ensurePartyVault(state: SpeciesSimState, vaultId: string): void {
+  const lockerUser = tryParseUserLockerVaultId(vaultId);
+  if (lockerUser) {
+    ensureUserVault(state, lockerUser);
+    return;
+  }
+  if (vaultId !== 'treasury' && vaultId !== 'sellerLocker' && vaultId !== 'marketMaker') {
+    ensureUserVault(state, vaultId);
+  }
+}
+
+/**
+ * ChangeOwner — cross-party or system locker delivery (canon primitive).
+ * Use {@link moveUserVaultToSellerLocker} for listing/redeem vault→market locker (AskToMove).
+ */
 export function changeOwner(
   state: SpeciesSimState,
   from: string,
@@ -20,15 +36,9 @@ export function changeOwner(
   count: number,
   eventId: string,
 ): ChangeOwnerResult {
-  // Ensure user vaults exist
-  if (from !== 'treasury' && from !== 'sellerLocker' && from !== 'marketMaker') {
-    ensureUserVault(state, from);
-  }
-  if (to !== 'treasury' && to !== 'sellerLocker' && to !== 'marketMaker') {
-    ensureUserVault(state, to);
-  }
+  ensurePartyVault(state, from);
+  ensurePartyVault(state, to);
 
-  // Validate source has sufficient count
   const sourceCount = getVaultCount(state, from);
   if (sourceCount < count) {
     return {
@@ -41,7 +51,6 @@ export function changeOwner(
   oracleCounter++;
   const oracleEntryId = `ao-${eventId}-${oracleCounter}`;
 
-  // Debit source
   adjustVault(state, from, -count, {
     type: 'debit',
     count,
@@ -51,7 +60,6 @@ export function changeOwner(
     timestamp: now,
   });
 
-  // Credit destination
   adjustVault(state, to, count, {
     type: 'credit',
     count,
@@ -61,7 +69,6 @@ export function changeOwner(
     timestamp: now,
   });
 
-  // Write oracle log
   const entry: AssetOracleEntry = {
     id: oracleEntryId,
     eventId,

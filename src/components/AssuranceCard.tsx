@@ -1,33 +1,45 @@
 'use client';
 
-import { formatUsdcDisplay } from '@/lib/amount';
-
 interface AssuranceCardProps {
-  assuranceBalance: bigint;
-  totalOutstanding: bigint;
-  /** Pre-computed on the server from sim balances (UI does not derive coverage). */
+  /** From GET /api/trade-panel — server-formatted, do not format client-side. */
+  assurancePostedDisplay: string;
+  circulationValuePostedDisplay: string;
+  /** Circulation count (Species sim). */
+  circulationSpecieCount: number;
+  buyBackGuaranteeDollars: string;
+  buyBackGuaranteeCents: string;
+  /** From server read-model (uncapped canary ratio). */
   coveragePercent: number;
 }
 
-export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePercent }: AssuranceCardProps) {
+export function AssuranceCard({
+  assurancePostedDisplay,
+  circulationValuePostedDisplay,
+  circulationSpecieCount,
+  buyBackGuaranteeDollars,
+  buyBackGuaranteeCents,
+  coveragePercent,
+}: AssuranceCardProps) {
 
-  const statusColor = coveragePercent >= 100
-    ? '#B2D271'
-    : coveragePercent >= 50
-      ? 'var(--color-accent-amber)'
-      : 'var(--color-accent-red)';
-      
-  const label = coveragePercent >= 100 ? 'Healthy' : coveragePercent >= 50 ? 'Warning' : 'Critical';
+  /** Trade-panel canary: coverage is uncapped; status reflects raw ratio vs 100% peg. */
+  const circulationIdle = circulationSpecieCount <= 0;
+  let statusLabel: string;
+  let statusColor: string;
+  if (circulationIdle) {
+    statusLabel = 'Idle';
+    statusColor = '#737373';
+  } else if (coveragePercent > 100) {
+    statusLabel = 'Surplus';
+    statusColor = 'var(--color-accent-amber)';
+  } else if (coveragePercent < 100) {
+    statusLabel = coveragePercent >= 50 ? 'Warning' : 'Critical';
+    statusColor = coveragePercent >= 50 ? 'var(--color-accent-amber)' : 'var(--color-accent-red)';
+  } else {
+    statusLabel = 'Healthy';
+    statusColor = '#B2D271';
+  }
 
-  // Derive simple counts
-  const circulationSpecieCount = totalOutstanding ? Number(totalOutstanding / 1000000n) : 0;
-
-  const calcRatio = () => {
-    if (circulationSpecieCount === 0) return '1.00';
-    const assuranceDollars = Number(assuranceBalance) / 1_000_000;
-    return (assuranceDollars / circulationSpecieCount).toFixed(2);
-  };
-  const [dollars, cents] = calcRatio().split('.');
+  const showBackingPerSpecie = circulationSpecieCount > 0;
 
   return (
     <div className="rounded-[1.25rem] bg-white border border-[#E5E5E5] p-5 shadow-sm">
@@ -36,20 +48,49 @@ export function AssuranceCard({ assuranceBalance, totalOutstanding, coveragePerc
           Buy Back<br />Guarantee
         </h3>
         <span className="text-xs font-medium" style={{ color: statusColor }}>
-          {label}
+          {statusLabel}
         </span>
       </div>
 
-      <div className="mb-6 flex items-baseline">
-        <span className="text-5xl font-light text-[#171717] tracking-tight">${dollars}</span>
-        <span className="text-3xl font-light text-[#737373]">.{cents}</span>
+      <div className="mb-6 min-h-[3rem]">
+        {showBackingPerSpecie ? (
+          <div className="flex items-baseline">
+            <span className="text-5xl font-light text-[#171717] tracking-tight">${buyBackGuaranteeDollars}</span>
+            <span className="text-3xl font-light text-[#737373]">.{buyBackGuaranteeCents}</span>
+          </div>
+        ) : (
+          <div>
+            <span className="text-5xl font-light text-[#737373] tracking-tight" aria-hidden>
+              —
+            </span>
+            <p className="mt-1 text-xs text-[#737373] leading-snug">
+              No circulation — per-Specie backing appears once Specie are outstanding.
+            </p>
+          </div>
+        )}
       </div>
+
+      {showBackingPerSpecie && (
+        <p className="text-[10px] text-[#737373] tabular-nums mb-3">
+          <span className="font-medium">Coverage ratio </span>
+          <span data-testid="assurance-coverage-display" className="font-medium text-[#171717]">
+            {coveragePercent}%
+          </span>
+        </p>
+      )}
 
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-xs text-[#737373]">Assurance Account</span>
-          <span className="text-xs font-medium text-[#171717]">
-            {formatUsdcDisplay(assuranceBalance)}
+          <span className="text-xs font-medium text-[#171717]" data-testid="assurance-balance-display">
+            {assurancePostedDisplay}
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-[#737373]">Liability at peg</span>
+          <span className="text-xs font-medium text-[#171717]" data-testid="assurance-outstanding-display">
+            {circulationValuePostedDisplay}
           </span>
         </div>
 

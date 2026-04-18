@@ -12,7 +12,7 @@ export interface VaultEvent {
 export interface AssetOracleEntry {
   id: string;
   eventId: string;
-  type: 'change_owner' | 'listing_escrow' | 'listing_release';
+  type: 'change_owner' | 'ask_to_move' | 'listing_escrow' | 'listing_release';
   from: string;
   to: string;
   count: number;
@@ -32,6 +32,8 @@ export interface AskToMoveRequest {
 export interface MatchFill {
   matchId: string;
   counterparty: string; // 'treasury' | listing seller onliId
+  /** Present when counterparty is a listing seller (secondary market). */
+  sellerOnliId?: string;
   listingId?: string;
   quantity: number;
 }
@@ -48,6 +50,8 @@ export interface OrderState {
   status: 'accepted' | 'processing' | 'completed' | 'failed' | 'cancelled';
   currentStage: string;
   completedStages: { stage: string; timestamp: string; data?: Record<string, unknown> }[];
+  /** Set for buy orders after matching (vault delivery target). */
+  buyerOnliId?: string;
   paymentSource?: { vaId: string };
   recipient?: { onliId: string };
   listingConfig?: { autoAuthorize: boolean };
@@ -101,7 +105,8 @@ export interface SpeciesSimState {
     treasury: { count: number };
     sellerLocker: { count: number };
     marketMaker: { count: number };
-    users: Map<string, { count: number; history: VaultEvent[] }>;
+    /** Main vault + optional sender locker (canon TRANSFER_EXECUTION staging). */
+    users: Map<string, { count: number; lockerCount: number; history: VaultEvent[] }>;
   };
   pendingAskToMove: Map<string, AskToMoveRequest>;
   assetOracleLog: AssetOracleEntry[];

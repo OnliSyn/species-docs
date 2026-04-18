@@ -24,7 +24,7 @@ function runStartupSequence(state: SpeciesSimState): void {
 
   // Initialize all user vaults at 0 — clean seed, no history, no orders
   for (const onliId of Object.values(ONLI_USERS)) {
-    state.vaults.users.set(onliId, { count: 0, history: [] });
+    state.vaults.users.set(onliId, { count: 0, lockerCount: 0, history: [] });
   }
 
   // No seed listings, no seed trades — fresh market
@@ -51,7 +51,7 @@ export function seedClean(delays: StageDelays): SpeciesSimState {
   const state = createEmptyState(delays);
   state.vaults.treasury.count = 1_000_000_000;
   for (const onliId of Object.values(ONLI_USERS)) {
-    state.vaults.users.set(onliId, { count: 0, history: [] });
+    state.vaults.users.set(onliId, { count: 0, lockerCount: 0, history: [] });
   }
   return state;
 }

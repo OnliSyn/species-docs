@@ -1,8 +1,8 @@
-// Shared sim client — fetches live data from MarketSB (3101) and Species (3102)
-// Used by both /api/chat and /api/system-chat routes
+// Shared sim client — fetches live data from MarketSB and Species via @/lib/sim-gateway.
 
-const MARKETSB = process.env.MARKETSB_URL || 'http://localhost:3101';
-const SPECIES = process.env.SPECIES_URL || 'http://localhost:3102';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
+import { buildTradePanelReadModel } from '@/lib/trade-panel-read-model';
+import { formatUsdcDisplay, postedBaseUnitsToUsdNumber } from '@/lib/amount';
 
 // Current user — Alex Morgan
 const CURRENT_USER = {
@@ -27,19 +27,6 @@ const USERS_BY_NAME: Record<string, { ref: string; onliId: string; name: string 
 export { CURRENT_USER, USERS_BY_NAME };
 
 // ---------------------------------------------------------------------------
-// Low-level fetchers with timeout
-// ---------------------------------------------------------------------------
-async function simFetch(url: string, opts?: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000);
-  try {
-    return await fetch(url, { ...opts, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // MarketSB queries
 // ---------------------------------------------------------------------------
 
@@ -55,7 +42,7 @@ export interface VABalance {
 
 export async function getFundingBalance(userRef = CURRENT_USER.ref): Promise<VABalance | null> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/virtual-accounts/va-funding-${userRef}`);
+    const res = await fetchMarketSb(`/api/v1/virtual-accounts/va-funding-${userRef}`);
     if (!res.ok) return null;
     const data = await res.json();
     // API returns { balance: { posted, pending, available } } with serialized bigints (strings)
@@ -74,7 +61,7 @@ export async function getFundingBalance(userRef = CURRENT_USER.ref): Promise<VAB
   }
 }
 
-/** Single snapshot for assurance vs user-vault circulation (aligned with GET /api/trade-panel). */
+/** Single snapshot for assurance vs circulation — same read model as GET /api/trade-panel (no client math). */
 export interface AssuranceCoverageSnapshot {
   /** assurance-global posted, USDC base units (6 dp) */
   assurancePosted: number;
@@ -82,49 +69,45 @@ export interface AssuranceCoverageSnapshot {
   circulationSpecieCount: number;
   /** circulationSpecieCount × $1 in base units */
   circulationValuePosted: number;
-  /** 0–100; capped when assurance exceeds circulation value (reserves) */
+  /** assurance ÷ circulation value × 100 (uncapped canary; may exceed 100) */
   coveragePercent: number;
+  buyBackGuaranteeDollars: string;
+  buyBackGuaranteeCents: string;
+  assurancePostedDisplay: string;
+  circulationValuePostedDisplay: string;
 }
+
+/** Fallback when sims are unreachable — still server-shaped (no client derivation). */
+export const EMPTY_ASSURANCE_COVERAGE_SNAPSHOT: AssuranceCoverageSnapshot = {
+  assurancePosted: 0,
+  circulationSpecieCount: 0,
+  circulationValuePosted: 0,
+  coveragePercent: 100,
+  buyBackGuaranteeDollars: '0',
+  buyBackGuaranteeCents: '00',
+  assurancePostedDisplay: formatUsdcDisplay(0n),
+  circulationValuePostedDisplay: formatUsdcDisplay(0n),
+};
 
 export async function getAssuranceBalance(): Promise<AssuranceCoverageSnapshot | null> {
   try {
-    const msbStateRes = await simFetch(`${MARKETSB}/sim/state`);
-    if (!msbStateRes.ok) return null;
+    const [msbStateRes, specStateRes] = await Promise.all([
+      fetchMarketSb('/sim/state'),
+      fetchSpecies('/sim/state'),
+    ]);
+    if (!msbStateRes.ok || !specStateRes.ok) return null;
     const msbState = await msbStateRes.json();
-
-    let totalAssurance = 0;
-    for (const [vaId, va] of Object.entries(msbState.virtualAccounts || {})) {
-      const posted = Number((va as Record<string, unknown>).posted ?? 0);
-      if (vaId === 'assurance-global') {
-        totalAssurance += posted;
-      }
-    }
-
-    let circulation = 0;
-    try {
-      const specStateRes = await simFetch(`${SPECIES}/sim/state`);
-      if (specStateRes.ok) {
-        const specState = await specStateRes.json();
-        circulation = specState.circulation ?? 0;
-      }
-    } catch {
-      /* species sim unavailable */
-    }
-
-    const USDC_SCALE = 1_000_000n;
-    const circVal = BigInt(circulation) * USDC_SCALE;
-    const ass = BigInt(totalAssurance);
-    let coveragePercent = 100;
-    if (circVal > 0n) {
-      const raw = Number((ass * 100n) / circVal);
-      coveragePercent = Math.min(100, Math.max(0, Math.round(raw)));
-    }
-
+    const specState = await specStateRes.json();
+    const m = buildTradePanelReadModel(msbState, specState, 'user-001');
     return {
-      assurancePosted: totalAssurance,
-      circulationSpecieCount: circulation,
-      circulationValuePosted: Number(circVal),
-      coveragePercent,
+      assurancePosted: Number(m.assuranceGlobalPosted),
+      circulationSpecieCount: m.circulationSpecieCount,
+      circulationValuePosted: Number(m.circulationValuePosted),
+      coveragePercent: m.coveragePercent,
+      buyBackGuaranteeDollars: m.buyBackGuaranteeDollars,
+      buyBackGuaranteeCents: m.buyBackGuaranteeCents,
+      assurancePostedDisplay: m.assuranceGlobalPostedDisplay,
+      circulationValuePostedDisplay: m.circulationValuePostedDisplay,
     };
   } catch {
     return null;
@@ -133,7 +116,7 @@ export async function getAssuranceBalance(): Promise<AssuranceCoverageSnapshot |
 
 export async function getOracleLedger(userRef = CURRENT_USER.ref, limit = 5): Promise<unknown[] | null> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/oracle/virtual-accounts/va-funding-${userRef}/ledger`);
+    const res = await fetchMarketSb(`/api/v1/oracle/virtual-accounts/va-funding-${userRef}/ledger`);
     if (!res.ok) return null;
     const data = await res.json();
     const events = Array.isArray(data) ? data : data.events || [];
@@ -154,7 +137,7 @@ export interface VaultBalance {
 
 export async function getVaultBalance(onliId = CURRENT_USER.onliId): Promise<VaultBalance | null> {
   try {
-    const res = await simFetch(`${SPECIES}/marketplace/v1/vault/${onliId}`);
+    const res = await fetchSpecies(`/marketplace/v1/vault/${onliId}`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -164,7 +147,7 @@ export async function getVaultBalance(onliId = CURRENT_USER.onliId): Promise<Vau
 
 export async function getAssetOracleLedger(onliId = CURRENT_USER.onliId, limit = 5): Promise<unknown[] | null> {
   try {
-    const res = await simFetch(`${SPECIES}/oracle/onli/${onliId}/ledger`);
+    const res = await fetchSpecies(`/oracle/onli/${onliId}/ledger`);
     if (!res.ok) return null;
     const data = await res.json();
     return (Array.isArray(data) ? data : []).slice(0, limit);
@@ -175,7 +158,7 @@ export async function getAssetOracleLedger(onliId = CURRENT_USER.onliId, limit =
 
 export async function getMarketplaceStats(): Promise<Record<string, unknown> | null> {
   try {
-    const res = await simFetch(`${SPECIES}/marketplace/v1/stats`);
+    const res = await fetchSpecies(`/marketplace/v1/stats`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -185,7 +168,7 @@ export async function getMarketplaceStats(): Promise<Record<string, unknown> | n
 
 export async function getListings(): Promise<unknown[] | null> {
   try {
-    const res = await simFetch(`${SPECIES}/sim/state`);
+    const res = await fetchSpecies(`/sim/state`);
     if (!res.ok) return null;
     const state = await res.json();
     const listings = state.listings || {};
@@ -200,7 +183,7 @@ export async function getListings(): Promise<unknown[] | null> {
 // ---------------------------------------------------------------------------
 
 export interface UserState {
-  fundingBalance: number; // USDC in display units (posted / 1_000_000)
+  fundingBalance: number; // USDC display units (from posted base units)
   specieCount: number;    // vault count
   fundingVA: VABalance | null;
   vaultBalance: VaultBalance | null;
@@ -213,7 +196,7 @@ export async function getUserState(userRef = CURRENT_USER.ref, onliId = CURRENT_
   ]);
 
   return {
-    fundingBalance: fundingVA ? fundingVA.posted / 1_000_000 : 0,
+    fundingBalance: fundingVA ? postedBaseUnitsToUsdNumber(fundingVA.posted) : 0,
     specieCount: vault?.count ?? 0,
     fundingVA,
     vaultBalance: vault,
@@ -227,7 +210,7 @@ export async function getUserState(userRef = CURRENT_USER.ref, onliId = CURRENT_
 /** Buy from marketplace listings (FIFO). Decrements listing quantities. */
 export async function buyFromMarket(buyerOnliId: string, quantity: number): Promise<{ ok: boolean; matched: number; data?: unknown }> {
   try {
-    const res = await simFetch(`${SPECIES}/sim/buy-from-market`, {
+    const res = await fetchSpecies(`/sim/buy-from-market`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ buyerOnliId, quantity }),
@@ -243,7 +226,7 @@ export async function buyFromMarket(buyerOnliId: string, quantity: number): Prom
 /** Issue new species from treasury to buyer vault. */
 export async function buyFromTreasury(buyerOnliId: string, quantity: number): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${SPECIES}/sim/buy-from-treasury`, {
+    const res = await fetchSpecies(`/sim/buy-from-treasury`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ buyerOnliId, quantity }),
@@ -262,7 +245,7 @@ export async function buyFromTreasury(buyerOnliId: string, quantity: number): Pr
 /** Simulate deposit through MarketSB lifecycle (incoming → FBO → compliance → credit). */
 export async function simulateDeposit(vaId: string, amount: number, fbo?: string): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/sim/simulate-deposit`, {
+    const res = await fetchMarketSb(`/sim/simulate-deposit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaId, amount: String(amount), fbo }),
@@ -277,7 +260,7 @@ export async function simulateDeposit(vaId: string, amount: number, fbo?: string
 /** Simulate withdrawal through MarketSB lifecycle (debit → compliance → outgoing → sent). */
 export async function simulateWithdrawal(vaId: string, amount: number, destination?: string): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/sim/simulate-withdrawal`, {
+    const res = await fetchMarketSb(`/sim/simulate-withdrawal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaId, amount: String(amount), destination }),
@@ -292,7 +275,7 @@ export async function simulateWithdrawal(vaId: string, amount: number, destinati
 /** Credit a VA directly (legacy shortcut). Amount in USDC base units. */
 export async function creditVA(vaId: string, amount: number): Promise<boolean> {
   try {
-    const res = await simFetch(`${MARKETSB}/sim/credit-va`, {
+    const res = await fetchMarketSb(`/sim/credit-va`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaId, amount: String(amount) }),
@@ -306,7 +289,7 @@ export async function creditVA(vaId: string, amount: number): Promise<boolean> {
 /** Debit a VA directly (legacy shortcut). Amount in USDC base units. */
 export async function debitVA(vaId: string, amount: number): Promise<boolean> {
   try {
-    const res = await simFetch(`${MARKETSB}/sim/debit-va`, {
+    const res = await fetchMarketSb(`/sim/debit-va`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaId, amount: String(amount) }),
@@ -332,7 +315,7 @@ export async function postCashierBatch(params: {
   fees?: { issuance?: boolean; liquidity?: boolean };
 }): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/cashier/post-batch`, {
+    const res = await fetchMarketSb(`/api/v1/cashier/post-batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -355,7 +338,7 @@ export async function postCashierBatch(params: {
 /** Adjust Species vault count directly. */
 export async function adjustVault(vaultId: string, delta: number, reason?: string): Promise<boolean> {
   try {
-    const res = await simFetch(`${SPECIES}/sim/vault-adjust`, {
+    const res = await fetchSpecies(`/sim/vault-adjust`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vaultId, delta, reason }),
@@ -390,7 +373,7 @@ export async function cashierTrade(params: {
   idempotencyKey?: string;
 }): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/transactions/trade`, {
+    const res = await fetchMarketSb(`/api/v1/transactions/trade`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -420,7 +403,7 @@ export async function cashierList(params: {
   idempotencyKey?: string;
 }): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/transactions/list`, {
+    const res = await fetchMarketSb(`/api/v1/transactions/list`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -454,7 +437,7 @@ export async function cashierRedeem(params: {
   idempotencyKey?: string;
 }): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/transactions/redeem`, {
+    const res = await fetchMarketSb(`/api/v1/transactions/redeem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -485,7 +468,7 @@ export async function createSpeciesListing(params: {
   unitPrice?: number; // base units, default $1 = 1_000_000
 }): Promise<{ ok: boolean; data?: unknown }> {
   try {
-    const res = await simFetch(`${SPECIES}/sim/create-listing`, {
+    const res = await fetchSpecies(`/sim/create-listing`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -511,7 +494,7 @@ export async function createSpeciesListing(params: {
 
 export async function getMarketsbAgentContext(): Promise<unknown | null> {
   try {
-    const res = await simFetch(`${MARKETSB}/api/v1/agentContext`);
+    const res = await fetchMarketSb(`/api/v1/agentContext`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -521,7 +504,7 @@ export async function getMarketsbAgentContext(): Promise<unknown | null> {
 
 export async function getSpeciesAgentContext(): Promise<unknown | null> {
   try {
-    const res = await simFetch(`${SPECIES}/marketplace/v1/agentContext`);
+    const res = await fetchSpecies(`/marketplace/v1/agentContext`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -546,7 +529,7 @@ export async function getTwinSimAgentContexts(): Promise<{
 // ---------------------------------------------------------------------------
 
 export function fmtUSDC(baseUnits: number): string {
-  return (baseUnits / 1_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatUsdcDisplay(BigInt(Math.trunc(baseUnits)));
 }
 
 export function fmtDisplay(n: number): string {

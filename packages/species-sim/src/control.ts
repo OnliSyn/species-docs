@@ -3,6 +3,11 @@ import type { SpeciesSimState, SpeciesSimConfig, StageDelays } from './state.js'
 import { seedState } from './seed.js';
 import { approveAskToMove, clearAllAskToMove } from './sim-onli/ask-to-move.js';
 import { resetOracleCounter } from './sim-onli/change-owner.js';
+import { resetEscrowOracleCounter } from './sim-onli/seller-locker-escrow.js';
+import { resetTransferStagingOracleCounter } from './sim-onli/transfer-staging.js';
+import { changeOwner } from './sim-onli/change-owner.js';
+import { moveUserVaultToSellerLocker } from './sim-onli/seller-locker-escrow.js';
+import { ensureUserVault, speciesInCirculationCount } from './sim-onli/vaults.js';
 import { resetMatchCounter } from './sim-species/matching.js';
 
 export function createControlRouter(
@@ -21,6 +26,8 @@ export function createControlRouter(
 
     // Reset counters
     resetOracleCounter();
+    resetEscrowOracleCounter();
+    resetTransferStagingOracleCounter();
     resetMatchCounter();
 
     // Re-seed state
@@ -33,8 +40,7 @@ export function createControlRouter(
   // ── GET /sim/state ───────────────────────────────────────────────────
   router.get('/sim/state', (_req: Request, res: Response) => {
     const state = getState();
-    const circulation = state.vaults.sellerLocker.count + 
-      Array.from(state.vaults.users.values()).reduce((sum, v) => sum + v.count, 0);
+    const circulation = speciesInCirculationCount(state);
 
     res.json({
       circulation,
@@ -114,40 +120,34 @@ export function createControlRouter(
     for (const listing of activeListings) {
       if (remaining <= 0) break;
       const fillQty = Math.min(remaining, listing.remainingQuantity);
-      listing.remainingQuantity -= fillQty;
-      if (listing.remainingQuantity === 0) listing.status = 'filled';
       fills.push({ listingId: listing.listingId, sellerOnliId: listing.sellerOnliId, qty: fillQty });
       remaining -= fillQty;
     }
 
     const matched = quantity - remaining;
-    const now = new Date().toISOString();
 
-    // Move species from sellerLocker to buyer vault
     if (matched > 0) {
-      state.vaults.sellerLocker.count -= matched;
-      const buyer = state.vaults.users.get(buyerOnliId);
-      if (buyer) {
-        buyer.count += matched;
-        buyer.history.push({
-          type: 'credit',
-          count: matched,
-          from: 'sellerLocker',
-          to: buyerOnliId,
-          eventId: `buy-market-${Date.now()}`,
-          timestamp: now,
+      if (state.vaults.sellerLocker.count < matched) {
+        res.status(400).json({
+          error: 'Insufficient specie in sellerLocker for fills',
+          sellerLockerCount: state.vaults.sellerLocker.count,
+          matched,
         });
+        return;
       }
-
-      state.assetOracleLog.push({
-        id: `ao-buy-market-${Date.now()}`,
-        eventId: `buy-market-${Date.now()}`,
-        type: 'change_owner',
-        from: 'sellerLocker',
-        to: buyerOnliId,
-        count: matched,
-        timestamp: now,
-      });
+      ensureUserVault(state, buyerOnliId);
+      const eventId = `buy-market-${Date.now()}`;
+      const move = changeOwner(state, 'sellerLocker', buyerOnliId, matched, eventId);
+      if (!move.success) {
+        res.status(400).json({ error: move.error ?? 'change_owner_failed' });
+        return;
+      }
+      for (const f of fills) {
+        const listing = state.listings.get(f.listingId);
+        if (!listing) continue;
+        listing.remainingQuantity -= f.qty;
+        if (listing.remainingQuantity <= 0) listing.status = 'filled';
+      }
     }
 
     res.json({
@@ -175,31 +175,15 @@ export function createControlRouter(
       return;
     }
 
-    const now = new Date().toISOString();
-
-    state.vaults.treasury.count -= quantity;
-    const buyer = state.vaults.users.get(buyerOnliId);
-    if (buyer) {
-      buyer.count += quantity;
-      buyer.history.push({
-        type: 'credit',
-        count: quantity,
-        from: 'treasury',
-        to: buyerOnliId,
-        eventId: `buy-treasury-${Date.now()}`,
-        timestamp: now,
-      });
+    ensureUserVault(state, buyerOnliId);
+    const eventId = `buy-treasury-${Date.now()}`;
+    const move = changeOwner(state, 'treasury', buyerOnliId, quantity, eventId);
+    if (!move.success) {
+      res.status(400).json({ error: move.error ?? 'change_owner_failed' });
+      return;
     }
 
-    state.assetOracleLog.push({
-      id: `ao-buy-treasury-${Date.now()}`,
-      eventId: `buy-treasury-${Date.now()}`,
-      type: 'change_owner',
-      from: 'treasury',
-      to: buyerOnliId,
-      count: quantity,
-      timestamp: now,
-    });
+    const buyer = state.vaults.users.get(buyerOnliId);
 
     res.json({
       issued: quantity,
@@ -232,20 +216,16 @@ export function createControlRouter(
     const listingId = `listing-${sellerOnliId}-${Date.now()}`;
     const now = new Date().toISOString();
 
-    // Move species from user vault to sellerLocker (escrow)
-    vault.count -= quantity;
-    vault.history.push({
-      type: 'debit',
-      count: quantity,
-      from: sellerOnliId,
-      to: 'sellerLocker',
-      eventId: listingId,
-      timestamp: now,
-    });
+    const escrow = moveUserVaultToSellerLocker(state, sellerOnliId, quantity, listingId);
+    if (!escrow.success) {
+      res.status(400).json({
+        error: escrow.error ?? 'escrow_failed',
+        available: state.vaults.users.get(sellerOnliId)?.count ?? 0,
+        requested: quantity,
+      });
+      return;
+    }
 
-    state.vaults.sellerLocker.count += quantity;
-
-    // Create the listing
     state.listings.set(listingId, {
       listingId,
       sellerOnliId,
@@ -256,16 +236,7 @@ export function createControlRouter(
       createdAt: now,
     });
 
-    // Asset oracle
-    state.assetOracleLog.push({
-      id: `ao-${listingId}`,
-      eventId: listingId,
-      type: 'listing_escrow',
-      from: sellerOnliId,
-      to: 'sellerLocker',
-      count: quantity,
-      timestamp: now,
-    });
+    const vAfter = state.vaults.users.get(sellerOnliId)!;
 
     res.json({
       listingId,
@@ -274,7 +245,7 @@ export function createControlRouter(
       unitPrice: unitPrice ?? 1_000_000,
       status: 'active',
       escrowedFrom: sellerOnliId,
-      sellerVaultRemaining: vault.count,
+      sellerVaultRemaining: vAfter.count,
     });
   });
 
@@ -298,7 +269,7 @@ export function createControlRouter(
     const user = state.vaults.users.get(vaultId);
     if (!user) {
       // Auto-create vault if it doesn't exist
-      state.vaults.users.set(vaultId, { count: Math.max(0, delta), history: [] });
+      state.vaults.users.set(vaultId, { count: Math.max(0, delta), lockerCount: 0, history: [] });
       const created = state.vaults.users.get(vaultId)!;
       created.history.push({
         type: delta > 0 ? 'credit' : 'debit',

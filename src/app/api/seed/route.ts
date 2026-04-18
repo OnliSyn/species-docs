@@ -2,9 +2,7 @@
 // Calls POST /sim/reset on MarketSB (3101) and Species (3102)
 
 import { NextResponse } from 'next/server';
-
-const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:3101';
-const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:3102';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
 
 export async function POST() {
   const results: Record<string, unknown> = {};
@@ -12,8 +10,8 @@ export async function POST() {
 
   // Reset both sims in parallel
   const [msbResult, specResult] = await Promise.allSettled([
-    fetch(`${MARKETSB_URL}/sim/reset`, { method: 'POST' }),
-    fetch(`${SPECIES_URL}/sim/reset`, { method: 'POST' }),
+    fetchMarketSb('/sim/reset', { method: 'POST' }),
+    fetchSpecies('/sim/reset', { method: 'POST' }),
   ]);
 
   if (msbResult.status === 'fulfilled' && msbResult.value.ok) {

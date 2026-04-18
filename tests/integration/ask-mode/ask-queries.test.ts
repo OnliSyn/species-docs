@@ -70,6 +70,10 @@ describe('ASK MODE — Read-only queries', () => {
     expect(typeof assurance!.circulationSpecieCount).toBe('number');
     expect(typeof assurance!.circulationValuePosted).toBe('number');
     expect(typeof assurance!.coveragePercent).toBe('number');
+    expect(typeof assurance!.buyBackGuaranteeDollars).toBe('string');
+    expect(typeof assurance!.buyBackGuaranteeCents).toBe('string');
+    expect(typeof assurance!.assurancePostedDisplay).toBe('string');
+    expect(typeof assurance!.circulationValuePostedDisplay).toBe('string');
     expect(assurance!.circulationValuePosted).toBe(assurance!.circulationSpecieCount * 1_000_000);
   });
 

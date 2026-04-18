@@ -6,6 +6,9 @@ import * as marketsb from '@/api/marketsb';
 import * as species from '@/api/species';
 import * as onliCloud from '@/api/onli-cloud';
 import type { EventRequest } from '@/types';
+import { tradePanelTruthSchema, type TradePanelTruth } from '@/lib/schemas/trade-panel-truth';
+
+export type { TradePanelTruth };
 
 // === MarketSB Hooks ===
 
@@ -25,32 +28,24 @@ export function useVirtualAccounts(ownerRef: string | null) {
   });
 }
 
-/** Aggregated portfolio fields from GET /api/trade-panel (sim state — no client money math). */
-export interface TradePanelTruth {
-  ok: true;
-  userRef: string;
-  onliId: string;
-  fundingPosted: string;
-  speciesVaPosted: string;
-  vaultSpecieCount: number;
-  assuranceGlobalPosted: string;
-  circulationSpecieCount: number;
-  circulationValuePosted: string;
-  coveragePercent: number;
-  timestamp: string;
-}
-
 export function useTradePanelTruth(userRef: string | null) {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['trade-panel', userRef],
     queryFn: async () => {
       const res = await fetch(`/api/trade-panel?userRef=${encodeURIComponent(userRef!)}`);
-      const body = await res.json();
-      if (!res.ok || !body.ok) {
-        throw new Error(body.error || 'trade-panel request failed');
+      const body: unknown = await res.json();
+      if (!res.ok) {
+        const err = body && typeof body === 'object' && 'error' in body
+          ? String((body as { error?: unknown }).error)
+          : 'trade-panel request failed';
+        throw new Error(err);
       }
-      return body as TradePanelTruth;
+      const parsed = tradePanelTruthSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new Error(`trade-panel: invalid response shape (${parsed.error.message})`);
+      }
+      return parsed.data;
     },
     enabled: !!userRef,
   });

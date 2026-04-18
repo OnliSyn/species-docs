@@ -1,10 +1,10 @@
-// @ts-nocheck
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
   stepCountIs,
   tool,
+  type ModelMessage,
 } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod/v4';
@@ -13,6 +13,7 @@ import {
   getFundingBalance,
   getVaultBalance,
   getAssuranceBalance,
+  EMPTY_ASSURANCE_COVERAGE_SNAPSHOT,
   getOracleLedger,
   getMarketplaceStats,
   getListings,
@@ -21,9 +22,9 @@ import {
   fmtUSDC,
   CURRENT_USER,
 } from '@/lib/sim-client';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
 import { getSystemPrompt, FULL_CANON } from '@/lib/system-prompts';
 
-const MARKETSB_ORIGIN = process.env.MARKETSB_URL || 'http://localhost:3101';
 import {
   detectJourneyState,
   getLiveState,
@@ -256,17 +257,22 @@ async function getToolResult(message: string, mode: string): Promise<ToolResult 
 
   if (lower.includes('assurance') || lower.includes('coverage')) {
     const assurance = await getAssuranceBalance();
+    const a = assurance ?? EMPTY_ASSURANCE_COVERAGE_SNAPSHOT;
     return {
       toolName: 'get_assurance_coverage',
       data: {
         _ui: 'CoverageCard',
-        assurancePosted: assurance?.assurancePosted ?? 0,
-        circulationSpecieCount: assurance?.circulationSpecieCount ?? 0,
-        circulationValuePosted: assurance?.circulationValuePosted ?? 0,
-        coveragePercent: assurance?.coveragePercent ?? 0,
+        assurancePosted: a.assurancePosted,
+        circulationSpecieCount: a.circulationSpecieCount,
+        circulationValuePosted: a.circulationValuePosted,
+        coveragePercent: a.coveragePercent,
+        buyBackGuaranteeDollars: a.buyBackGuaranteeDollars,
+        buyBackGuaranteeCents: a.buyBackGuaranteeCents,
+        assurancePostedDisplay: a.assurancePostedDisplay,
+        circulationValuePostedDisplay: a.circulationValuePostedDisplay,
       },
       commentary: assurance
-        ? `Coverage is at ${assurance.coveragePercent}%. The Assurance account is backed by proceeds from all Specie issuance sales.`
+        ? `Coverage is at ${a.coveragePercent}%. The Assurance account is backed by proceeds from all Specie issuance sales.`
         : 'Unable to fetch assurance data.',
     };
   }
@@ -711,7 +717,20 @@ function handleMockChat(messages: Message[], mode: string, chatId?: string): Res
         return;
       }
 
-      // Plain text response
+      // Plain text response (markdown string — journey tool payloads return above)
+      if (typeof response !== 'string') {
+        const textId = crypto.randomUUID();
+        writer.write({ type: 'text-start', id: textId });
+        writer.write({
+          type: 'text-delta',
+          id: textId,
+          delta: 'Something went wrong formatting the assistant reply.',
+        });
+        writer.write({ type: 'text-end', id: textId });
+        writer.write({ type: 'finish', finishReason: 'stop' });
+        return;
+      }
+
       const textId = crypto.randomUUID();
 
       writer.write({ type: 'text-start', id: textId });
@@ -749,7 +768,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/virtual-accounts/va-funding-user-001`);
+        const res = await fetchMarketSb('/api/v1/virtual-accounts/va-funding-user-001');
         const data = await res.json();
         return data;
       } catch {
@@ -769,7 +788,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const vaultRes = await fetch('http://localhost:3102/marketplace/v1/vault/onli-user-001');
+        const vaultRes = await fetchSpecies('/marketplace/v1/vault/onli-user-001');
         const vault = await vaultRes.json();
         return { vaultId: vault.vaultId, specieCount: vault.count };
       } catch {
@@ -780,18 +799,12 @@ function buildTools() {
 
   const get_assurance_coverage = tool({
     description:
-      'Get assurance-global posted balance, user-vault circulation (Specie count), circulation USDC value at $1 per Specie, and coverage % (assurance ÷ circulation value, capped at 100).',
+      'Get assurance-global posted balance, circulation (Specie count), peg liability, coverage ratio % (uncapped canary), per-Specie buy-back display, and server-formatted USDC strings — same read model as GET /api/trade-panel.',
     inputSchema: z.object({}),
     outputSchema: z.any(),
     execute: async () => {
       const snap = await getAssuranceBalance();
-      if (snap) return snap;
-      return {
-        assurancePosted: 0,
-        circulationSpecieCount: 0,
-        circulationValuePosted: 0,
-        coveragePercent: 100,
-      };
+      return snap ?? EMPTY_ASSURANCE_COVERAGE_SNAPSHOT;
     },
   });
 
@@ -804,7 +817,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async ({ limit }: { limit?: number }) => {
       try {
-        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger`);
+        const res = await fetchMarketSb('/api/v1/oracle/virtual-accounts/va-funding-user-001/ledger');
         if (res.ok) {
           const ledger = await res.json();
           return (Array.isArray(ledger) ? ledger : ledger.events || []).slice(0, limit || 5);
@@ -829,7 +842,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async ({ deposit_id }: { deposit_id?: string }) => {
       try {
-        const res = await fetch(`${MARKETSB_ORIGIN}/api/v1/deposits/${deposit_id || 'dep-001'}`);
+        const res = await fetchMarketSb(`/api/v1/deposits/${deposit_id || 'dep-001'}`);
         return await res.json();
       } catch {
         return {
@@ -854,7 +867,7 @@ function buildTools() {
     outputSchema: z.any(),
     execute: async () => {
       try {
-        const res = await fetch('http://localhost:3102/marketplace/v1/stats');
+        const res = await fetchSpecies('/marketplace/v1/stats');
         return await res.json();
       } catch {
         return {
@@ -1001,13 +1014,16 @@ async function handleRealChat(messages: Message[], mode: string): Promise<Respon
     return { role: m.role, content: '' };
   }).filter((m: any) => m.content !== '');
 
-  console.log(`[REAL AI] Model: claude-3-haiku-20240307 | System prompt length: ${getSystemPrompt(mode).length} | Messages: ${cleaned.length} | Tools: ${Object.keys(buildTools()).length}`);
+  const modelMessages: ModelMessage[] =
+    cleaned.length > 0 ? (cleaned as ModelMessage[]) : [{ role: 'user', content: 'Hello.' }];
+
+  console.log(`[REAL AI] Model: claude-3-haiku-20240307 | System prompt length: ${getSystemPrompt(mode).length} | Messages: ${modelMessages.length} | Tools: ${Object.keys(buildTools()).length}`);
 
   try {
     const result = streamText({
       model: anthropic('claude-sonnet-4-20250514'),
       system: getSystemPrompt(mode),
-      messages: cleaned as Parameters<typeof streamText>[0]['messages'],
+      messages: modelMessages,
       tools: buildTools(),
       stopWhen: stepCountIs(5),
     });

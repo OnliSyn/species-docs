@@ -1,4 +1,3 @@
-// @ts-nocheck
 // ---------------------------------------------------------------------------
 // Journey Engine — extracted from route.ts for testability
 // Handles journey state detection, confirmation, and execution
@@ -26,12 +25,12 @@ import {
   CURRENT_USER,
   type UserState,
 } from '@/lib/sim-client';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
+import { postedBaseUnitsToUsdNumber } from '@/lib/amount';
 
 // ---------------------------------------------------------------------------
 // Species-sim pipeline helper — single entry point for buy/sell/transfer/redeem
 // ---------------------------------------------------------------------------
-const SPECIES_SIM = process.env.SPECIES_URL || 'http://localhost:3102';
-const MARKETSB_SIM = process.env.MARKETSB_URL || 'http://localhost:3101';
 
 interface PipelineResult {
   ok: boolean;
@@ -54,7 +53,7 @@ async function submitPipeline(payload: {
 
   // 1. Submit to species-sim pipeline
   try {
-    const res = await fetch(`${SPECIES_SIM}/marketplace/v1/eventRequest`, {
+    const res = await fetchSpecies('/marketplace/v1/eventRequest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -85,7 +84,7 @@ async function submitPipeline(payload: {
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 500));
     try {
-      const statusRes = await fetch(`${SPECIES_SIM}/marketplace/v1/events/${eventId}/status`);
+      const statusRes = await fetchSpecies(`/marketplace/v1/events/${eventId}/status`);
       if (statusRes.ok) {
         const data = await statusRes.json();
         status = data.status;
@@ -96,7 +95,7 @@ async function submitPipeline(payload: {
         if (!autoApproved && stages.some((s: { stage: string }) => s.stage === 'ask_to_move.pending')) {
           autoApproved = true;
           try {
-            await fetch(`${SPECIES_SIM}/sim/approve/${eventId}`, { method: 'POST' });
+            await fetchSpecies(`/sim/approve/${eventId}`, { method: 'POST' });
           } catch {
             // Approval endpoint may not be available; pipeline will timeout
           }
@@ -112,7 +111,7 @@ async function submitPipeline(payload: {
   // 3. If completed, fetch receipt
   if (status === 'completed') {
     try {
-      const receiptRes = await fetch(`${SPECIES_SIM}/marketplace/v1/events/${eventId}/receipt`);
+      const receiptRes = await fetchSpecies(`/marketplace/v1/events/${eventId}/receipt`);
       if (receiptRes.ok) {
         receipt = await receiptRes.json();
       }
@@ -125,8 +124,8 @@ async function submitPipeline(payload: {
   if (status === 'completed') {
     try {
       const [msbRes, specRes] = await Promise.all([
-        fetch(`${MARKETSB_SIM}/sim/state`),
-        fetch(`${SPECIES_SIM}/sim/state`),
+        fetchMarketSb('/sim/state'),
+        fetchSpecies('/sim/state'),
       ]);
       if (msbRes.ok && specRes.ok) {
         const { runAudit } = await import('@/lib/audit');
@@ -704,8 +703,8 @@ export async function buyExecute(quantity: number): Promise<JourneyResponse> {
   const receipt = result.receipt || {};
   const totalCost = Number(receipt.totalCost || 0);
   const fees = (receipt.fees as any) || { issuance: 0, liquidity: 0, listing: 0 };
-  const issuanceFee = Number(fees.issuance || 0) / 1_000_000;
-  const liquidityFee = Number(fees.liquidity || 0) / 1_000_000;
+  const issuanceFee = postedBaseUnitsToUsdNumber(Number(fees.issuance || 0));
+  const liquidityFee = postedBaseUnitsToUsdNumber(Number(fees.liquidity || 0));
   const cost = quantity * 1.00;
   const total = cost + issuanceFee + liquidityFee;
 
@@ -772,12 +771,12 @@ export async function issueExecute(quantity: number): Promise<JourneyResponse> {
   const total = cost + issuanceFee;
   const fees = issuanceFee;
   const eventId = `evt-${crypto.randomUUID().slice(0, 8)}`;
-  const batchId = `tb-batch-${crypto.randomUUID().slice(0, 6)}`;
+  const matchId = `match-${eventId}`;
 
   const USDC = 1_000_000;
   const cashierResult = await postCashierBatch({
     eventId,
-    matchId: `match-${eventId}`,
+    matchId,
     intent: 'buy',
     quantity,
     buyerVaId: `va-funding-${CURRENT_USER.ref}`,
@@ -786,11 +785,43 @@ export async function issueExecute(quantity: number): Promise<JourneyResponse> {
   });
   console.log(`[ISSUE] cashier result: ok=${cashierResult.ok}, quantity=${quantity}`);
 
-  if (cashierResult.ok) {
-    await Promise.all([
-      adjustVault(CURRENT_USER.onliId, quantity, 'issue'),
-      adjustVault('treasury', -quantity, 'issue-decrement'),
-    ]);
+  const batchData = cashierResult.data as { tbBatchId?: string } | undefined;
+  const batchId = batchData?.tbBatchId ?? null;
+
+  const issueFail = (error: string, followUp: string): JourneyResponse => ({
+    type: 'tool',
+    toolName: 'journey_execute',
+    data: {
+      _ui: 'PipelineCard',
+      title: `ISSUE ${quantity.toLocaleString()} SPECIES FROM TREASURY — FAILED`,
+      eventId,
+      batchId,
+      stages: [
+        { label: 'Submitted', system: 'SM', status: 'done' },
+        { label: 'Cashier / vault', system: 'MB', status: 'error' },
+      ],
+      error,
+    },
+    followUp,
+  });
+
+  if (!cashierResult.ok) {
+    return issueFail(
+      'Cashier settlement failed — no USDC was debited from Funding or credited to Assurance.',
+      'Issuance did not complete. Check your Funding Account balance and that the MarketSB sim is reachable.',
+    );
+  }
+
+  const [userVaultOk, treasuryVaultOk] = await Promise.all([
+    adjustVault(CURRENT_USER.onliId, quantity, 'issue'),
+    adjustVault('treasury', -quantity, 'issue-decrement'),
+  ]);
+
+  if (!userVaultOk || !treasuryVaultOk) {
+    return issueFail(
+      'Species vault update failed after cashier posted USDC to Assurance. Assurance and circulation may be out of sync until the sim is reset or repaired.',
+      'Do not retry blindly — contact support or reset the demo sim. Vault adjust returned an error from Species sim.',
+    );
   }
 
   const state = await getLiveState();

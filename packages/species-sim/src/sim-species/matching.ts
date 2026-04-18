@@ -47,6 +47,7 @@ export function matchOrder(
     fills.push({
       matchId: `match-${String(matchCounter).padStart(3, '0')}`,
       counterparty: listing.sellerOnliId,
+      sellerOnliId: listing.sellerOnliId,
       listingId: listing.listingId,
       quantity: fillQty,
     });

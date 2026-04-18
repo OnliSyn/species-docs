@@ -1,6 +1,12 @@
 import type { SpeciesSimState, OrderState, SpeciesSimConfig } from '../state.js';
 import { changeOwner } from '../sim-onli/change-owner.js';
 import { createAskToMove } from '../sim-onli/ask-to-move.js';
+import {
+  moveSellerLockerToUserVault,
+  moveUserVaultToSellerLocker,
+} from '../sim-onli/seller-locker-escrow.js';
+import { stageSenderVaultToSenderLocker, unstageSenderLockerToVault } from '../sim-onli/transfer-staging.js';
+import { userLockerVaultId } from '../sim-onli/vault-ids.js';
 import { getVaultCount, ensureUserVault } from '../sim-onli/vaults.js';
 import { matchOrder } from './matching.js';
 
@@ -136,7 +142,8 @@ export async function runBuyPipeline(
     failOrder(emit, order, 'order.matched', 'matching_failed');
     return;
   }
-  const buyerOnliId = order.buyerOnliId || vaIdToOnliId(order.paymentSource?.vaId);
+  const buyerOnliId = order.buyerOnliId ?? vaIdToOnliId(order.paymentSource?.vaId);
+  order.buyerOnliId = buyerOnliId;
   const matchResult = matchOrder(state, 'buy', order.quantity, buyerOnliId);
   order.matches = matchResult.fills;
   emitStage(emit, order, 'order.matched', {
@@ -216,7 +223,6 @@ export async function runBuyPipeline(
     order.fees = { issuance: issuanceFee, liquidity: liquidityFee, listing: 0 };
     order.oracleRefs = {
       fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
-      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
@@ -244,6 +250,7 @@ export async function runBuyPipeline(
   ensureUserVault(state, buyerOnliId);
 
   // Execute final asset movement ONLY NOW that funding is settled
+  let lastAssetOracle: string | undefined;
   for (const fill of matchResult.fills) {
     const source = fill.counterparty === 'treasury' ? 'treasury' : 'sellerLocker';
     const ownerResult = changeOwner(
@@ -257,7 +264,9 @@ export async function runBuyPipeline(
       failOrder(emit, order, 'ownership.changed', ownerResult.error ?? 'ownership_failed');
       return;
     }
+    lastAssetOracle = ownerResult.oracleEntryId;
   }
+  order.oracleRefs = { ...order.oracleRefs, assetOracle: lastAssetOracle };
   emitStage(emit, order, 'ownership.changed', {
     newOwner: buyerOnliId,
     count: order.quantity,
@@ -351,10 +360,23 @@ export async function runTransferPipeline(
 
   emitStage(emit, order, 'ask_to_move.approved', { approved: true });
 
-  // Stage 7: ownership.changed — ChangeOwner: Sender → Receiver
+  // Canon TRANSFER_EXECUTION: AskToMove (vault → senderLocker) then ChangeOwner (locker → receiver vault).
+  const staged = stageSenderVaultToSenderLocker(
+    state,
+    senderOnliId,
+    order.quantity,
+    order.eventId,
+  );
+  if (!staged.success) {
+    failOrder(emit, order, 'ownership.changed', staged.error ?? 'ask_to_move_stage_failed');
+    return;
+  }
+
+  // Stage 7: ownership.changed — ChangeOwner: Sender locker → Receiver vault
   await delay(state.stageDelays.ownershipChanged);
   if (state.errorInjections.get('ownership.changed')) {
     state.errorInjections.delete('ownership.changed');
+    unstageSenderLockerToVault(state, senderOnliId, order.quantity, `${order.eventId}-rollback`);
     failOrder(emit, order, 'ownership.changed', 'ownership_change_failed');
     return;
   }
@@ -364,12 +386,13 @@ export async function runTransferPipeline(
 
   const result = changeOwner(
     state,
-    senderOnliId,
+    userLockerVaultId(senderOnliId),
     recipientOnliId,
     order.quantity,
     order.eventId,
   );
   if (!result.success) {
+    unstageSenderLockerToVault(state, senderOnliId, order.quantity, `${order.eventId}-rollback`);
     failOrder(emit, order, 'ownership.changed', result.error ?? 'transfer_failed');
     return;
   }
@@ -502,8 +525,8 @@ export async function runSellPipeline(
     emitStage(emit, order, 'ask_to_move.approved', { approved: true });
   }
 
-  // Move seller's Specie to sellerLocker
-  const stageResult = changeOwner(state, sellerOnliId, 'sellerLocker', order.quantity, order.eventId);
+  // SELL_MARKET_LISTING: AskToMove seller vault → sellerLocker (canon §3.9 — not ChangeOwner).
+  const stageResult = moveUserVaultToSellerLocker(state, sellerOnliId, order.quantity, order.eventId);
   if (!stageResult.success) {
     state.listings.delete(listingId);
     failOrder(emit, order, 'asset.staged', stageResult.error ?? 'staging_failed');
@@ -519,8 +542,8 @@ export async function runSellPipeline(
   await delay(state.stageDelays.paymentConfirmed);
   if (state.errorInjections.get('payment.confirmed')) {
     state.errorInjections.delete('payment.confirmed');
-    // Rollback: sellerLocker → seller
-    changeOwner(state, 'sellerLocker', sellerOnliId, order.quantity, order.eventId);
+    // Rollback: sellerLocker → seller vault (inverse AskToMove)
+    moveSellerLockerToUserVault(state, sellerOnliId, order.quantity, order.eventId);
     state.listings.delete(listingId);
     failOrder(emit, order, 'payment.confirmed', 'payment_failed');
     return;
@@ -530,7 +553,7 @@ export async function runSellPipeline(
   order.totalCost = 0;
   order.fees = { issuance: 0, liquidity: 0, listing: 0 };
   order.oracleRefs = {
-    assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
+    assetOracle: stageResult.oracleEntryId,
   };
 
   emitStage(emit, order, 'payment.confirmed', {
@@ -643,7 +666,6 @@ export async function runRedeemPipeline(
     order.tbBatchId = batchTbBatchId(batchResult) ?? `tb-batch-${order.eventId}`;
     order.oracleRefs = {
       fundingOracle: batchFundingOracle(batchResult, `fo-${order.eventId}`),
-      assetOracle: state.assetOracleLog[state.assetOracleLog.length - 1]?.id,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
@@ -667,12 +689,27 @@ export async function runRedeemPipeline(
   // MarketMaker relists the redeemed species on the marketplace
   await delay(state.stageDelays.ownershipChanged);
 
-  // Execute final asset movement ONLY NOW that funding is settled
-  const ownerResult = changeOwner(state, sellerOnliId, 'marketMaker', order.quantity, order.eventId);
+  // REDEMPTION asset leg: AskToMove vault → sellerLocker, then ChangeOwner sellerLocker → marketMaker vault (canon §3.9).
+  const escrow = moveUserVaultToSellerLocker(state, sellerOnliId, order.quantity, order.eventId);
+  if (!escrow.success) {
+    failOrder(emit, order, 'ownership.changed', escrow.error ?? 'redeem_escrow_failed');
+    return;
+  }
+
+  const ownerResult = changeOwner(
+    state,
+    'sellerLocker',
+    'marketMaker',
+    order.quantity,
+    order.eventId,
+  );
   if (!ownerResult.success) {
+    moveSellerLockerToUserVault(state, sellerOnliId, order.quantity, `${order.eventId}-redeem-rollback`);
     failOrder(emit, order, 'ownership.changed', ownerResult.error ?? 'ownership_failed');
     return;
   }
+
+  order.oracleRefs = { ...order.oracleRefs, assetOracle: ownerResult.oracleEntryId };
 
   // Create a listing from the MarketMaker for the redeemed species
   const relistId = `listing-redeem-${order.eventId}`;

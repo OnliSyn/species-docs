@@ -1,5 +1,5 @@
 const USDC_DECIMALS = 6n;
-const USDC_SCALE = 10n ** USDC_DECIMALS; // 1_000_000n
+const USDC_SCALE = 10n ** USDC_DECIMALS; // 10^6 micro-USDC per 1 USDC
 const SPECIE_PRICE = USDC_SCALE;          // $1.00 per Specie
 
 /** UI input string -> bigint base units */
@@ -60,6 +60,15 @@ export function previewBuyFees(quantity: number) {
     liquidityFee,
     totalCost: cost + issuanceFee + liquidityFee,
   };
+}
+
+/**
+ * Legacy bridge: API returns integer posted USDC base units; some UI/tween paths still need a number.
+ * Prefer {@link formatUsdcDisplay} / {@link formatUsdcDecimal} + bigint for new code.
+ */
+export function postedBaseUnitsToUsdNumber(posted: number): number {
+  const b = BigInt(Math.trunc(posted));
+  return Number.parseFloat(formatUsdcDecimal(b));
 }
 
 export { USDC_SCALE, SPECIE_PRICE };

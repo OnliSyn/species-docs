@@ -11,9 +11,13 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ Build passed"
 
-# Full suite: Vitest global-setup starts sims when VITEST_MANAGE_SIMS=1 (npm run test)
+echo "📜 Canon guardrails..."
+node scripts/check-canon-guardrails.mjs || { echo "❌ CANON GUARDRAILS FAILED — push blocked"; exit 1; }
+echo "✅ Canon guardrails passed"
+
+# Full suite: Vitest global-setup starts sims when VITEST_MANAGE_SIMS=1 (canon already validated above)
 echo "🔄 Running full test suite (sims auto-started or reused)..."
-npm run test 2>&1
+VITEST_MANAGE_SIMS=1 npx vitest run 2>&1
 if [ $? -ne 0 ]; then
   echo "❌ TESTS FAILED — push blocked"
   exit 1

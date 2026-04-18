@@ -1,5 +1,7 @@
 'use client';
 
+import { formatUsdcDisplay } from '@/lib/amount';
+
 interface Transaction {
   type: string;
   description: string;
@@ -16,8 +18,8 @@ export function TransactionList({ data }: { data: Transaction[] }) {
       </h4>
       <div className="space-y-2">
         {(Array.isArray(data) ? data : []).map((tx, i) => {
-          const amount = tx.amount / 1_000_000;
-          const isPositive = amount >= 0;
+          const amountBase = BigInt(Math.trunc(tx.amount));
+          const isPositive = amountBase >= 0n;
           return (
             <div key={i} className="flex items-center gap-3 py-1.5 border-b border-[var(--color-border)] last:border-0">
               <span className="text-sm">{tx.type === 'deposit' ? '\u2193' : tx.type === 'buy' ? '\u{1F33F}' : tx.type === 'sell' ? '\u{1F4E4}' : tx.type === 'transfer' ? '\u2194' : '\u2191'}</span>
@@ -26,7 +28,7 @@ export function TransactionList({ data }: { data: Transaction[] }) {
                 <p className="text-[10px] text-[var(--color-text-secondary)]">{tx.date}</p>
               </div>
               <span className={`text-xs font-bold ${isPositive ? 'text-[var(--color-accent-green)]' : 'text-[var(--color-text-primary)]'}`}>
-                {isPositive ? '+' : ''}{amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                {isPositive ? '+' : ''}{formatUsdcDisplay(amountBase)}
               </span>
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
                 tx.status === 'completed' ? 'bg-[var(--color-accent-green)]/20'

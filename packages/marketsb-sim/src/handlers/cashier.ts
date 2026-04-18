@@ -129,6 +129,22 @@ export function createCashierRouter(state: SimState): Router {
         res.status(404).json({ code: 'not_found', message: `Buyer VA ${buyerVaId} not found` });
         return;
       }
+
+      const TREASURY_VA = 'treasury-100';
+      const creditTreasury = sellerVaId || TREASURY_VA;
+
+      // Primary issuance only: asset cost must settle through treasury before assurance.
+      // Marketplace buys use intent `sell` (buyer → seller + fees). A mislabeled `buy` with a
+      // user seller would otherwise credit assurance from treasury without matching circulation.
+      if (creditTreasury !== TREASURY_VA) {
+        res.status(400).json({
+          code: 'invalid_buy_batch',
+          message:
+            'intent buy is treasury issuance only: sellerVaId must be treasury-100 (or omit). Use intent sell for secondary / P2P settlement.',
+        });
+        return;
+      }
+
       const totalDebit = assetCost + issuanceFee + liquidityFee;
       if (buyerVa.posted < totalDebit) {
         res.status(409).json({
@@ -141,7 +157,6 @@ export function createCashierRouter(state: SimState): Router {
       // Route assurance proceeds to GLOBAL assurance VA (not per-user)
       // This ensures cashierRedeem (which reads acc-sub-assurance → assurance-global) can pay
       const assuranceVaId = 'assurance-global';
-      const creditTreasury = sellerVaId || 'treasury-100';
 
       const run = (): string | null => {
         let err: string | null;
@@ -164,13 +179,13 @@ export function createCashierRouter(state: SimState): Router {
           writeOracleEntry(state, buyerVaId, 'batch_liquidity_fee', liquidityFee, bb, buyerVa.posted, tbBatchId, now);
         }
 
-        const treasury = state.virtualAccounts.get('treasury-100');
+        const treasury = state.virtualAccounts.get(TREASURY_VA);
         const assurance = state.virtualAccounts.get(assuranceVaId);
         if (treasury && assurance) {
           const tb = treasury.posted;
-          err = apply('treasury-100', assuranceVaId, assetCost);
+          err = apply(TREASURY_VA, assuranceVaId, assetCost);
           if (err) return err;
-          writeOracleEntry(state, 'treasury-100', 'batch_treasury_to_assurance', assetCost, tb, treasury.posted, tbBatchId, now);
+          writeOracleEntry(state, TREASURY_VA, 'batch_treasury_to_assurance', assetCost, tb, treasury.posted, tbBatchId, now);
           writeOracleEntry(
             state,
             assuranceVaId,
@@ -182,7 +197,7 @@ export function createCashierRouter(state: SimState): Router {
             now,
           );
         } else {
-          err = apply('treasury-100', assuranceVaId, assetCost);
+          err = apply(TREASURY_VA, assuranceVaId, assetCost);
           if (err) return err;
         }
 
@@ -193,7 +208,7 @@ export function createCashierRouter(state: SimState): Router {
         if (liquidityFee > 0n) {
           transfers.push({ type: 'liquidity_fee', debit: buyerVaId, credit: 'operating-300', amount: liquidityFee });
         }
-        transfers.push({ type: 'assurance_posting', debit: 'treasury-100', credit: assuranceVaId, amount: assetCost });
+        transfers.push({ type: 'assurance_posting', debit: TREASURY_VA, credit: assuranceVaId, amount: assetCost });
 
         const refBase = `${tbBatchId}-buy`;
         oracleRefs.push(`${refBase}-a`, `${refBase}-b`, `${refBase}-c`);

@@ -6,11 +6,18 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { getSimEnv, marketsbApiV1Base } from '@/config/sim-env';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 
-const MSB_HEALTH = 'http://127.0.0.1:3101/health';
-const SP_HEALTH = 'http://127.0.0.1:3102/health';
+function simHealthUrls(): { msb: string; sp: string } {
+  const { marketsbOrigin, speciesOrigin } = getSimEnv();
+  return {
+    msb: `${marketsbOrigin}/health`,
+    sp: `${speciesOrigin}/health`,
+  };
+}
 
 const PATH_PREFIX = `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH ?? ''}`;
 
@@ -57,11 +64,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     return async () => {};
   }
 
+  const { msb: MSB_HEALTH, sp: SP_HEALTH } = simHealthUrls();
   const msbAlready = await healthOk(MSB_HEALTH);
   const spAlready = await healthOk(SP_HEALTH);
 
   if (msbAlready && spAlready) {
-    console.log('[vitest global-setup] Sims already healthy on :3101 / :3102 (reusing)');
+    console.log(`[vitest global-setup] Sims already healthy (${MSB_HEALTH}) (reusing)`);
     return async () => {};
   }
 
@@ -85,7 +93,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       env: {
         ...withSimPath(),
         PORT: '3102',
-        MARKETSB_URL: 'http://127.0.0.1:3101/api/v1',
+        MARKETSB_URL: marketsbApiV1Base(),
       },
       stdio: 'pipe',
     });

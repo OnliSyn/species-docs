@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
+import { formatUsdcDisplay } from '@/lib/amount';
 
 type DepositData = {
   depositId: string;
@@ -14,7 +15,7 @@ type DepositData = {
 };
 
 function DepositCardUI({ data }: GenUIProps<DepositData>) {
-  const amt = (data.amount / 1_000_000).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  const amt = formatUsdcDisplay(BigInt(Math.trunc(data.amount)));
   const steps = ['detected', 'compliance_pending', 'compliance_passed', 'credited', 'registered'];
   const currentIdx = steps.indexOf(data.status);
   const containerRef = useRef<HTMLDivElement>(null);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTabStore } from '@/stores/tab-store';
 import { ProcessTraceCanvas } from './ProcessTraceCanvas';
+import { formatUsdcDisplay, USDC_SCALE } from '@/lib/amount';
 
 // =============================================================================
 // ASK MODE — Guided walkthrough that sends questions to chat
@@ -320,8 +321,8 @@ function TradeCanvas() {
                   {entry.amount !== undefined && (
                     <span className="text-[11px] font-mono text-[var(--color-text-primary)]">
                       {typeof entry.amount === 'number'
-                        ? (entry.amount >= 1_000_000
-                          ? `$${(entry.amount / 1_000_000).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                        ? (BigInt(Math.trunc(entry.amount)) >= USDC_SCALE
+                          ? formatUsdcDisplay(BigInt(Math.trunc(entry.amount)))
                           : entry.amount.toLocaleString())
                         : String(entry.amount)
                       }

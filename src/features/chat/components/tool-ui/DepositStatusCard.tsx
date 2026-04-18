@@ -1,5 +1,7 @@
 'use client';
 
+import { formatUsdcDisplay } from '@/lib/amount';
+
 interface DepositData {
   depositId: string;
   amount: number;
@@ -9,7 +11,7 @@ interface DepositData {
 }
 
 export function DepositStatusCard({ data }: { data: DepositData }) {
-  const amount = (data.amount / 1_000_000).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  const amount = formatUsdcDisplay(BigInt(Math.trunc(data.amount)));
   const steps = ['detected', 'compliance_pending', 'compliance_passed', 'credited', 'registered'];
   const currentIdx = steps.indexOf(data.status);
 

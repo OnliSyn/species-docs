@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
+import { postedBaseUnitsToUsdNumber } from '@/lib/amount';
 
 // Funding oracle entry shape (from MarketSB)
 type FundingEntry = {
@@ -113,7 +114,7 @@ function TransactionListUI({ data }: GenUIProps<TxListData>) {
             <p className="px-4 py-4 text-[10px] text-[var(--color-text-secondary)] text-center">No funding transactions</p>
           ) : (
             fundingItems.map((tx: FundingEntry, i: number) => {
-              const amt = (tx.amount ?? 0) / 1_000_000;
+              const amt = postedBaseUnitsToUsdNumber(tx.amount ?? 0);
               const label = FUNDING_LABELS[tx.type] ?? tx.type;
               const isCredit = tx.type.includes('credit') || tx.type.includes('deposit');
               return (

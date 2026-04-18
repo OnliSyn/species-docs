@@ -3,6 +3,7 @@
 import { useRef, useEffect } from 'react';
 import { gsap, useGSAP } from '@/lib/gsap-config';
 import { registerUIComponent, type GenUIProps } from '@/lib/ai/ui-registry';
+import { postedBaseUnitsToUsdNumber } from '@/lib/amount';
 
 type BalanceData = {
   label: string;
@@ -23,7 +24,7 @@ function BalanceCardUI({ data }: GenUIProps<BalanceData>) {
   // Trading account: show species count as hero number
   // Funding account: show USDC dollar amount
   const rawAmount = data.amount ?? data.balance?.posted ?? 0;
-  const dollars = rawAmount / 1_000_000;
+  const dollars = postedBaseUnitsToUsdNumber(rawAmount);
   const specieCount = data.specieCount ?? 0;
   const heroValue = isTrading ? specieCount : dollars;
   const prefix = isTrading ? 'ø' : '$';

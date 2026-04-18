@@ -2,10 +2,11 @@
  * Sim control helpers for integration tests.
  * Manages sim lifecycle, state reset, and balance snapshots.
  */
+import { getSimEnv, marketsbApiV1Base, speciesMarketplaceV1Base } from '@/config/sim-env';
+import { parseUsdcInput } from '@/lib/amount';
 
-/** Use loopback IP so Node fetch and curl agree (avoids occasional ::1 vs 127.0.0.1 mismatches). */
-const MARKETSB = 'http://127.0.0.1:3101';
-const SPECIES = 'http://127.0.0.1:3102';
+const msbOrigin = () => getSimEnv().marketsbOrigin;
+const speciesOrigin = () => getSimEnv().speciesOrigin;
 
 export interface BalanceSnapshot {
   /** USDC funding balance in base units (1 USDC = 1,000,000) */
@@ -28,8 +29,8 @@ export interface BalanceDelta {
 /** Check if both sims are healthy */
 export async function checkHealth(): Promise<{ marketsb: boolean; species: boolean }> {
   const [msb, sp] = await Promise.all([
-    fetch(`${MARKETSB}/health`).then(r => r.ok).catch(() => false),
-    fetch(`${SPECIES}/health`).then(r => r.ok).catch(() => false),
+    fetch(`${msbOrigin()}/health`).then(r => r.ok).catch(() => false),
+    fetch(`${speciesOrigin()}/health`).then(r => r.ok).catch(() => false),
   ]);
   return { marketsb: msb, species: sp };
 }
@@ -48,8 +49,8 @@ export async function waitForHealth(timeoutMs = 15_000): Promise<void> {
 /** Reset both sims to seed state */
 export async function resetSims(): Promise<void> {
   const [msb, sp] = await Promise.all([
-    fetch(`${MARKETSB}/sim/reset`, { method: 'POST' }),
-    fetch(`${SPECIES}/sim/reset`, { method: 'POST' }),
+    fetch(`${msbOrigin()}/sim/reset`, { method: 'POST' }),
+    fetch(`${speciesOrigin()}/sim/reset`, { method: 'POST' }),
   ]);
   if (!msb.ok) throw new Error(`MarketSB reset failed: ${msb.status}`);
   if (!sp.ok) throw new Error(`Species reset failed: ${sp.status}`);
@@ -58,8 +59,8 @@ export async function resetSims(): Promise<void> {
 /** Get full sim state dump from both sims */
 export async function getSimState(): Promise<{ marketsb: unknown; species: unknown }> {
   const [msb, sp] = await Promise.all([
-    fetch(`${MARKETSB}/sim/state`).then(r => r.json()),
-    fetch(`${SPECIES}/sim/state`).then(r => r.json()),
+    fetch(`${msbOrigin()}/sim/state`).then(r => r.json()),
+    fetch(`${speciesOrigin()}/sim/state`).then(r => r.json()),
   ]);
   return { marketsb: msb, species: sp };
 }
@@ -69,29 +70,28 @@ export async function getBalanceSnapshot(
   userRef = 'user-001',
   onliId = 'onli-user-001',
 ): Promise<BalanceSnapshot> {
-  // Fetch funding VA
+  const api = marketsbApiV1Base();
+  const mkt = speciesMarketplaceV1Base();
+
   const fundingVaId = `va-funding-${userRef}`;
-  const vaRes = await fetch(`${MARKETSB}/api/v1/virtual-accounts/${fundingVaId}`).catch(() => null);
+  const vaRes = await fetch(`${api}/virtual-accounts/${fundingVaId}`).catch(() => null);
   let usdcPosted = 0;
   let usdcPending = 0;
   if (vaRes?.ok) {
     const va = await vaRes.json();
-    // Balance is nested: va.balance.posted (in display USDC units, not base units)
     const bal = va.balance ?? va;
     usdcPosted = bal.posted ?? bal.posted_balance ?? 0;
     usdcPending = bal.pending ?? bal.pending_balance ?? 0;
   }
 
-  // Fetch vault balance
-  const vaultRes = await fetch(`${SPECIES}/marketplace/v1/vault/${onliId}`).catch(() => null);
+  const vaultRes = await fetch(`${mkt}/vault/${onliId}`).catch(() => null);
   let specieCount = 0;
   if (vaultRes?.ok) {
     const vault = await vaultRes.json();
     specieCount = vault.count ?? 0;
   }
 
-  // Fetch assurance from the global assurance VA (not cashier-spec sub-account)
-  const assRes = await fetch(`${MARKETSB}/api/v1/virtual-accounts/assurance-global`).catch(() => null);
+  const assRes = await fetch(`${api}/virtual-accounts/assurance-global`).catch(() => null);
   let assuranceBalance = 0;
   let assuranceOutstanding = 0;
   if (assRes?.ok) {
@@ -147,21 +147,17 @@ export function expectNoMutation(before: BalanceSnapshot, after: BalanceSnapshot
   });
 }
 
-/** Simulate a USDC deposit via MarketSB.
- *  Amount is in DISPLAY units ($1 = 1). Internally converted to base units.
- *  The sim stores balances in base units (1 USDC = 1,000,000).
- */
+/** Simulate a USDC deposit via MarketSB. Amount is display USDC ($1 = 1). */
 export async function simulateDeposit(
   userRef = 'user-001',
   amountUSDC: number,
 ): Promise<{ ok: boolean }> {
   const vaId = `va-funding-${userRef}`;
-  // Convert display USDC to base units for the sim
-  const baseUnits = amountUSDC * 1_000_000;
-  const res = await fetch(`${MARKETSB}/sim/simulate-deposit`, {
+  const baseUnits = parseUsdcInput(amountUSDC.toFixed(6));
+  const res = await fetch(`${msbOrigin()}/sim/simulate-deposit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vaId, amount: baseUnits }),
+    body: JSON.stringify({ vaId, amount: Number(baseUnits) }),
   });
   return { ok: res.ok };
 }
@@ -172,7 +168,7 @@ export async function adjustVault(
   delta: number,
   reason = 'test-setup',
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(`${SPECIES}/sim/vault-adjust`, {
+  const res = await fetch(`${speciesOrigin()}/sim/vault-adjust`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ vaultId: onliId, delta, reason }),

@@ -20,10 +20,13 @@ export const USDC_PER_SPECIE = 1_000_000; // 1 USDC in base units (6 decimals)
 // ---------------------------------------------------------------------------
 
 export interface SpeciesSimState {
+  /** When present (species-sim GET /sim/state), authoritative canon circulation aggregate. */
+  circulation?: number;
   vaults: {
     treasury: { count: number };
-    settlement: { count: number };
-    users: Record<string, { count: number }>;
+    settlement?: { count: number };
+    sellerLocker?: { count: number };
+    users: Record<string, { count: number; lockerCount?: number }>;
   };
   listings?: Record<string, {
     status: string;
@@ -85,13 +88,25 @@ export function runAudit(
 
   const userVaults: Record<string, number> = {};
   let circulationCount = 0;
-  const users = specState.vaults?.users;
-  if (users) {
-    for (const [onliId, vault] of Object.entries(users)) {
-      const count = vault?.count ?? 0;
-      userVaults[onliId] = count;
-      circulationCount += count;
+  if (typeof specState.circulation === 'number') {
+    circulationCount = specState.circulation;
+    const users = specState.vaults?.users;
+    if (users) {
+      for (const [onliId, vault] of Object.entries(users)) {
+        userVaults[onliId] = vault?.count ?? 0;
+      }
     }
+  } else {
+    const users = specState.vaults?.users;
+    if (users) {
+      for (const [onliId, vault] of Object.entries(users)) {
+        const count = vault?.count ?? 0;
+        const locker = vault?.lockerCount ?? 0;
+        userVaults[onliId] = count;
+        circulationCount += count + locker;
+      }
+    }
+    circulationCount += specState.vaults?.sellerLocker?.count ?? 0;
   }
 
   // Sum remaining quantity across all active listings, split by seller type

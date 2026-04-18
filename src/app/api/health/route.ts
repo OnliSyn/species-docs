@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
-
-const MARKETSB_URL = process.env.MARKETSB_URL || 'http://localhost:3101';
-const SPECIES_URL = process.env.SPECIES_URL || 'http://localhost:3102';
+import { fetchMarketSb, fetchSpecies } from '@/lib/sim-gateway';
 
 export async function GET() {
   const checks: Record<string, unknown> = {};
 
   try {
     const [msb, spec] = await Promise.allSettled([
-      fetch(`${MARKETSB_URL}/health`, { signal: AbortSignal.timeout(3000) }),
-      fetch(`${SPECIES_URL}/health`, { signal: AbortSignal.timeout(3000) }),
+      fetchMarketSb('/health', { signal: AbortSignal.timeout(3000) }),
+      fetchSpecies('/health', { signal: AbortSignal.timeout(3000) }),
     ]);
 
     checks.marketsb = msb.status === 'fulfilled' && msb.value.ok ? 'ok' : 'down';
