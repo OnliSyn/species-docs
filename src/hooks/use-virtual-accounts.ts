@@ -32,6 +32,8 @@ export function useTradePanelTruth(userRef: string | null) {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['trade-panel', userRef],
+    // Funding/asset numbers must not sit behind the global 30s stale window after a buy/settlement.
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch(`/api/trade-panel?userRef=${encodeURIComponent(userRef!)}`);
       const body: unknown = await res.json();

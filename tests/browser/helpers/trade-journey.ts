@@ -72,12 +72,14 @@ export async function expectTradePanelStripMatchesApi(page: Page): Promise<void>
     const sp = await strip.getAttribute('data-species-va-posted');
     const ap = await strip.getAttribute('data-assurance-posted');
     const cv = await strip.getAttribute('data-circulation-value-posted');
+    const cc = await strip.getAttribute('data-circulation-specie-count');
     const cov = await strip.getAttribute('data-coverage-percent');
     return (
       fp === api.fundingPosted &&
       sp === api.speciesVaPosted &&
       ap === api.assuranceGlobalPosted &&
       cv === api.circulationValuePosted &&
+      cc === String(api.circulationSpecieCount) &&
       cov === String(api.coveragePercent)
     );
   }, { timeout: 45_000 }).toBe(true);

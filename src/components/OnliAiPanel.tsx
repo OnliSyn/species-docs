@@ -101,6 +101,7 @@ export function OnliAiPanel() {
               data-species-va-posted={tradeTruth.speciesVaPosted}
               data-assurance-posted={tradeTruth.assuranceGlobalPosted}
               data-circulation-value-posted={tradeTruth.circulationValuePosted}
+              data-circulation-specie-count={String(tradeTruth.circulationSpecieCount)}
               data-coverage-percent={String(tradeTruth.coveragePercent)}
             />
             <span data-testid="assurance-balance-display">

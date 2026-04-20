@@ -41,6 +41,7 @@ export function AccountPanel() {
             data-species-va-posted={truth.speciesVaPosted}
             data-assurance-posted={truth.assuranceGlobalPosted}
             data-circulation-value-posted={truth.circulationValuePosted}
+            data-circulation-specie-count={String(truth.circulationSpecieCount)}
             data-coverage-percent={String(truth.coveragePercent)}
           />
           <BalanceView
@@ -54,7 +55,6 @@ export function AccountPanel() {
           />
           <AssuranceCard
             assurancePostedDisplay={truth.assuranceGlobalPostedDisplay}
-            circulationValuePostedDisplay={truth.circulationValuePostedDisplay}
             circulationSpecieCount={truth.circulationSpecieCount}
             buyBackGuaranteeDollars={truth.buyBackGuaranteeDollars}
             buyBackGuaranteeCents={truth.buyBackGuaranteeCents}

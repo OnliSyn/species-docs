@@ -3,7 +3,6 @@
 interface AssuranceCardProps {
   /** From GET /api/trade-panel — server-formatted, do not format client-side. */
   assurancePostedDisplay: string;
-  circulationValuePostedDisplay: string;
   /** Circulation count (Species sim). */
   circulationSpecieCount: number;
   buyBackGuaranteeDollars: string;
@@ -14,7 +13,6 @@ interface AssuranceCardProps {
 
 export function AssuranceCard({
   assurancePostedDisplay,
-  circulationValuePostedDisplay,
   circulationSpecieCount,
   buyBackGuaranteeDollars,
   buyBackGuaranteeCents,
@@ -84,13 +82,6 @@ export function AssuranceCard({
           <span className="text-xs text-[#737373]">Assurance Account</span>
           <span className="text-xs font-medium text-[#171717]" data-testid="assurance-balance-display">
             {assurancePostedDisplay}
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-[#737373]">Liability at peg</span>
-          <span className="text-xs font-medium text-[#171717]" data-testid="assurance-outstanding-display">
-            {circulationValuePostedDisplay}
           </span>
         </div>
 

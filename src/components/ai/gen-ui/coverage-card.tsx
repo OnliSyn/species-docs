@@ -29,7 +29,6 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
     buyBackGuaranteeDollars,
     buyBackGuaranteeCents,
     assurancePostedDisplay,
-    circulationValuePostedDisplay,
   } = snap;
 
   const circulationIdle = circulationSpecieCount <= 0;
@@ -108,11 +107,6 @@ function CoverageCardUI({ data }: GenUIProps<CoverageCardData>) {
         <div className="flex justify-between items-center">
           <span className="text-[14px] text-[#737373]">Assurance Account</span>
           <span className="text-[14px] font-medium text-[#171717]">{assurancePostedDisplay}</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-[14px] text-[#737373]">Liability at peg</span>
-          <span className="text-[14px] font-medium text-[#171717]">{circulationValuePostedDisplay}</span>
         </div>
 
         <div className="flex justify-between items-center">

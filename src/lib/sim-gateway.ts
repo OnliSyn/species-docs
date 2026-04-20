@@ -21,6 +21,8 @@ export async function fetchMarketSb(path: string, init?: RequestInit): Promise<R
   const { marketsbOrigin } = getSimEnv();
   return fetch(joinOrigin(marketsbOrigin, path), {
     ...init,
+    // Server route handlers must never serve stale sim snapshots (balances change async).
+    cache: init?.cache ?? 'no-store',
     signal: withTimeout(init?.signal, DEFAULT_MS),
   });
 }
@@ -29,6 +31,7 @@ export async function fetchSpecies(path: string, init?: RequestInit): Promise<Re
   const { speciesOrigin } = getSimEnv();
   return fetch(joinOrigin(speciesOrigin, path), {
     ...init,
+    cache: init?.cache ?? 'no-store',
     signal: withTimeout(init?.signal, DEFAULT_MS),
   });
 }
