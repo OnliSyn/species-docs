@@ -4,7 +4,7 @@ echo "Running checks before push..."
 
 # Build check
 echo "Build check..."
-npm run build > /dev/null 2>&1
+node node_modules/next/dist/bin/next build > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   echo "BUILD FAILED — push blocked"
   exit 1
@@ -13,7 +13,7 @@ echo "Build passed"
 
 # Unit tests
 echo "Running unit tests..."
-npx vitest run 2>&1
+node node_modules/vitest/vitest.mjs run 2>&1
 if [ $? -ne 0 ]; then
   echo "TESTS FAILED — push blocked"
   exit 1

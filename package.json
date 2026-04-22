@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "test": "vitest run",
+    "dev": "node node_modules/next/dist/bin/next dev --turbopack",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
+    "test": "node node_modules/vitest/vitest.mjs run",
     "test:e2e": "playwright test"
   },
   "dependencies": {
