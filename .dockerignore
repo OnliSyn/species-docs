@@ -1,9 +1,0 @@
-node_modules
-packages/*/node_modules
-.next
-.git
-.claude
-.cursor
-*.log
-.env*
-fly.toml

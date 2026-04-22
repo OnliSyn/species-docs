@@ -1,4 +1,5 @@
 #!/bin/bash
+# Node v25: direct node invocation required — npm shims broken with new shebang parser
 export PATH="/opt/homebrew/opt/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo "Running checks before push..."
 
