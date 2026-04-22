@@ -1,18 +1,15 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Onli Synth',
-  description: 'Unified financial and asset operations dashboard',
+  title: 'Species MCP Explorer',
+  description: 'Interactive explorer for Species MCP services',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-dvh font-sans antialiased">
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

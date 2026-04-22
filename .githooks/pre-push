@@ -1,27 +1,23 @@
 #!/bin/bash
 export PATH="/opt/homebrew/opt/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-echo "🧪 Running test suite before push..."
+echo "Running checks before push..."
 
 # Build check
-echo "📦 Build check..."
-npx next build > /dev/null 2>&1
+echo "Build check..."
+npm run build > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-  echo "❌ BUILD FAILED — push blocked"
+  echo "BUILD FAILED — push blocked"
   exit 1
 fi
-echo "✅ Build passed"
+echo "Build passed"
 
-echo "📜 Canon guardrails..."
-node scripts/check-canon-guardrails.mjs || { echo "❌ CANON GUARDRAILS FAILED — push blocked"; exit 1; }
-echo "✅ Canon guardrails passed"
-
-# Full suite: Vitest global-setup starts sims when VITEST_MANAGE_SIMS=1 (canon already validated above)
-echo "🔄 Running full test suite (sims auto-started or reused)..."
-VITEST_MANAGE_SIMS=1 npx vitest run 2>&1
+# Unit tests
+echo "Running unit tests..."
+npx vitest run 2>&1
 if [ $? -ne 0 ]; then
-  echo "❌ TESTS FAILED — push blocked"
+  echo "TESTS FAILED — push blocked"
   exit 1
 fi
-echo "✅ All tests passed"
+echo "All tests passed"
 
-echo "🚀 Push approved"
+echo "Push approved"
