@@ -1,3 +1,5 @@
+import { ExplorerPage } from '@/features/explorer/ExplorerPage';
+
 export default function Home() {
-  return <main style={{ padding: 24 }}>Explorer coming soon</main>;
+  return <ExplorerPage />;
 }
